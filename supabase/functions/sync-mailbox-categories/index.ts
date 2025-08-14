@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Refresh the token
+      // Refresh the token with proper scopes
       const refreshResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
         method: 'POST',
         headers: {
@@ -140,6 +140,7 @@ Deno.serve(async (req) => {
           client_secret: oauthConfig.value.client_secret,
           refresh_token: parsedToken.refresh_token,
           grant_type: 'refresh_token',
+          scope: 'https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/User.Read openid profile email offline_access',
         }).toString(),
       });
 
