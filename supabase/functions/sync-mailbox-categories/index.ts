@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       .from('profiles')
       .select('tenant_id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
       console.error('Profile error:', profileError);
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       .select('microsoft_graph_token, email_address')
       .eq('id', mailboxId)
       .eq('tenant_id', profile.tenant_id)
-      .single();
+      .maybeSingle();
 
     if (mailboxError || !mailbox) {
       console.error('Mailbox error:', mailboxError);

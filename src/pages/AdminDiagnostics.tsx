@@ -213,9 +213,18 @@ export default function AdminDiagnostics() {
       });
       
       if (response.error) {
-        const errorDetails = response.data?.details || response.error.message;
-        updateTest("Category Sync", "error", "Category sync failed", 
-          `Error: ${response.error.message}${errorDetails ? ` | Details: ${JSON.stringify(errorDetails)}` : ''}`);
+        // For Supabase functions, error details are often in the response data
+        let errorMessage = "Category sync failed";
+        let errorDetails = "";
+        
+        if (response.data && typeof response.data === 'object') {
+          errorMessage = response.data.error || errorMessage;
+          errorDetails = response.data.details || JSON.stringify(response.data);
+        } else if (response.error.message) {
+          errorDetails = response.error.message;
+        }
+        
+        updateTest("Category Sync", "error", errorMessage, errorDetails);
         return false;
       }
       
