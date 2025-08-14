@@ -52,6 +52,21 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				brand: {
+					primary: 'hsl(var(--brand-primary))',
+					secondary: 'hsl(var(--brand-secondary))',
+					accent: 'hsl(var(--brand-accent))'
+				},
+				status: {
+					success: 'hsl(var(--success))',
+					warning: 'hsl(var(--warning))',
+					info: 'hsl(var(--info))'
+				},
+				surface: {
+					DEFAULT: 'hsl(var(--surface))',
+					secondary: 'hsl(var(--surface-secondary))',
+					elevated: 'hsl(var(--surface-elevated))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
@@ -67,6 +82,20 @@ export default {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
+			},
+			boxShadow: {
+				'brand-sm': 'var(--shadow-sm)',
+				'brand-md': 'var(--shadow-md)',
+				'brand-lg': 'var(--shadow-lg)',
+				'brand-xl': 'var(--shadow-xl)'
+			},
+			transitionDuration: {
+				'fast': 'var(--transition-fast)',
+				'normal': 'var(--transition-normal)',
+				'slow': 'var(--transition-slow)'
+			},
+			backgroundImage: {
+				'brand-gradient': 'var(--brand-gradient)'
 			},
 			keyframes: {
 				'accordion-down': {
