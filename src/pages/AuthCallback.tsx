@@ -69,11 +69,11 @@ export default function AuthCallback() {
         console.log("Valid session found, proceeding with token exchange");
         setMessage("Exchanging authorization code for tokens...");
 
-        // TEMPORARY FIX: Hardcode the correct URL to ensure consistency
-        const CORRECT_ORIGIN = 'https://74583761-ea55-4459-9556-1f0b360c2bab.lovableproject.com';
-        const redirectUri = `${CORRECT_ORIGIN}/auth/callback`;
+        // Use the current window origin to ensure consistency with where the user is accessing from
+        const currentOrigin = window.location.origin;
+        const redirectUri = `${currentOrigin}/auth/callback`;
         
-        console.log('AuthCallback: Using hardcoded redirect URI:', redirectUri);
+        console.log('AuthCallback: Using dynamic redirect URI:', redirectUri);
 
         // Call edge function to exchange code for tokens
         const { data, error: exchangeError } = await supabase.functions.invoke('mailbox-oauth-callback', {
