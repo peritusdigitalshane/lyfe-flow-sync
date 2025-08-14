@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Brain, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 interface ClassificationResult {
@@ -16,8 +17,20 @@ interface ClassificationResult {
   reasoning: string;
 }
 
+interface EmailCategory {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string;
+  priority: number;
+  is_active: boolean;
+}
+
 export default function AIClassification() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [userCategories, setUserCategories] = useState<EmailCategory[]>([]);
   const [emailData, setEmailData] = useState({
     subject: '',
     body: '',
@@ -26,16 +39,52 @@ export default function AIClassification() {
   });
   const [result, setResult] = useState<ClassificationResult | null>(null);
 
+  useEffect(() => {
+    if (user) {
+      loadUserCategories();
+    }
+  }, [user]);
+
+  const loadUserCategories = async () => {
+    try {
+      setCategoriesLoading(true);
+      const { data, error } = await supabase
+        .from('email_categories')
+        .select('*')
+        .eq('user_id', user!.id)
+        .eq('is_active', true)
+        .order('priority', { ascending: false });
+
+      if (error) throw error;
+      setUserCategories(data || []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      toast.error('Failed to load your categories');
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
   const handleClassify = async () => {
     if (!emailData.subject || !emailData.body || !emailData.sender_email) {
       toast.error('Please fill in all required fields');
       return;
     }
 
+    if (!user) {
+      toast.error('User not authenticated');
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('ai-email-classifier', {
-        body: { emailData }
+        body: { 
+          emailData: {
+            ...emailData,
+            user_id: user.id
+          }
+        }
       });
 
       if (error) {
@@ -204,29 +253,41 @@ export default function AIClassification() {
         {/* Available Categories */}
         <Card>
           <CardHeader>
-            <CardTitle>Available Categories</CardTitle>
+            <CardTitle>Your Categories</CardTitle>
             <CardDescription>
-              Categories used by the AI classification system
+              Categories configured for your account that the AI will use for classification
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 md:grid-cols-2">
-              {[
-                { name: "Personal", description: "Emails from friends or family members" },
-                { name: "Junk&Spam", description: "Unsolicited email or spam" },
-                { name: "Promotional", description: "Cold call emails trying to sell something" },
-                { name: "Social", description: "Emails from social media sites" },
-                { name: "Misc", description: "Anything not assigned to other categories" },
-                { name: "Alerts", description: "Emails alerting to items that need action" },
-                { name: "Invoices and quotes", description: "All invoices and quotes" },
-                { name: "BCC/Bidabah", description: "Emails from specific organizations" }
-              ].map((category) => (
-                <div key={category.name} className="border rounded-md p-3">
-                  <div className="font-medium">{category.name}</div>
-                  <div className="text-sm text-muted-foreground">{category.description}</div>
-                </div>
-              ))}
-            </div>
+            {categoriesLoading ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : userCategories.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No categories configured yet.</p>
+                <Link to="/email-categories">
+                  <Button className="mt-2">Configure Categories</Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {userCategories.map((category) => (
+                  <div key={category.id} className="border rounded-md p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <div className="font-medium">{category.name}</div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {category.description || 'No description provided'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

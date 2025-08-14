@@ -104,7 +104,9 @@ serve(async (req) => {
             subject: email.subject,
             body: email.body_content || '',
             sender_email: email.sender_email,
-            sender_name: email.sender_name
+            sender_name: email.sender_name,
+            user_id: email.user_id || null,
+            mailbox_id: email.mailbox_id
           }
         }
       });

@@ -12,6 +12,8 @@ interface EmailData {
   body: string;
   sender_email: string;
   sender_name?: string;
+  user_id: string;
+  mailbox_id?: string;
 }
 
 interface ClassificationResult {
@@ -20,41 +22,14 @@ interface ClassificationResult {
   reasoning: string;
 }
 
-// Categories matching the n8n workflow
-const EMAIL_CATEGORIES = [
-  {
-    name: "Personal",
-    description: "any personal email from friend or family member"
-  },
-  {
-    name: "Junk&Spam", 
-    description: "Unsolicited email or spam emails"
-  },
-  {
-    name: "Promotional",
-    description: "This is any cold call email looking to sell me something"
-  },
-  {
-    name: "Social",
-    description: "Any email from a social media site like, youtube, facebook, instagram"
-  },
-  {
-    name: "Misc",
-    description: "Anything that does not get assigned to other categories"
-  },
-  {
-    name: "Alerts",
-    description: "Emails that are alerting to items i need to action that i manage"
-  },
-  {
-    name: "Invoices and quotes",
-    description: "All invoices and Quotes sent to me"
-  },
-  {
-    name: "BCC/Bidabah",
-    description: "if an email is from Biddahbah or BCC or Belmont christian"
-  }
-];
+interface EmailCategory {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string;
+  priority: number;
+  is_active: boolean;
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -88,26 +63,75 @@ serve(async (req) => {
       );
     }
 
-    const openaiApiKey = settingsData.value;
     const { emailData }: { emailData: EmailData } = await req.json();
+
+    if (!emailData.user_id) {
+      console.error('User ID is required for classification');
+      return new Response(
+        JSON.stringify({ error: 'User ID is required' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
 
     console.log('Classifying email:', { 
       subject: emailData.subject, 
-      sender: emailData.sender_email 
+      sender: emailData.sender_email,
+      user_id: emailData.user_id,
+      mailbox_id: emailData.mailbox_id
     });
 
-    // Prepare the input text for classification
-    const inputText = `Subject: ${emailData.subject}\nSender: ${emailData.sender_email}\nEmail Body: ${emailData.body}`;
+    // Fetch user's email categories
+    let categoriesQuery = supabase
+      .from('email_categories')
+      .select('id, name, description, color, priority, is_active')
+      .eq('user_id', emailData.user_id)
+      .eq('is_active', true)
+      .order('priority', { ascending: false });
 
-    // Create the classification prompt
-    const categoryDescriptions = EMAIL_CATEGORIES.map(cat => 
-      `- ${cat.name}: ${cat.description}`
+    const { data: categories, error: categoriesError } = await categoriesQuery;
+
+    if (categoriesError) {
+      console.error('Error fetching categories:', categoriesError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch user categories' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (!categories || categories.length === 0) {
+      console.log('No categories found for user, creating default "Misc" classification');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          classification: {
+            category: "Misc",
+            confidence: 0.5,
+            reasoning: "No categories configured for this user"
+          },
+          categories: []
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    console.log('Found categories for user:', categories.length);
+
+    // Create the classification prompt using user's categories
+    const categoryDescriptions = categories.map(cat => 
+      `- ${cat.name}: ${cat.description || 'No description provided'}`
     ).join('\n');
 
-    const systemPrompt = `You are an email classifier. Analyze the email content and classify it into one of these categories:
+    const systemPrompt = `You are an email classifier. Analyze the email content and classify it into one of these categories defined by the user:
 
 ${categoryDescriptions}
-
 Respond with a JSON object containing:
 - category: the exact category name from the list above
 - confidence: a number between 0 and 1 indicating how confident you are
@@ -115,6 +139,8 @@ Respond with a JSON object containing:
 
 Be precise and only use the exact category names provided.`;
 
+    // Prepare the input text for classification
+    const inputText = `Subject: ${emailData.subject}\nSender: ${emailData.sender_email}\nEmail Body: ${emailData.body}`;
     const userPrompt = `Classify this email:\n\n${inputText}`;
 
     // Call OpenAI API
@@ -161,12 +187,15 @@ Be precise and only use the exact category names provided.`;
       };
     }
 
-    // Validate that the category exists
-    const validCategory = EMAIL_CATEGORIES.find(cat => cat.name === classificationResult.category);
+    // Validate that the category exists in user's categories
+    const validCategory = categories.find(cat => cat.name === classificationResult.category);
     if (!validCategory) {
       console.warn('Invalid category returned:', classificationResult.category);
-      classificationResult.category = "Misc";
+      // Use the first available category as fallback
+      const fallbackCategory = categories[0];
+      classificationResult.category = fallbackCategory.name;
       classificationResult.confidence = Math.max(0.3, classificationResult.confidence - 0.2);
+      classificationResult.reasoning += ` (Adjusted to available category: ${fallbackCategory.name})`;
     }
 
     console.log('Final classification:', classificationResult);
@@ -175,7 +204,7 @@ Be precise and only use the exact category names provided.`;
       JSON.stringify({
         success: true,
         classification: classificationResult,
-        categories: EMAIL_CATEGORIES
+        categories: categories
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -189,7 +218,7 @@ Be precise and only use the exact category names provided.`;
         error: 'Classification failed', 
         details: error.message,
         classification: {
-          category: "Misc",
+          category: categories && categories.length > 0 ? categories[0].name : "Misc",
           confidence: 0.1,
           reasoning: "Error occurred during classification"
         }
