@@ -213,7 +213,9 @@ export default function AdminDiagnostics() {
       });
       
       if (response.error) {
-        updateTest("Category Sync", "error", "Category sync failed", response.error.message);
+        const errorDetails = response.data?.details || response.error.message;
+        updateTest("Category Sync", "error", "Category sync failed", 
+          `Error: ${response.error.message}${errorDetails ? ` | Details: ${JSON.stringify(errorDetails)}` : ''}`);
         return false;
       }
       

@@ -74,7 +74,11 @@ Deno.serve(async (req) => {
     if (profileError || !profile) {
       console.error('Profile error:', profileError);
       return new Response(
-        JSON.stringify({ error: 'User profile not found' }),
+        JSON.stringify({ 
+          error: 'User profile not found', 
+          details: profileError?.message || 'Profile is null',
+          user_id: user.id 
+        }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -92,7 +96,12 @@ Deno.serve(async (req) => {
     if (mailboxError || !mailbox) {
       console.error('Mailbox error:', mailboxError);
       return new Response(
-        JSON.stringify({ error: 'Mailbox not found' }),
+        JSON.stringify({ 
+          error: 'Mailbox not found', 
+          details: mailboxError?.message || 'Mailbox is null',
+          mailbox_id: mailboxId,
+          tenant_id: profile.tenant_id 
+        }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
