@@ -449,7 +449,8 @@ serve(async (req) => {
             `client_id=${encodeURIComponent(config.client_id)}&` +
             `response_type=code&` +
             `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-            `scope=openid%20profile%20email%20Mail.ReadWrite%20offline_access&` +
+            `scope=https://graph.microsoft.com/User.Read%20https://graph.microsoft.com/Mail.ReadWrite%20offline_access&` +
+            `prompt=consent&` +
             `state=${Date.now()}`;
           
           console.log('Generated OAuth URL:', authUrl);
