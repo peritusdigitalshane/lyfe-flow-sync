@@ -6,6 +6,8 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
+  console.log('Sync Categories Function: Request received', req.method);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -16,10 +18,13 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    console.log('Supabase client initialized');
 
     // Get user from Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('No authorization header');
       return new Response(
         JSON.stringify({ error: 'Authorization header required' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -30,13 +35,17 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
+      console.error('Auth error:', authError);
       return new Response(
         JSON.stringify({ error: 'Invalid token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('User authenticated:', user.id);
+
     const { mailboxId } = await req.json();
+    console.log('Mailbox ID:', mailboxId);
 
     if (!mailboxId) {
       return new Response(
@@ -53,11 +62,14 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileError || !profile) {
+      console.error('Profile error:', profileError);
       return new Response(
         JSON.stringify({ error: 'User profile not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('Profile found, tenant_id:', profile.tenant_id);
 
     // Get mailbox details
     const { data: mailbox, error: mailboxError } = await supabase
@@ -67,23 +79,49 @@ Deno.serve(async (req) => {
       .eq('tenant_id', profile.tenant_id)
       .single();
 
-    if (mailboxError || !mailbox || !mailbox.microsoft_graph_token) {
+    if (mailboxError || !mailbox) {
+      console.error('Mailbox error:', mailboxError);
       return new Response(
-        JSON.stringify({ error: 'Mailbox not found or not connected' }),
+        JSON.stringify({ error: 'Mailbox not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    if (!mailbox.microsoft_graph_token) {
+      console.error('No Microsoft Graph token found');
+      return new Response(
+        JSON.stringify({ error: 'Mailbox not connected to Microsoft Graph' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Mailbox found:', mailbox.email_address);
+
+    // Parse the token (it's stored as JSON string)
+    let parsedToken;
+    try {
+      parsedToken = JSON.parse(mailbox.microsoft_graph_token);
+    } catch (error) {
+      console.error('Failed to parse Microsoft Graph token:', error);
+      return new Response(
+        JSON.stringify({ error: 'Invalid Microsoft Graph token format' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Fetching categories from Microsoft Graph API...');
+
     // Fetch categories from Microsoft Graph API
     const graphResponse = await fetch('https://graph.microsoft.com/v1.0/me/outlook/masterCategories', {
       headers: {
-        'Authorization': `Bearer ${mailbox.microsoft_graph_token}`,
+        'Authorization': `Bearer ${parsedToken.access_token}`,
         'Content-Type': 'application/json'
       }
     });
 
     if (!graphResponse.ok) {
-      console.error('Microsoft Graph API error:', await graphResponse.text());
+      const errorText = await graphResponse.text();
+      console.error('Microsoft Graph API error:', graphResponse.status, errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch categories from Microsoft Graph' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -92,6 +130,7 @@ Deno.serve(async (req) => {
 
     const graphData = await graphResponse.json();
     const categories = graphData.value || [];
+    console.log('Categories found:', categories.length);
 
     // Get existing categories to avoid duplicates
     const { data: existingCategories } = await supabase
@@ -101,6 +140,7 @@ Deno.serve(async (req) => {
       .eq('tenant_id', profile.tenant_id);
 
     const existingNames = new Set(existingCategories?.map(c => c.name.toLowerCase()) || []);
+    console.log('Existing categories:', existingNames.size);
 
     // Prepare new categories to import
     const newCategories = categories
@@ -114,6 +154,8 @@ Deno.serve(async (req) => {
         user_id: user.id,
         tenant_id: profile.tenant_id
       }));
+
+    console.log('New categories to import:', newCategories.length);
 
     if (newCategories.length === 0) {
       return new Response(
@@ -139,6 +181,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log('Categories imported successfully');
+
     return new Response(
       JSON.stringify({ 
         message: 'Categories imported successfully',
@@ -151,7 +195,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Sync categories error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
