@@ -89,7 +89,17 @@ export default function AuthCallback() {
         if (exchangeError) {
           console.error("Token exchange error:", exchangeError);
           setStatus("error");
-          setMessage("Failed to exchange authorization code");
+          
+          // Show detailed error message from the edge function
+          const errorMessage = exchangeError.message || "Failed to exchange authorization code";
+          const errorDetails = data?.details || data?.microsoft_error?.error_description || "";
+          
+          let displayMessage = errorMessage;
+          if (errorDetails) {
+            displayMessage += `: ${errorDetails}`;
+          }
+          
+          setMessage(displayMessage);
           toast.error("Authentication failed");
           setTimeout(() => navigate("/dashboard"), 3000);
           return;
