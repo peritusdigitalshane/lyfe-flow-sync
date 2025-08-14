@@ -350,12 +350,22 @@ export default function Settings() {
                 Configure your email automation and system preferences
               </p>
             </div>
-            <Link to="/email-categories">
-              <Button variant="outline" className="gap-2">
-                <User className="h-4 w-4" />
-                Manage Categories
-              </Button>
-            </Link>
+            <div className="flex gap-3">
+              {isSuperAdmin && (
+                <Link to="/admin/diagnostics">
+                  <Button variant="outline" className="gap-2">
+                    <TestTube className="h-4 w-4" />
+                    Admin Diagnostics
+                  </Button>
+                </Link>
+              )}
+              <Link to="/email-categories">
+                <Button variant="outline" className="gap-2">
+                  <User className="h-4 w-4" />
+                  Manage Categories
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Email Processing Settings */}
