@@ -252,29 +252,74 @@ serve(async (req) => {
     }
 
     const tokenData = await tokenResponse.json();
-    console.log('Token exchange successful');
+    console.log('Token exchange successful, token details:', {
+      hasAccessToken: !!tokenData.access_token,
+      hasRefreshToken: !!tokenData.refresh_token,
+      tokenType: tokenData.token_type,
+      expiresIn: tokenData.expires_in
+    });
 
     // Get user info from Microsoft Graph
-    const userInfoResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+    console.log('Fetching user information from Microsoft Graph...');
+    const graphUrl = 'https://graph.microsoft.com/v1.0/me';
+    
+    console.log('Making Graph API request:', {
+      url: graphUrl,
+      hasAccessToken: !!tokenData.access_token,
+      tokenType: tokenData.token_type || 'Bearer',
+      accessTokenLength: tokenData.access_token ? tokenData.access_token.length : 0
+    });
+
+    const userInfoResponse = await fetch(graphUrl, {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
+        'Content-Type': 'application/json',
       },
     });
 
+    console.log('Graph API response status:', userInfoResponse.status);
+    console.log('Graph API response headers:', Object.fromEntries(userInfoResponse.headers.entries()));
+
     if (!userInfoResponse.ok) {
-      console.error('Failed to get user info from Microsoft Graph');
+      const errorText = await userInfoResponse.text();
+      console.error('Microsoft Graph API call failed:', {
+        status: userInfoResponse.status,
+        statusText: userInfoResponse.statusText,
+        error: errorText,
+        headers: Object.fromEntries(userInfoResponse.headers.entries())
+      });
+
+      // Try to parse the error response
+      let microsoftError = {};
+      try {
+        microsoftError = JSON.parse(errorText);
+        console.error('Parsed Microsoft Graph error:', microsoftError);
+      } catch (parseError) {
+        console.error('Could not parse Graph API error response:', parseError);
+        microsoftError = { error: "unparseable_error", error_description: errorText.substring(0, 500) };
+      }
+      
       return new Response(
         JSON.stringify({ 
           success: false,
           error: 'Failed to get user information from Microsoft',
-          details: 'Microsoft Graph API call failed'
+          details: `Graph API call failed: ${userInfoResponse.status} - ${errorText}`,
+          microsoftError: microsoftError,
+          graphApiStatus: userInfoResponse.status,
+          accessTokenPresent: !!tokenData.access_token
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const userInfo = await userInfoResponse.json();
-    console.log('Got user info:', { email: userInfo.mail || userInfo.userPrincipalName });
+    console.log('User info received:', {
+      hasId: !!userInfo.id,
+      hasEmail: !!userInfo.mail,
+      hasUserPrincipalName: !!userInfo.userPrincipalName,
+      hasDisplayName: !!userInfo.displayName,
+      userInfo: userInfo
+    });
 
     // Find the pending mailbox for this user and email
     const userEmail = userInfo.mail || userInfo.userPrincipalName;
