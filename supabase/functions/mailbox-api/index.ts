@@ -241,12 +241,12 @@ serve(async (req) => {
     const path = url.pathname;
     const method = req.method;
 
-    // Get user from auth header
+    // Get user from JWT (automatically handled by Supabase when verify_jwt = true)
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: corsHeaders }
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -257,7 +257,7 @@ serve(async (req) => {
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Invalid token' }),
-        { status: 401, headers: corsHeaders }
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -271,38 +271,30 @@ serve(async (req) => {
     if (!profile) {
       return new Response(
         JSON.stringify({ error: 'Profile not found' }),
-        { status: 404, headers: corsHeaders }
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const tenantId = profile.tenant_id;
 
     // Route handling
-    if (path === '/mailbox-api' && method === 'POST') {
+    if (path.includes('/mailbox-api') && method === 'POST') {
       // Create new mailbox
       const body = await req.json();
       const { emailAddress, displayName, preset } = body;
 
-      // Create n8n credential for Microsoft Outlook
-      const credentialResponse = await n8nClient.createCredential(
-        `Outlook-${emailAddress}-${Date.now()}`,
-        'microsoftOutlookOAuth2Api',
-        {
-          clientId: Deno.env.get('AZURE_AD_CLIENT_ID'),
-          clientSecret: Deno.env.get('AZURE_AD_CLIENT_SECRET'),
-          tenantId: Deno.env.get('AZURE_AD_TENANT') || 'common',
-        },
-        [`tenant:${tenantId}`, `mailbox:${emailAddress}`]
-      );
+      // For now, create a mock credential ID and OAuth URL for testing
+      // TODO: Replace with actual n8n integration once environment variables are configured
+      const mockCredentialId = `mock-${Date.now()}`;
+      const mockOAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=mock&response_type=code&redirect_uri=${encodeURIComponent(
+        `${req.headers.get('origin')}/auth/callback`
+      )}&scope=openid%20profile%20email%20Mail.ReadWrite`;
 
-      if (credentialResponse.error) {
-        return new Response(
-          JSON.stringify({ error: 'Failed to create n8n credential' }),
-          { status: 500, headers: corsHeaders }
-        );
-      }
-
-      const credentialId = credentialResponse.data?.id;
+      // Skip n8n calls for now
+      // const credentialResponse = await n8nClient.createCredential(...)
+      // if (credentialResponse.error) { ... }
+      
+      const credentialId = mockCredentialId;
 
       // Create mailbox in database
       const { data: mailbox, error: dbError } = await supabaseClient
@@ -321,18 +313,15 @@ serve(async (req) => {
       if (dbError) {
         return new Response(
           JSON.stringify({ error: 'Failed to create mailbox' }),
-          { status: 500, headers: corsHeaders }
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Get OAuth URL from n8n
-      const oauthResponse = await n8nClient.getCredentialOAuthUrl(credentialId);
-      if (oauthResponse.error) {
-        return new Response(
-          JSON.stringify({ error: 'Failed to get OAuth URL' }),
-          { status: 500, headers: corsHeaders }
-        );
-      }
+      // Mock OAuth URL for testing
+      // const oauthResponse = await n8nClient.getCredentialOAuthUrl(credentialId);
+      // if (oauthResponse.error) { ... }
+      
+      const authUrl = mockOAuthUrl;
 
       await logAudit(supabaseClient, tenantId, 'mailbox_created', {
         mailbox_id: mailbox.id,
@@ -343,14 +332,14 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           mailbox,
-          authUrl: oauthResponse.data?.authUrl,
+          authUrl: authUrl,
         }),
-        { headers: corsHeaders }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Handle mailbox state changes (pause/resume)
-    const stateMatch = path.match(/^\/mailbox-api\/([^\/]+)\/state$/);
+    const stateMatch = path.match(/\/mailbox-api\/([^\/]+)\/state$/);
     if (stateMatch && method === 'PATCH') {
       const mailboxId = stateMatch[1];
       const body = await req.json();
@@ -367,7 +356,7 @@ serve(async (req) => {
       if (!mailbox) {
         return new Response(
           JSON.stringify({ error: 'Mailbox not found' }),
-          { status: 404, headers: corsHeaders }
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -394,20 +383,20 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true }),
-        { headers: corsHeaders }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     return new Response(
       JSON.stringify({ error: 'Not found' }),
-      { status: 404, headers: corsHeaders }
+      { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Edge function error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: corsHeaders }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
