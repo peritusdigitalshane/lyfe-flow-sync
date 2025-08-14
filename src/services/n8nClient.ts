@@ -41,9 +41,8 @@ export class N8nClient {
     try {
       const response = await fetch(`${this.baseUrl}/api/v1${endpoint}`, {
         ...options,
-        credentials: 'include',
         headers: {
-          'Authorization': `Basic ${btoa('itadmin:Peritus2024')}`,
+          'Authorization': `Bearer ${this.apiToken}`,
           'Content-Type': 'application/json',
           ...options.headers,
         },
