@@ -33,6 +33,34 @@ export default function AuthCallback() {
           return;
         }
 
+        setMessage("Checking authentication...");
+
+        // Wait for auth session to be available with retries
+        let sessionAttempts = 0;
+        let currentSession = null;
+        
+        while (sessionAttempts < 10 && !currentSession) {
+          console.log(`Session attempt ${sessionAttempts + 1}`);
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData?.session?.access_token) {
+            currentSession = sessionData.session;
+            break;
+          }
+          // Wait 500ms before retrying
+          await new Promise(resolve => setTimeout(resolve, 500));
+          sessionAttempts++;
+        }
+
+        if (!currentSession) {
+          console.error("No valid session found after retries");
+          setStatus("error");
+          setMessage("Authentication session not available. Please log in first.");
+          toast.error("Please log in first");
+          setTimeout(() => navigate("/auth"), 3000);
+          return;
+        }
+
+        console.log("Valid session found, proceeding with token exchange");
         setMessage("Exchanging authorization code for tokens...");
 
         // TEMPORARY FIX: Hardcode the correct URL to ensure consistency
@@ -42,22 +70,13 @@ export default function AuthCallback() {
         console.log('AuthCallback: Using hardcoded redirect URI:', redirectUri);
 
         // Call edge function to exchange code for tokens
-        const { data: session } = await supabase.auth.getSession();
-        if (!session?.session?.access_token) {
-          setStatus("error");
-          setMessage("Authentication session not found");
-          toast.error("Authentication failed");
-          setTimeout(() => navigate("/dashboard"), 3000);
-          return;
-        }
-
         const { data, error: exchangeError } = await supabase.functions.invoke('mailbox-oauth-callback', {
           body: {
             code,
             redirectUri,
           },
           headers: {
-            Authorization: `Bearer ${session.session.access_token}`,
+            Authorization: `Bearer ${currentSession.access_token}`,
           },
         });
 
