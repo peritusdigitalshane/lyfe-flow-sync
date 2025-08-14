@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Settings2, Save, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Settings2, Save, Eye, EyeOff, TestTube } from "lucide-react";
 
 interface MicrosoftOAuthSettings {
   client_id: string;
@@ -26,6 +26,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const [showClientSecret, setShowClientSecret] = useState(false);
   const [showN8NToken, setShowN8NToken] = useState(false);
   const [settings, setSettings] = useState<MicrosoftOAuthSettings>({
@@ -135,6 +136,45 @@ export default function Settings() {
       toast.error("Failed to save settings");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const testN8NConnection = async () => {
+    if (!n8nSettings.base_url || !n8nSettings.api_token) {
+      toast.error("Please enter both N8N Base URL and API Token");
+      return;
+    }
+
+    setIsTesting(true);
+    try {
+      // Test the N8N connection by making a simple API call
+      const response = await fetch(`${n8nSettings.base_url}/api/v1/workflows`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${n8nSettings.api_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(`✅ N8N connection successful! Found ${data.data?.length || 0} workflows.`);
+      } else if (response.status === 401) {
+        toast.error("❌ Authentication failed. Please check your API token.");
+      } else if (response.status === 404) {
+        toast.error("❌ N8N API not found. Please check your Base URL.");
+      } else {
+        const errorText = await response.text();
+        toast.error(`❌ Connection failed: ${response.status} ${errorText}`);
+      }
+    } catch (error: any) {
+      if (error.message.includes('fetch')) {
+        toast.error("❌ Cannot reach N8N instance. Check the Base URL and ensure N8N is running.");
+      } else {
+        toast.error(`❌ Connection error: ${error.message}`);
+      }
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -363,8 +403,21 @@ export default function Settings() {
                   <p>• Go to N8N Settings → Personal → API Keys</p>
                   <p>• Create a new API key with appropriate permissions</p>
                   <p>• Ensure your N8N instance is accessible from this application</p>
-                  <p>• Test the connection after saving these settings</p>
+                  <p>• Test the connection after entering your settings</p>
                 </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={testN8NConnection}
+                  disabled={isTesting || !n8nSettings.base_url || !n8nSettings.api_token}
+                  className="flex-1"
+                >
+                  <TestTube className="h-4 w-4 mr-2" />
+                  {isTesting ? "Testing..." : "Test Connection"}
+                </Button>
               </div>
             </div>
           </CardContent>
