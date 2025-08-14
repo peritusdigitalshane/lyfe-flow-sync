@@ -1,0 +1,117 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+export default function AuthCallback() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<"processing" | "success" | "error">("processing");
+  const [message, setMessage] = useState("Processing Microsoft OAuth callback...");
+
+  useEffect(() => {
+    const handleCallback = async () => {
+      try {
+        const code = searchParams.get("code");
+        const error = searchParams.get("error");
+        const errorDescription = searchParams.get("error_description");
+
+        if (error) {
+          console.error("OAuth error:", error, errorDescription);
+          setStatus("error");
+          setMessage(`OAuth error: ${errorDescription || error}`);
+          toast.error("Authentication failed");
+          setTimeout(() => navigate("/dashboard"), 3000);
+          return;
+        }
+
+        if (!code) {
+          setStatus("error");
+          setMessage("No authorization code received");
+          toast.error("Authentication failed");
+          setTimeout(() => navigate("/dashboard"), 3000);
+          return;
+        }
+
+        setMessage("Exchanging authorization code for tokens...");
+
+        // Call edge function to exchange code for tokens
+        const { data, error: exchangeError } = await supabase.functions.invoke('mailbox-oauth-callback', {
+          body: {
+            code,
+            redirectUri: `${window.location.origin}/auth/callback`,
+          },
+        });
+
+        if (exchangeError) {
+          console.error("Token exchange error:", exchangeError);
+          setStatus("error");
+          setMessage("Failed to exchange authorization code");
+          toast.error("Authentication failed");
+          setTimeout(() => navigate("/dashboard"), 3000);
+          return;
+        }
+
+        setStatus("success");
+        setMessage("Authentication successful! Redirecting to dashboard...");
+        toast.success("Mailbox connected successfully!");
+        
+        setTimeout(() => navigate("/dashboard"), 2000);
+
+      } catch (error) {
+        console.error("Callback handling error:", error);
+        setStatus("error");
+        setMessage("An unexpected error occurred");
+        toast.error("Authentication failed");
+        setTimeout(() => navigate("/dashboard"), 3000);
+      }
+    };
+
+    handleCallback();
+  }, [searchParams, navigate]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
+      <div className="max-w-md w-full mx-4">
+        <div className="bg-background rounded-lg shadow-lg p-8 text-center">
+          <div className="mb-6">
+            {status === "processing" && (
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto"></div>
+            )}
+            {status === "success" && (
+              <div className="h-16 w-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
+            {status === "error" && (
+              <div className="h-16 w-16 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+            )}
+          </div>
+          
+          <h1 className="text-2xl font-bold mb-4">
+            {status === "processing" && "Connecting Mailbox"}
+            {status === "success" && "Success!"}
+            {status === "error" && "Authentication Failed"}
+          </h1>
+          
+          <p className="text-muted-foreground mb-6">{message}</p>
+          
+          {status === "error" && (
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+            >
+              Return to Dashboard
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

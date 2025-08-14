@@ -2,3 +2,6 @@ project_id = "ceasktzguzibehknbgsx"
 
 [functions.mailbox-api]
 verify_jwt = true
+
+[functions.mailbox-oauth-callback]
+verify_jwt = true
