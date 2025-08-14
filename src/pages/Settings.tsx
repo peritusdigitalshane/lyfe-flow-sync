@@ -16,21 +16,32 @@ interface MicrosoftOAuthSettings {
   tenant_id: string;
 }
 
+interface N8NSettings {
+  base_url: string;
+  api_token: string;
+}
+
 export default function Settings() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showClientSecret, setShowClientSecret] = useState(false);
+  const [showN8NToken, setShowN8NToken] = useState(false);
   const [settings, setSettings] = useState<MicrosoftOAuthSettings>({
     client_id: "",
     client_secret: "",
     tenant_id: "common",
   });
+  const [n8nSettings, setN8NSettings] = useState<N8NSettings>({
+    base_url: "",
+    api_token: "",
+  });
 
   useEffect(() => {
     if (user) {
       fetchSettings();
+      fetchN8NSettings();
     }
   }, [user]);
 
@@ -63,12 +74,37 @@ export default function Settings() {
     }
   };
 
+  const fetchN8NSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("*")
+        .eq("key", "n8n_config")
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        throw error;
+      }
+
+      if (data) {
+        const n8nConfig = data.value as any;
+        setN8NSettings({
+          base_url: n8nConfig.base_url || "",
+          api_token: n8nConfig.api_token || "",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching N8N settings:", error);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSaving(true);
 
     try {
-      const { error } = await supabase
+      // Save Microsoft OAuth settings
+      const { error: oauthError } = await supabase
         .from("app_settings")
         .upsert({
           key: "microsoft_oauth",
@@ -78,7 +114,20 @@ export default function Settings() {
           onConflict: 'key'
         });
 
-      if (error) throw error;
+      if (oauthError) throw oauthError;
+
+      // Save N8N settings
+      const { error: n8nError } = await supabase
+        .from("app_settings")
+        .upsert({
+          key: "n8n_config",
+          value: n8nSettings as any,
+          description: "N8N configuration for workflow automation",
+        }, {
+          onConflict: 'key'
+        });
+
+      if (n8nError) throw n8nError;
 
       toast.success("Settings saved successfully");
     } catch (error) {
@@ -247,6 +296,77 @@ export default function Settings() {
                 </p>
               </div>
             </form>
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings2 className="h-5 w-5" />
+              N8N Workflow Configuration
+            </CardTitle>
+            <CardDescription>
+              Configure your N8N instance for automated email workflow management.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="n8n_base_url">N8N Base URL</Label>
+                <Input
+                  id="n8n_base_url"
+                  type="url"
+                  placeholder="http://localhost:5678"
+                  value={n8nSettings.base_url}
+                  onChange={(e) => setN8NSettings(prev => ({ ...prev, base_url: e.target.value }))}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  The base URL of your N8N instance (e.g., http://localhost:5678)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="n8n_api_token">N8N API Token</Label>
+                <div className="relative">
+                  <Input
+                    id="n8n_api_token"
+                    type={showN8NToken ? "text" : "password"}
+                    placeholder="Enter your N8N API token"
+                    value={n8nSettings.api_token}
+                    onChange={(e) => setN8NSettings(prev => ({ ...prev, api_token: e.target.value }))}
+                    required
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => setShowN8NToken(!showN8NToken)}
+                  >
+                    {showN8NToken ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The API token from N8N Settings → Personal → API Keys
+                </p>
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-medium text-green-900 mb-2">N8N Setup Instructions</h4>
+                <div className="text-sm text-green-800 space-y-1">
+                  <p>• Go to N8N Settings → Personal → API Keys</p>
+                  <p>• Create a new API key with appropriate permissions</p>
+                  <p>• Ensure your N8N instance is accessible from this application</p>
+                  <p>• Test the connection after saving these settings</p>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </main>

@@ -158,12 +158,37 @@ function categorizeEmail(email) {
 };
 
 export class N8NWorkflowCloner {
-  private n8nBaseUrl: string;
-  private n8nApiToken: string;
+  private n8nBaseUrl: string | null = null;
+  private n8nApiToken: string | null = null;
 
   constructor() {
-    this.n8nBaseUrl = 'https://agent.lyfeai.com.au';
-    this.n8nApiToken = process.env.N8N_API_TOKEN || '';
+    // N8N settings will be loaded from database when needed
+  }
+
+  private async loadN8NSettings(): Promise<{ baseUrl: string; apiToken: string }> {
+    if (this.n8nBaseUrl && this.n8nApiToken) {
+      return { baseUrl: this.n8nBaseUrl, apiToken: this.n8nApiToken };
+    }
+
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'n8n_config')
+      .single();
+
+    if (error || !data) {
+      throw new Error('N8N configuration not found. Please configure N8N settings in the Settings page.');
+    }
+
+    const config = data.value as any;
+    if (!config.base_url || !config.api_token) {
+      throw new Error('N8N configuration incomplete. Please check N8N Base URL and API Token in Settings.');
+    }
+
+    this.n8nBaseUrl = config.base_url;
+    this.n8nApiToken = config.api_token;
+
+    return { baseUrl: this.n8nBaseUrl, apiToken: this.n8nApiToken };
   }
 
   async cloneWorkflowForMailbox(params: CloneWorkflowParams): Promise<{
@@ -171,6 +196,9 @@ export class N8NWorkflowCloner {
     credentialId: string;
   }> {
     try {
+      // Load N8N settings from database
+      await this.loadN8NSettings();
+
       // 1. Create Microsoft Graph credential for this mailbox
       const credentialId = await this.createMicrosoftCredential(params);
 
@@ -191,29 +219,45 @@ export class N8NWorkflowCloner {
   }
 
   private async createMicrosoftCredential(params: CloneWorkflowParams): Promise<string> {
+    const { baseUrl, apiToken } = await this.loadN8NSettings();
+
+    // Load Microsoft OAuth settings from database
+    const { data: oauthData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'microsoft_oauth')
+      .single();
+
+    if (!oauthData) {
+      throw new Error('Microsoft OAuth configuration not found. Please configure Microsoft settings.');
+    }
+
+    const oauthConfig = oauthData.value as any;
+
     const credentialData = {
       name: `${params.displayName} - Microsoft Graph`,
       type: 'microsoftGraphApi',
       data: {
-        clientId: process.env.MICROSOFT_CLIENT_ID,
-        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        clientId: oauthConfig.client_id,
+        clientSecret: oauthConfig.client_secret,
         accessToken: params.microsoftGraphToken.access_token,
         refreshToken: params.microsoftGraphToken.refresh_token,
         expiresAt: params.microsoftGraphToken.expires_at
       }
     };
 
-    const response = await fetch(`${this.n8nBaseUrl}/api/v1/credentials`, {
+    const response = await fetch(`${baseUrl}/api/v1/credentials`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.n8nApiToken}`,
+        'Authorization': `Bearer ${apiToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(credentialData)
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to create credential: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to create credential: ${response.status} ${errorText}`);
     }
 
     const result = await response.json();
@@ -224,6 +268,8 @@ export class N8NWorkflowCloner {
     params: CloneWorkflowParams, 
     credentialId: string
   ): Promise<string> {
+    const { baseUrl, apiToken } = await this.loadN8NSettings();
+
     // Customize the template for this specific mailbox
     const customizedTemplate = {
       ...MASTER_WORKFLOW_TEMPLATE,
@@ -241,17 +287,18 @@ export class N8NWorkflowCloner {
       }))
     };
 
-    const response = await fetch(`${this.n8nBaseUrl}/api/v1/workflows`, {
+    const response = await fetch(`${baseUrl}/api/v1/workflows`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.n8nApiToken}`,
+        'Authorization': `Bearer ${apiToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(customizedTemplate)
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to create workflow: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to create workflow: ${response.status} ${errorText}`);
     }
 
     const result = await response.json();
@@ -263,6 +310,8 @@ export class N8NWorkflowCloner {
     credentialId: string, 
     params: CloneWorkflowParams
   ): Promise<void> {
+    const { baseUrl, apiToken } = await this.loadN8NSettings();
+
     // Load current mailbox configuration
     const { data: config } = await supabase
       .from('mailbox_configs')
@@ -290,17 +339,18 @@ export class N8NWorkflowCloner {
       }
     };
 
-    const response = await fetch(`${this.n8nBaseUrl}/api/v1/workflows/${workflowId}`, {
+    const response = await fetch(`${baseUrl}/api/v1/workflows/${workflowId}`, {
       method: 'PATCH',
       headers: {
-        'Authorization': `Bearer ${this.n8nApiToken}`,
+        'Authorization': `Bearer ${apiToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(workflowSettings)
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to configure workflow: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to configure workflow: ${response.status} ${errorText}`);
     }
   }
 
@@ -354,30 +404,36 @@ export class N8NWorkflowCloner {
   }
 
   async activateWorkflow(workflowId: string): Promise<void> {
-    const response = await fetch(`${this.n8nBaseUrl}/api/v1/workflows/${workflowId}/activate`, {
+    const { baseUrl, apiToken } = await this.loadN8NSettings();
+
+    const response = await fetch(`${baseUrl}/api/v1/workflows/${workflowId}/activate`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.n8nApiToken}`,
+        'Authorization': `Bearer ${apiToken}`,
         'Content-Type': 'application/json'
       }
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to activate workflow: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to activate workflow: ${response.status} ${errorText}`);
     }
   }
 
   async deactivateWorkflow(workflowId: string): Promise<void> {
-    const response = await fetch(`${this.n8nBaseUrl}/api/v1/workflows/${workflowId}/deactivate`, {
+    const { baseUrl, apiToken } = await this.loadN8NSettings();
+
+    const response = await fetch(`${baseUrl}/api/v1/workflows/${workflowId}/deactivate`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.n8nApiToken}`,
+        'Authorization': `Bearer ${apiToken}`,
         'Content-Type': 'application/json'
       }
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to deactivate workflow: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to deactivate workflow: ${response.status} ${errorText}`);
     }
   }
 }
