@@ -9,6 +9,11 @@ const NotFound = () => {
       "404 Error: User attempted to access non-existent route:",
       location.pathname
     );
+    
+    // If the URL contains /undefined, it's likely a navigation error
+    if (location.pathname.includes('/undefined')) {
+      console.error("NotFound: Detected undefined in URL, possible navigation bug");
+    }
   }, [location.pathname]);
 
   return (
