@@ -144,6 +144,12 @@ serve(async (req) => {
     const clientId = config.client_id;
     const clientSecret = config.client_secret;
     const tenantIdEnv = config.tenant_id || 'common';
+    
+    console.log('OAuth config loaded:', { 
+      clientId: clientId ? `${clientId.substring(0, 8)}...` : 'missing',
+      clientSecret: clientSecret ? `${clientSecret.substring(0, 8)}...` : 'missing',
+      tenantId: tenantIdEnv 
+    });
 
     if (!clientId || !clientSecret) {
       console.error('Microsoft credentials not configured');

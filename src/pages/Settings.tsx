@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Settings2, Save } from "lucide-react";
+import { ArrowLeft, Settings2, Save, Eye, EyeOff } from "lucide-react";
 
 interface MicrosoftOAuthSettings {
   client_id: string;
@@ -21,6 +21,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showClientSecret, setShowClientSecret] = useState(false);
   const [settings, setSettings] = useState<MicrosoftOAuthSettings>({
     client_id: "",
     client_secret: "",
@@ -153,14 +154,30 @@ export default function Settings() {
 
               <div className="space-y-2">
                 <Label htmlFor="client_secret">Client Secret</Label>
-                <Input
-                  id="client_secret"
-                  type="password"
-                  placeholder="Enter your client secret"
-                  value={settings.client_secret}
-                  onChange={(e) => setSettings(prev => ({ ...prev, client_secret: e.target.value }))}
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="client_secret"
+                    type={showClientSecret ? "text" : "password"}
+                    placeholder="Enter your client secret"
+                    value={settings.client_secret}
+                    onChange={(e) => setSettings(prev => ({ ...prev, client_secret: e.target.value }))}
+                    required
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => setShowClientSecret(!showClientSecret)}
+                  >
+                    {showClientSecret ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   The client secret value from your Azure App Registration
                 </p>
