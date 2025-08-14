@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, Settings2, Save, Eye, EyeOff, TestTube } from "lucide-react";
+import { UserManagement } from "@/components/UserManagement";
 
 interface MicrosoftOAuthSettings {
   client_id: string;
@@ -25,6 +26,7 @@ export default function Settings() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [showClientSecret, setShowClientSecret] = useState(false);
@@ -43,8 +45,29 @@ export default function Settings() {
     if (user) {
       fetchSettings();
       fetchN8NSettings();
+      checkSuperAdminStatus();
     }
   }, [user]);
+
+  const checkSuperAdminStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user?.id)
+        .eq("role", "super_admin")
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      setIsSuperAdmin(!!data);
+    } catch (error) {
+      console.error("Error checking super admin status:", error);
+      setIsSuperAdmin(false);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -471,6 +494,13 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* User Management - Only visible to super admins */}
+        {isSuperAdmin && (
+          <div className="mt-6">
+            <UserManagement />
+          </div>
+        )}
       </main>
     </div>
   );
