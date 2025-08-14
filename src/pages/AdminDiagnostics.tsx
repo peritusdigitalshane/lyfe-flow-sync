@@ -212,19 +212,23 @@ export default function AdminDiagnostics() {
         body: { mailboxId: mailboxes[0].id }
       });
       
+      // Log the complete response for debugging
+      console.log('Full sync response:', response);
+      console.log('Response error:', response.error);
+      console.log('Response data:', response.data);
+      addLog('debug', 'CATEGORY_SYNC', 'Full response object', response);
+      
       if (response.error) {
-        // For Supabase functions, error details are often in the response data
-        let errorMessage = "Category sync failed";
-        let errorDetails = "";
+        // Extract all possible error information
+        const errorInfo = {
+          error: response.error,
+          data: response.data
+        };
         
-        if (response.data && typeof response.data === 'object') {
-          errorMessage = response.data.error || errorMessage;
-          errorDetails = response.data.details || JSON.stringify(response.data);
-        } else if (response.error.message) {
-          errorDetails = response.error.message;
-        }
+        addLog('error', 'CATEGORY_SYNC', 'Detailed error information', errorInfo);
         
-        updateTest("Category Sync", "error", errorMessage, errorDetails);
+        updateTest("Category Sync", "error", "Category sync failed", 
+          `Full error: ${JSON.stringify(errorInfo, null, 2)}`);
         return false;
       }
       
