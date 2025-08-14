@@ -230,10 +230,32 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient<Database>(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    console.log('Starting edge function execution...');
+    
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    console.log('Environment check:', {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseKey: !!supabaseKey,
+      supabaseUrl: supabaseUrl ? 'configured' : 'missing'
+    });
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing Supabase environment variables');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Server configuration error',
+          details: 'Missing Supabase environment variables'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseClient = createClient<Database>(supabaseUrl, supabaseKey);
+    console.log('Supabase client initialized successfully');
 
     const n8nClient = new N8nClient(
       Deno.env.get('N8N_BASE_URL') ?? 'https://agent.lyfeai.com.au',
@@ -246,37 +268,92 @@ serve(async (req) => {
     
     console.log('Request details:', { path, method, url: req.url });
 
-    // Get user from JWT (automatically handled by Supabase when verify_jwt = true)
+    // Get user from JWT
     const authHeader = req.headers.get('Authorization');
+    console.log('Authorization header check:', {
+      hasAuthHeader: !!authHeader,
+      authHeaderLength: authHeader?.length || 0
+    });
+
     if (!authHeader) {
+      console.error('Missing authorization header');
       return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Missing authorization header',
+          details: 'Authentication token required'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
+    console.log('Attempting to authenticate user...');
+    let user, authError;
+    
+    try {
+      const result = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
+      user = result.data?.user;
+      authError = result.error;
+    } catch (error) {
+      console.error('Authentication error:', error);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Authentication failed',
+          details: error.message || 'Failed to verify token'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (authError || !user) {
+      console.error('Invalid token or user not found:', authError);
       return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Invalid token',
+          details: authError?.message || 'User not found'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get user's tenant_id
-    const { data: profile } = await supabaseClient
-      .from('profiles')
-      .select('tenant_id')
-      .eq('id', user.id)
-      .single();
+    console.log('User authenticated successfully:', user.id);
 
-    if (!profile) {
+    // Get user's tenant_id
+    console.log('Fetching user profile...');
+    let profile, profileError;
+    
+    try {
+      const result = await supabaseClient
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .single();
+      
+      profile = result.data;
+      profileError = result.error;
+    } catch (error) {
+      console.error('Profile fetch error:', error);
       return new Response(
-        JSON.stringify({ error: 'Profile not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Failed to fetch user profile',
+          details: error.message || 'Database error'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (profileError || !profile) {
+      console.error('Profile not found or error:', profileError);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Profile not found',
+          details: profileError?.message || 'User profile does not exist'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -287,23 +364,82 @@ serve(async (req) => {
     console.log('Checking routes for:', path, method);
     if (path.includes('/mailbox-api') && method === 'POST') {
       console.log('Matched mailbox creation route');
-      // Create new mailbox
-      const body = await req.json();
-      const { emailAddress, displayName, preset } = body;
-      console.log('Creating mailbox:', { emailAddress, displayName, preset });
+      
+      // Parse request body
+      let body, emailAddress, displayName, preset;
+      try {
+        body = await req.json();
+        emailAddress = body.emailAddress;
+        displayName = body.displayName;
+        preset = body.preset;
+        
+        console.log('Creating mailbox:', { emailAddress, displayName, preset });
+
+        if (!emailAddress || !displayName) {
+          console.error('Missing required fields:', { emailAddress: !!emailAddress, displayName: !!displayName });
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: 'Missing required fields',
+              details: 'Email address and display name are required'
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (error) {
+        console.error('Failed to parse request body:', error);
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: 'Invalid request body',
+            details: error.message || 'Failed to parse JSON'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       // Get Microsoft OAuth settings from database
-      const { data: oauthConfig } = await supabaseClient
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'microsoft_oauth')
-        .single();
+      console.log('Fetching OAuth configuration...');
+      let oauthConfig, oauthError;
+      
+      try {
+        const result = await supabaseClient
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'microsoft_oauth')
+          .single();
+        
+        oauthConfig = result.data;
+        oauthError = result.error;
+      } catch (error) {
+        console.error('Failed to fetch OAuth config:', error);
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: 'Failed to fetch OAuth configuration',
+            details: error.message || 'Database error'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('OAuth config result:', {
+        hasConfig: !!oauthConfig,
+        hasValue: !!oauthConfig?.value,
+        error: oauthError?.message
+      });
 
       let authUrl = "";
       if (oauthConfig?.value) {
         const config = oauthConfig.value as any;
+        console.log('OAuth config details:', {
+          hasClientId: !!config.client_id,
+          hasClientSecret: !!config.client_secret,
+          hasTenantId: !!config.tenant_id
+        });
+
         if (config.client_id && config.client_secret) {
-          // TEMPORARY FIX: Hardcode the correct URL to bypass any header/caching issues
+          // Use the correct redirect URI
           const CORRECT_ORIGIN = 'https://74583761-ea55-4459-9556-1f0b360c2bab.lovableproject.com';
           const redirectUri = `${CORRECT_ORIGIN}/auth/callback`;
           
@@ -314,80 +450,157 @@ serve(async (req) => {
             `response_type=code&` +
             `redirect_uri=${encodeURIComponent(redirectUri)}&` +
             `scope=openid%20profile%20email%20Mail.ReadWrite%20offline_access&` +
-            `state=${Date.now()}`; // Add state parameter to prevent caching
+            `state=${Date.now()}`;
           
           console.log('Generated OAuth URL:', authUrl);
         } else {
-          console.log('Microsoft OAuth not configured, using mock URL');
-          authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=mock&response_type=code&redirect_uri=${encodeURIComponent(
-            `${req.headers.get('origin')}/auth/callback`
-          )}&scope=openid%20profile%20email%20Mail.ReadWrite`;
+          console.log('Microsoft OAuth credentials incomplete');
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: 'Microsoft OAuth not configured',
+              details: 'Client ID and Client Secret are required'
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
       } else {
-        console.log('No OAuth config found, using mock URL');
-        authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=mock&response_type=code&redirect_uri=${encodeURIComponent(
-          `${req.headers.get('origin')}/auth/callback`
-        )}&scope=openid%20profile%20email%20Mail.ReadWrite`;
-      }
-
-      // Create mailbox record
-      const credentialId = `cred-${Date.now()}`;
-
-      // Create mailbox record
-      const { data: mailbox, error: dbError } = await supabaseClient
-        .from('mailboxes')
-        .insert({
-          tenant_id: tenantId,
-          user_id: user.id,
-          email_address: emailAddress,
-          display_name: displayName,
-          n8n_credential_id: credentialId,
-          status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (dbError) {
+        console.log('No OAuth config found');
         return new Response(
-          JSON.stringify({ error: 'Failed to create mailbox' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ 
+            success: false,
+            error: 'OAuth configuration not found',
+            details: 'Microsoft OAuth settings not configured'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      await logAudit(supabaseClient, tenantId, 'mailbox_created', {
-        mailbox_id: mailbox.id,
-        email_address: emailAddress,
-        preset,
-      }, mailbox.id, user.id, req);
+      // Create mailbox record
+      console.log('Creating mailbox record...');
+      const credentialId = `cred-${Date.now()}`;
 
+      let mailbox, dbError;
+      try {
+        const result = await supabaseClient
+          .from('mailboxes')
+          .insert({
+            tenant_id: tenantId,
+            user_id: user.id,
+            email_address: emailAddress,
+            display_name: displayName,
+            n8n_credential_id: credentialId,
+            status: 'pending',
+          })
+          .select()
+          .single();
+
+        mailbox = result.data;
+        dbError = result.error;
+      } catch (error) {
+        console.error('Database insert error:', error);
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: 'Failed to create mailbox',
+            details: error.message || 'Database insert failed'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (dbError) {
+        console.error('Mailbox creation failed:', dbError);
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: 'Failed to create mailbox',
+            details: dbError.message || 'Database error'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Mailbox created successfully:', mailbox.id);
+
+      // Log audit trail
+      try {
+        await logAudit(supabaseClient, tenantId, 'mailbox_created', {
+          mailbox_id: mailbox.id,
+          email_address: emailAddress,
+          preset,
+        }, mailbox.id, user.id, req);
+      } catch (error) {
+        console.error('Audit log failed (non-fatal):', error);
+      }
+
+      console.log('Returning success response');
       return new Response(
         JSON.stringify({
+          success: true,
           mailbox,
           authUrl: authUrl,
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Handle mailbox state changes (pause/resume)
     const stateMatch = path.match(/\/mailbox-api\/([^\/]+)\/state$/);
     if (stateMatch && method === 'PATCH') {
+      console.log('Matched mailbox state change route');
       const mailboxId = stateMatch[1];
-      const body = await req.json();
-      const { action } = body; // 'pause' or 'resume'
+      
+      let body, action;
+      try {
+        body = await req.json();
+        action = body.action; // 'pause' or 'resume'
+        console.log('Mailbox state change:', { mailboxId, action });
+      } catch (error) {
+        console.error('Failed to parse state change request:', error);
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: 'Invalid request body',
+            details: error.message || 'Failed to parse JSON'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       // Get mailbox
-      const { data: mailbox } = await supabaseClient
-        .from('mailboxes')
-        .select('*')
-        .eq('id', mailboxId)
-        .eq('tenant_id', tenantId)
-        .single();
-
-      if (!mailbox) {
+      let mailbox, mailboxError;
+      try {
+        const result = await supabaseClient
+          .from('mailboxes')
+          .select('*')
+          .eq('id', mailboxId)
+          .eq('tenant_id', tenantId)
+          .single();
+        
+        mailbox = result.data;
+        mailboxError = result.error;
+      } catch (error) {
+        console.error('Failed to fetch mailbox:', error);
         return new Response(
-          JSON.stringify({ error: 'Mailbox not found' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ 
+            success: false,
+            error: 'Failed to fetch mailbox',
+            details: error.message || 'Database error'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (mailboxError || !mailbox) {
+        console.error('Mailbox not found:', mailboxError);
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: 'Mailbox not found',
+            details: mailboxError?.message || 'Mailbox does not exist'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -395,40 +608,68 @@ serve(async (req) => {
       
       // Update workflow in n8n
       if (mailbox.n8n_workflow_id) {
-        if (action === 'pause') {
-          await n8nClient.deactivateWorkflow(mailbox.n8n_workflow_id);
-        } else {
-          await n8nClient.activateWorkflow(mailbox.n8n_workflow_id);
+        try {
+          if (action === 'pause') {
+            await n8nClient.deactivateWorkflow(mailbox.n8n_workflow_id);
+          } else {
+            await n8nClient.activateWorkflow(mailbox.n8n_workflow_id);
+          }
+        } catch (error) {
+          console.error('N8N workflow update failed (non-fatal):', error);
         }
       }
 
       // Update database
-      await supabaseClient
-        .from('mailboxes')
-        .update({ status: newStatus })
-        .eq('id', mailboxId);
+      try {
+        await supabaseClient
+          .from('mailboxes')
+          .update({ status: newStatus })
+          .eq('id', mailboxId);
+      } catch (error) {
+        console.error('Failed to update mailbox status:', error);
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: 'Failed to update mailbox status',
+            details: error.message || 'Database update failed'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-      await logAudit(supabaseClient, tenantId, action === 'pause' ? 'mailbox_paused' : 'mailbox_resumed', {
-        mailbox_id: mailboxId,
-      }, mailboxId, user.id, req);
+      try {
+        await logAudit(supabaseClient, tenantId, action === 'pause' ? 'mailbox_paused' : 'mailbox_resumed', {
+          mailbox_id: mailboxId,
+        }, mailboxId, user.id, req);
+      } catch (error) {
+        console.error('Audit log failed (non-fatal):', error);
+      }
 
       return new Response(
         JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     console.log('No route matched, returning 404');
     return new Response(
-      JSON.stringify({ error: 'Route not found', path, method }),
-      { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        success: false,
+        error: 'Route not found',
+        details: `No handler for ${method} ${path}`
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Edge function error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        success: false,
+        error: 'Internal server error',
+        details: error.message || 'Unknown error occurred'
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
