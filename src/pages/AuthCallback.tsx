@@ -129,6 +129,7 @@ export default function AuthCallback() {
         // Check if there's a stored redirect URL (from re-authentication)
         const postAuthRedirect = localStorage.getItem('post_auth_redirect');
         if (postAuthRedirect) {
+          console.log('AuthCallback: Redirecting to stored URL:', postAuthRedirect);
           localStorage.removeItem('post_auth_redirect');
           setTimeout(() => navigate(postAuthRedirect), 2000);
         } else {
