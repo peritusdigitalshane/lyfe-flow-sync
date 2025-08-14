@@ -84,7 +84,7 @@ export default function Index() {
             </div>
             <h3 className="text-xl font-semibold mb-4 text-foreground">Seamless Integration</h3>
             <p className="text-muted-foreground">
-              Native Microsoft Graph connectivity with real-time synchronisation and powerful n8n workflow orchestration.
+              Native Microsoft Graph connectivity with real-time synchronisation and powerful workflow automation.
             </p>
           </div>
         </div>

@@ -1,24 +1,38 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { workflowCloner } from '@/lib/n8nWorkflowCloner';
+import { emailWorkflowEngine } from '@/services/emailWorkflowEngine';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, Play, Pause, Copy, Settings, ExternalLink, Loader2, User, LogOut } from 'lucide-react';
+import { AlertCircle, Play, Pause, Settings, ExternalLink, Loader2, User, LogOut, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 
-interface N8NBinding {
+interface WorkflowExecution {
   id: string;
+  email_id: string;
   mailbox_id: string;
-  n8n_workflow_id: string;
-  n8n_credential_id: string;
-  workflow_name: string;
+  rule_id: string | null;
+  execution_status: 'pending' | 'completed' | 'failed';
+  actions_taken: any[];
+  error_message: string | null;
+  execution_time_ms: number;
+  created_at: string;
+}
+
+interface WorkflowRule {
+  id: string;
+  name: string;
+  mailbox_id: string | null;
   is_active: boolean;
-  last_synced_at: string | null;
+  priority: number;
+  conditions: any[];
+  actions: any[];
+  created_at: string;
+  updated_at: string;
 }
 
 interface Mailbox {
@@ -26,15 +40,13 @@ interface Mailbox {
   email_address: string;
   display_name: string;
   status: 'pending' | 'connected' | 'error' | 'paused';
-  n8n_workflow_id: string | null;
-  n8n_credential_id: string | null;
-  microsoft_graph_token: string | null;
 }
 
 export default function WorkflowManagement() {
   const { user, signOut } = useAuth();
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
-  const [bindings, setBindings] = useState<N8NBinding[]>([]);
+  const [rules, setRules] = useState<WorkflowRule[]>([]);
+  const [executions, setExecutions] = useState<WorkflowExecution[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -54,100 +66,113 @@ export default function WorkflowManagement() {
         .order('created_at', { ascending: false });
 
       if (mailboxError) throw mailboxError;
-      setMailboxes(mailboxData || []);
 
-      // Load n8n bindings
-      const { data: bindingData, error: bindingError } = await supabase
-        .from('n8n_bindings')
+      // Load workflow rules
+      const { data: rulesData, error: rulesError } = await supabase
+        .from('workflow_rules')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('priority', { ascending: false });
 
-      if (bindingError) throw bindingError;
-      setBindings(bindingData || []);
+      if (rulesError) throw rulesError;
+
+      // Load recent workflow executions
+      const { data: executionsData, error: executionsError } = await supabase
+        .from('workflow_executions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (executionsError) throw executionsError;
+
+      setMailboxes(mailboxData || []);
+      setRules(rulesData || []);
+      setExecutions(executionsData || []);
+
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading workflow data:', error);
       toast.error('Failed to load workflow data');
     } finally {
       setLoading(false);
     }
   };
 
-  const cloneWorkflowForMailbox = async (mailboxId: string) => {
+  const processEmailsForMailbox = async (mailboxId: string) => {
     try {
       setActionLoading(mailboxId);
 
-      const mailbox = mailboxes.find(m => m.id === mailboxId);
-      if (!mailbox) throw new Error('Mailbox not found');
+      // Get recent unprocessed emails for this mailbox
+      const { data: emails, error: emailsError } = await supabase
+        .from('emails')
+        .select('*')
+        .eq('mailbox_id', mailboxId)
+        .eq('processing_status', 'pending')
+        .limit(10);
 
-      if (!mailbox.microsoft_graph_token) {
-        throw new Error('Microsoft Graph token not found for this mailbox');
+      if (emailsError) throw emailsError;
+
+      if (!emails || emails.length === 0) {
+        toast.success('No pending emails to process');
+        return;
       }
 
-      // Get tenant_id for the binding
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('id', user!.id)
-        .single();
-
-      if (!profile) throw new Error('Profile not found');
-
-      // Parse Microsoft Graph token
-      const graphToken = JSON.parse(mailbox.microsoft_graph_token);
-
-      // Use the N8N workflow cloner to create the workflow
-      await workflowCloner.cloneWorkflowForMailbox({
-        mailboxId: mailbox.id,
-        emailAddress: mailbox.email_address,
-        displayName: mailbox.display_name,
-        tenantId: profile.tenant_id,
-        microsoftGraphToken: graphToken,
-      });
-
-      toast.success(`Workflow created successfully for ${mailbox.display_name}`);
-      await loadData(); // Refresh the data
+      // Process emails through the workflow engine
+      const result = await emailWorkflowEngine.processEmailBatch(emails);
+      
+      toast.success(`Processed ${result.processed} emails successfully${result.failed > 0 ? `, ${result.failed} failed` : ''}`);
+      
+      await loadData(); // Refresh data
 
     } catch (error) {
-      console.error('Error cloning workflow:', error);
-      toast.error(`Failed to create workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error processing emails:', error);
+      toast.error('Failed to process emails');
     } finally {
       setActionLoading(null);
     }
   };
 
-  const toggleWorkflow = async (bindingId: string, isActive: boolean) => {
+  const toggleRuleStatus = async (ruleId: string, isActive: boolean) => {
     try {
-      setActionLoading(bindingId);
-
-      const binding = bindings.find(b => b.id === bindingId);
-      if (!binding) throw new Error('Binding not found');
-
-      // Toggle the workflow in N8N
-      if (isActive) {
-        await workflowCloner.deactivateWorkflow(binding.n8n_workflow_id);
-      } else {
-        await workflowCloner.activateWorkflow(binding.n8n_workflow_id);
-      }
-
-      // Update the binding in the database
       const { error } = await supabase
-        .from('n8n_bindings')
-        .update({ 
-          is_active: !isActive,
-          last_synced_at: new Date().toISOString()
-        })
-        .eq('id', bindingId);
+        .from('workflow_rules')
+        .update({ is_active: isActive })
+        .eq('id', ruleId);
 
       if (error) throw error;
 
-      toast.success(`Workflow ${!isActive ? 'activated' : 'deactivated'} successfully`);
-      await loadData(); // Refresh the data
+      toast.success(`Workflow rule ${isActive ? 'enabled' : 'disabled'}`);
+      await loadData();
 
     } catch (error) {
-      console.error('Error toggling workflow:', error);
-      toast.error(`Failed to ${!isActive ? 'activate' : 'deactivate'} workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setActionLoading(null);
+      console.error('Error updating rule status:', error);
+      toast.error('Failed to update rule status');
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'connected':
+        return <Badge variant="default" className="bg-status-success text-white">Connected</Badge>;
+      case 'paused':
+        return <Badge variant="secondary">Paused</Badge>;
+      case 'error':
+        return <Badge variant="destructive">Error</Badge>;
+      case 'pending':
+        return <Badge variant="outline">Pending</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getExecutionBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge variant="default" className="bg-status-success text-white">Completed</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">Failed</Badge>;
+      case 'pending':
+        return <Badge variant="outline">Pending</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
@@ -156,20 +181,21 @@ export default function WorkflowManagement() {
     window.location.href = "/auth";
   };
 
+  if (!user) {
+    window.location.href = "/auth";
+    return null;
+  }
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <p className="mt-2 text-muted-foreground">Loading workflows...</p>
+          <p className="mt-2 text-muted-foreground">Loading workflow data...</p>
         </div>
       </div>
     );
   }
-
-  const mailboxesWithoutWorkflows = mailboxes.filter(m => 
-    m.status === 'connected' && !bindings.some(b => b.mailbox_id === m.id)
-  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -191,6 +217,9 @@ export default function WorkflowManagement() {
                 <Link to="/workflows" className="text-foreground font-medium">
                   Workflows
                 </Link>
+                <Link to="/workflow-rules" className="text-muted-foreground hover:text-foreground">
+                  Rules
+                </Link>
                 <Link to="/settings" className="text-muted-foreground hover:text-foreground">
                   Settings
                 </Link>
@@ -199,7 +228,7 @@ export default function WorkflowManagement() {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Welcome, {user?.email}</span>
+                <span className="text-sm text-muted-foreground">Welcome, {user.email}</span>
               </div>
               <Button onClick={handleSignOut} variant="ghost" size="sm" className="gap-2">
                 <LogOut className="h-4 w-4" />
@@ -211,134 +240,225 @@ export default function WorkflowManagement() {
       </header>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Settings className="h-6 w-6" />
-            Workflow Management
-          </h1>
-          <p className="text-muted-foreground">
-            Manage N8N workflows for your connected mailboxes
-          </p>
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">Workflow Management</h1>
+            <p className="text-muted-foreground mt-2">
+              Monitor and manage your email automation workflows
+            </p>
+          </div>
+          <Button asChild variant="premium" className="gap-2">
+            <Link to="/workflow-rules">
+              <Plus className="h-4 w-4" />
+              Create Rule
+            </Link>
+          </Button>
         </div>
 
         <div className="grid gap-6">
-          {/* Mailboxes without workflows */}
-          {mailboxesWithoutWorkflows.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-orange-500" />
-                  Mailboxes Pending Workflow Setup
-                </CardTitle>
-                <CardDescription>
-                  These mailboxes need workflows to be cloned and configured
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mailboxesWithoutWorkflows.map((mailbox) => (
-                    <div key={mailbox.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <h3 className="font-medium">{mailbox.display_name}</h3>
-                        <p className="text-sm text-muted-foreground">{mailbox.email_address}</p>
-                      </div>
-                      <Button
-                        onClick={() => cloneWorkflowForMailbox(mailbox.id)}
-                        disabled={actionLoading === mailbox.id}
-                        className="flex items-center gap-2"
-                      >
-                        {actionLoading === mailbox.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                        {actionLoading === mailbox.id ? 'Creating...' : 'Create Workflow'}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Active workflows */}
+          {/* Mailboxes Section */}
           <Card>
             <CardHeader>
-              <CardTitle>Active Workflows</CardTitle>
+              <CardTitle>Connected Mailboxes</CardTitle>
               <CardDescription>
-                Manage and monitor your mailbox workflows
+                Process emails through automated workflows for each mailbox
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {bindings.length === 0 ? (
+              {mailboxes.length === 0 ? (
                 <div className="text-center py-8">
-                  <Settings className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h3 className="mt-4 text-lg font-medium">No workflows configured</h3>
-                  <p className="mt-2 text-muted-foreground">
-                    Connect a mailbox and create a workflow to get started
-                  </p>
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No mailboxes connected</p>
+                  <Button asChild variant="premium" size="sm" className="mt-4">
+                    <Link to="/add-mailbox">Connect Mailbox</Link>
+                  </Button>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Mailbox</TableHead>
-                      <TableHead>Workflow Name</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Last Sync</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bindings.map((binding) => {
-                      const mailbox = mailboxes.find(m => m.id === binding.mailbox_id);
-                      return (
-                        <TableRow key={binding.id}>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{mailbox?.display_name || 'Unknown'}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {mailbox?.email_address || 'Unknown'}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="font-medium">{binding.workflow_name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              ID: {binding.n8n_workflow_id}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={binding.is_active ? 'default' : 'secondary'}>
-                              {binding.is_active ? 'Active' : 'Paused'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {binding.last_synced_at ? (
-                              <div className="text-sm">
-                                {new Date(binding.last_synced_at).toLocaleString()}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">Never</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={binding.is_active}
-                                onCheckedChange={() => toggleWorkflow(binding.id, binding.is_active)}
-                                disabled={actionLoading === binding.id}
-                              />
+                    {mailboxes.map((mailbox) => (
+                      <TableRow key={mailbox.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{mailbox.display_name}</div>
+                            <div className="text-sm text-muted-foreground">{mailbox.email_address}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(mailbox.status)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {mailbox.status === 'connected' && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => window.open(`https://agent.lyfeai.com.au/workflow/${binding.n8n_workflow_id}`, '_blank')}
-                                className="flex items-center gap-1"
+                                onClick={() => processEmailsForMailbox(mailbox.id)}
+                                disabled={actionLoading === mailbox.id}
+                                className="gap-1"
                               >
-                                <ExternalLink className="h-3 w-3" />
-                                Open in N8N
+                                {actionLoading === mailbox.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Play className="h-3 w-3" />
+                                )}
+                                Process Emails
                               </Button>
+                            )}
+                            <Link to={`/mailbox/${mailbox.id}/settings`}>
+                              <Button variant="outline" size="sm" className="gap-1">
+                                <Settings className="h-3 w-3" />
+                                Settings
+                              </Button>
+                            </Link>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Active Workflow Rules */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Workflow Rules</CardTitle>
+              <CardDescription>
+                Manage your automated email processing rules
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {rules.length === 0 ? (
+                <div className="text-center py-8">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No workflow rules created</p>
+                  <Button asChild variant="premium" size="sm" className="mt-4">
+                    <Link to="/workflow-rules">Create Rule</Link>
+                  </Button>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rule Name</TableHead>
+                      <TableHead>Mailbox</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rules.map((rule) => {
+                      const targetMailbox = rule.mailbox_id 
+                        ? mailboxes.find(m => m.id === rule.mailbox_id)
+                        : null;
+                      
+                      return (
+                        <TableRow key={rule.id}>
+                          <TableCell>
+                            <div className="font-medium">{rule.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {rule.conditions.length} conditions, {rule.actions.length} actions
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {targetMailbox ? targetMailbox.display_name : 'All Mailboxes'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{rule.priority}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Switch
+                              checked={rule.is_active}
+                              onCheckedChange={(checked) => toggleRuleStatus(rule.id, checked)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Link to="/workflow-rules">
+                              <Button variant="outline" size="sm" className="gap-1">
+                                <Settings className="h-3 w-3" />
+                                Edit
+                              </Button>
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Workflow Executions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Workflow Executions</CardTitle>
+              <CardDescription>
+                View the latest automated email processing activities
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {executions.length === 0 ? (
+                <div className="text-center py-8">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No workflow executions yet</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Email ID</TableHead>
+                      <TableHead>Rule</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions Taken</TableHead>
+                      <TableHead>Execution Time</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {executions.slice(0, 10).map((execution) => {
+                      const rule = execution.rule_id 
+                        ? rules.find(r => r.id === execution.rule_id)
+                        : null;
+                      
+                      return (
+                        <TableRow key={execution.id}>
+                          <TableCell>
+                            <code className="text-xs">{execution.email_id.slice(0, 8)}...</code>
+                          </TableCell>
+                          <TableCell>
+                            {rule ? rule.name : 'No rule matched'}
+                          </TableCell>
+                          <TableCell>
+                            {getExecutionBadge(execution.execution_status)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {execution.actions_taken.length > 0 
+                                ? `${execution.actions_taken.length} actions`
+                                : 'No actions'
+                              }
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-muted-foreground">
+                              {execution.execution_time_ms}ms
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-muted-foreground">
+                              {new Date(execution.created_at).toLocaleString()}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -350,7 +470,7 @@ export default function WorkflowManagement() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
