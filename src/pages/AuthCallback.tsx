@@ -35,29 +35,35 @@ export default function AuthCallback() {
 
         setMessage("Checking authentication...");
 
-        // Wait for auth session to be available with retries
-        let sessionAttempts = 0;
+        // Try to get existing session first
         let currentSession = null;
+        const { data: sessionData } = await supabase.auth.getSession();
         
-        while (sessionAttempts < 10 && !currentSession) {
-          console.log(`Session attempt ${sessionAttempts + 1}`);
-          const { data: sessionData } = await supabase.auth.getSession();
-          if (sessionData?.session?.access_token) {
-            currentSession = sessionData.session;
-            break;
+        if (sessionData?.session?.access_token) {
+          currentSession = sessionData.session;
+          console.log("Found existing session");
+        } else {
+          console.log("No existing session, trying to refresh...");
+          
+          // Try to refresh the session
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (refreshData?.session?.access_token) {
+            currentSession = refreshData.session;
+            console.log("Session refreshed successfully");
+          } else {
+            console.error("Session refresh failed:", refreshError);
+            
+            // If no session available, redirect to login but preserve the OAuth state
+            const currentUrl = window.location.href;
+            localStorage.setItem('oauth_callback_url', currentUrl);
+            
+            setStatus("error");
+            setMessage("Session expired. Please log in and try connecting your mailbox again.");
+            toast.error("Session expired - please log in again");
+            setTimeout(() => navigate("/auth"), 3000);
+            return;
           }
-          // Wait 500ms before retrying
-          await new Promise(resolve => setTimeout(resolve, 500));
-          sessionAttempts++;
-        }
-
-        if (!currentSession) {
-          console.error("No valid session found after retries");
-          setStatus("error");
-          setMessage("Authentication session not available. Please log in first.");
-          toast.error("Please log in first");
-          setTimeout(() => navigate("/auth"), 3000);
-          return;
         }
 
         console.log("Valid session found, proceeding with token exchange");
