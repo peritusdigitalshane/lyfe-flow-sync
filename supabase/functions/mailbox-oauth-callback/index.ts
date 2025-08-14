@@ -78,10 +78,17 @@ serve(async (req) => {
 
     // Get user from Authorization header
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
+    
     if (!authHeader) {
+      console.error('Authorization header missing');
       return new Response(
-        JSON.stringify({ error: 'Authorization header missing' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Authorization header missing',
+          details: 'Please ensure you are logged in'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -91,8 +98,12 @@ serve(async (req) => {
     if (userError || !user) {
       console.error('User authentication failed:', userError);
       return new Response(
-        JSON.stringify({ error: 'Authentication failed' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Authentication failed',
+          details: userError?.message || 'Invalid or expired session'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -115,13 +126,34 @@ serve(async (req) => {
     const tenantId = profile.tenant_id;
     console.log('Tenant ID:', tenantId);
 
-    const { code, redirectUri } = await req.json();
+    // Parse request body
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Invalid request body',
+          details: 'Request body must be valid JSON'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { code, redirectUri } = requestBody;
     console.log('Received OAuth callback:', { code: code ? 'present' : 'missing', redirectUri });
 
     if (!code) {
+      console.error('Authorization code missing');
       return new Response(
-        JSON.stringify({ error: 'Authorization code missing' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Authorization code missing',
+          details: 'No authorization code provided in the request'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -288,8 +320,12 @@ serve(async (req) => {
   } catch (error) {
     console.error('OAuth callback error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        success: false,
+        error: 'Internal server error',
+        details: error.message || 'An unexpected error occurred'
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
