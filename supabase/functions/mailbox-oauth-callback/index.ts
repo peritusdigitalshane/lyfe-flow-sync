@@ -256,8 +256,29 @@ serve(async (req) => {
       hasAccessToken: !!tokenData.access_token,
       hasRefreshToken: !!tokenData.refresh_token,
       tokenType: tokenData.token_type,
-      expiresIn: tokenData.expires_in
+      expiresIn: tokenData.expires_in,
+      scope: tokenData.scope || 'no scope field',
+      tokenLength: tokenData.access_token ? tokenData.access_token.length : 0
     });
+
+    // Decode the access token to see what permissions we actually have
+    try {
+      const tokenParts = tokenData.access_token.split('.');
+      if (tokenParts.length === 3) {
+        const payload = JSON.parse(atob(tokenParts[1]));
+        console.log('Access token payload:', {
+          aud: payload.aud,
+          iss: payload.iss,
+          scp: payload.scp || 'no scp field',
+          roles: payload.roles || 'no roles field',
+          appId: payload.appid || payload.azp,
+          tid: payload.tid,
+          oid: payload.oid
+        });
+      }
+    } catch (e) {
+      console.log('Could not decode access token:', e.message);
+    }
 
     // Get user info from Microsoft Graph
     console.log('Fetching user information from Microsoft Graph...');
