@@ -39,6 +39,7 @@ export default function WorkflowRules() {
     is_active: true,
     priority: 1
   });
+  const [editingRuleData, setEditingRuleData] = useState<Partial<WorkflowRule>>({});
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -429,15 +430,18 @@ export default function WorkflowRules() {
                       checked={rule.is_active}
                       onCheckedChange={(checked) => toggleRuleStatus(rule.id, checked)}
                     />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingRule(rule.id)}
-                      className="gap-1"
-                    >
-                      <Edit className="h-3 w-3" />
-                      Edit
-                    </Button>
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => {
+                         setEditingRule(rule.id);
+                         setEditingRuleData(rule);
+                       }}
+                       className="gap-1"
+                     >
+                       <Edit className="h-3 w-3" />
+                       Edit
+                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -449,9 +453,74 @@ export default function WorkflowRules() {
                     </Button>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+               </CardHeader>
+               <CardContent>
+                 {editingRule === rule.id ? (
+                   <div className="space-y-6">
+                     <div className="grid grid-cols-2 gap-4">
+                       <div>
+                         <Label htmlFor={`edit-rule-name-${rule.id}`}>Rule Name</Label>
+                         <Input
+                           id={`edit-rule-name-${rule.id}`}
+                           value={editingRuleData.name || ''}
+                           onChange={(e) => setEditingRuleData({ ...editingRuleData, name: e.target.value })}
+                           placeholder="Enter rule name"
+                         />
+                       </div>
+                       <div>
+                         <Label htmlFor={`edit-rule-priority-${rule.id}`}>Priority</Label>
+                         <Input
+                           id={`edit-rule-priority-${rule.id}`}
+                           type="number"
+                           value={editingRuleData.priority || 1}
+                           onChange={(e) => setEditingRuleData({ ...editingRuleData, priority: parseInt(e.target.value) })}
+                           min="1"
+                           max="100"
+                         />
+                       </div>
+                     </div>
+
+                     <div>
+                       <Label>Apply to Mailbox</Label>
+                       <Select 
+                         value={editingRuleData.mailbox_id || 'all'} 
+                         onValueChange={(value) => setEditingRuleData({ ...editingRuleData, mailbox_id: value === 'all' ? undefined : value })}
+                       >
+                         <SelectTrigger>
+                           <SelectValue placeholder="Select mailbox or apply to all" />
+                         </SelectTrigger>
+                         <SelectContent>
+                           <SelectItem value="all">All Mailboxes</SelectItem>
+                           {mailboxes.map((mailbox) => (
+                             <SelectItem key={mailbox.id} value={mailbox.id}>
+                               {mailbox.display_name} ({mailbox.email_address})
+                             </SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                     </div>
+
+                     <div className="flex items-center space-x-2">
+                       <Switch
+                         checked={editingRuleData.is_active || false}
+                         onCheckedChange={(checked) => setEditingRuleData({ ...editingRuleData, is_active: checked })}
+                       />
+                       <Label>Active</Label>
+                     </div>
+
+                     <div className="flex gap-2">
+                       <Button onClick={() => saveRule(editingRuleData)} className="gap-2">
+                         <Save className="h-4 w-4" />
+                         Save Changes
+                       </Button>
+                       <Button onClick={() => setEditingRule(null)} variant="outline" className="gap-2">
+                         <X className="h-4 w-4" />
+                         Cancel
+                       </Button>
+                     </div>
+                   </div>
+                 ) : (
+                   <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium">Conditions ({rule.conditions.length})</Label>
                     <div className="mt-2 space-y-1">
@@ -480,10 +549,11 @@ export default function WorkflowRules() {
                           ... and {rule.actions.length - 3} more
                         </div>
                       )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
+                     </div>
+                   </div>
+                 </div>
+                 )}
+               </CardContent>
             </Card>
           ))}
           
