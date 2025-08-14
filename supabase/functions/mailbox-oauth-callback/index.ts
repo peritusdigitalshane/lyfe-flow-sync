@@ -125,10 +125,25 @@ serve(async (req) => {
       );
     }
 
-    // Get environment variables
-    const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
-    const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET');
-    const tenantIdEnv = Deno.env.get('MICROSOFT_TENANT_ID') || 'common';
+    // Get Microsoft OAuth settings from database
+    const { data: oauthConfig } = await supabaseClient
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'microsoft_oauth')
+      .single();
+
+    if (!oauthConfig?.value) {
+      console.error('Microsoft OAuth settings not found');
+      return new Response(
+        JSON.stringify({ error: 'Microsoft OAuth not configured. Please configure the settings first.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const config = oauthConfig.value as any;
+    const clientId = config.client_id;
+    const clientSecret = config.client_secret;
+    const tenantIdEnv = config.tenant_id || 'common';
 
     if (!clientId || !clientSecret) {
       console.error('Microsoft credentials not configured');

@@ -126,6 +126,12 @@ export default function Dashboard() {
             <span className="text-sm text-muted-foreground">
               Welcome, {user.email}
             </span>
+            <Link to="/settings">
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </Button>
+            </Link>
             <Button variant="outline" onClick={signOut}>
               Sign Out
             </Button>

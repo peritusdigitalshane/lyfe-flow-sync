@@ -292,20 +292,39 @@ serve(async (req) => {
       const { emailAddress, displayName, preset } = body;
       console.log('Creating mailbox:', { emailAddress, displayName, preset });
 
-      // For now, create a mock credential ID and OAuth URL for testing
-      // TODO: Replace with actual n8n integration once environment variables are configured
-      const mockCredentialId = `mock-${Date.now()}`;
-      const mockOAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=mock&response_type=code&redirect_uri=${encodeURIComponent(
-        `${req.headers.get('origin')}/auth/callback`
-      )}&scope=openid%20profile%20email%20Mail.ReadWrite`;
+      // Get Microsoft OAuth settings from database
+      const { data: oauthConfig } = await supabaseClient
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'microsoft_oauth')
+        .single();
 
-      // Skip n8n calls for now
-      // const credentialResponse = await n8nClient.createCredential(...)
-      // if (credentialResponse.error) { ... }
-      
-      const credentialId = mockCredentialId;
+      let authUrl = "";
+      if (oauthConfig?.value) {
+        const config = oauthConfig.value as any;
+        if (config.client_id && config.client_secret) {
+          authUrl = `https://login.microsoftonline.com/${config.tenant_id || 'common'}/oauth2/v2.0/authorize?` +
+            `client_id=${encodeURIComponent(config.client_id)}&` +
+            `response_type=code&` +
+            `redirect_uri=${encodeURIComponent(`${req.headers.get('origin')}/auth/callback`)}&` +
+            `scope=openid%20profile%20email%20Mail.ReadWrite%20offline_access`;
+        } else {
+          console.log('Microsoft OAuth not configured, using mock URL');
+          authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=mock&response_type=code&redirect_uri=${encodeURIComponent(
+            `${req.headers.get('origin')}/auth/callback`
+          )}&scope=openid%20profile%20email%20Mail.ReadWrite`;
+        }
+      } else {
+        console.log('No OAuth config found, using mock URL');
+        authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=mock&response_type=code&redirect_uri=${encodeURIComponent(
+          `${req.headers.get('origin')}/auth/callback`
+        )}&scope=openid%20profile%20email%20Mail.ReadWrite`;
+      }
 
-      // Create mailbox in database
+      // Create mailbox record
+      const credentialId = `cred-${Date.now()}`;
+
+      // Create mailbox record
       const { data: mailbox, error: dbError } = await supabaseClient
         .from('mailboxes')
         .insert({
@@ -313,8 +332,8 @@ serve(async (req) => {
           user_id: user.id,
           email_address: emailAddress,
           display_name: displayName,
-          status: 'pending',
           n8n_credential_id: credentialId,
+          status: 'pending',
         })
         .select()
         .single();
@@ -325,12 +344,6 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      // Mock OAuth URL for testing
-      // const oauthResponse = await n8nClient.getCredentialOAuthUrl(credentialId);
-      // if (oauthResponse.error) { ... }
-      
-      const authUrl = mockOAuthUrl;
 
       await logAudit(supabaseClient, tenantId, 'mailbox_created', {
         mailbox_id: mailbox.id,
