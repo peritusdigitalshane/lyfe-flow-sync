@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { Activity, Settings, Play, Pause, Trash2, Plus, User, LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { Mail, Plus, Settings, Activity, Pause, Play, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface Mailbox {
   id: string;
@@ -18,15 +18,32 @@ interface Mailbox {
 }
 
 export default function Dashboard() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
+  const { toast } = useToast();
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (!authLoading && user) {
       fetchMailboxes();
     }
-  }, [user]);
+  }, [user, authLoading]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="mt-2 text-muted-foreground">Loading application...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    window.location.href = "/auth";
+    return null;
+  }
 
   const fetchMailboxes = async () => {
     try {
@@ -35,166 +52,216 @@ export default function Dashboard() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching mailboxes:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load mailboxes",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setMailboxes(data || []);
     } catch (error) {
-      console.error("Error fetching mailboxes:", error);
-      toast.error("Failed to load mailboxes");
+      console.error("Error:", error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   const toggleMailboxState = async (mailboxId: string, currentStatus: string) => {
     try {
-      const newStatus = currentStatus === "paused" ? "connected" : "paused";
-      const session = await supabase.auth.getSession();
+      const newStatus = currentStatus === "connected" ? "paused" : "connected";
       
-      const response = await fetch(`/supabase/functions/v1/mailbox-api/${mailboxId}/state`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.data.session?.access_token}`,
-        },
-        body: JSON.stringify({ action: newStatus === "paused" ? "pause" : "resume" }),
+      const { error } = await supabase
+        .from("mailboxes")
+        .update({ status: newStatus })
+        .eq("id", mailboxId);
+
+      if (error) {
+        console.error("Error toggling mailbox:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update mailbox status",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await fetchMailboxes();
+      toast({
+        title: "Success",
+        description: `Mailbox ${newStatus === "connected" ? "resumed" : "paused"} successfully`,
       });
-
-      if (!response.ok) throw new Error("Failed to toggle mailbox state");
-
-      setMailboxes(prev => 
-        prev.map(mb => 
-          mb.id === mailboxId ? { ...mb, status: newStatus as any } : mb
-        )
-      );
-      
-      toast.success(`Mailbox ${newStatus === "paused" ? "paused" : "resumed"}`);
     } catch (error) {
-      toast.error("Failed to toggle mailbox state");
+      console.error("Error:", error);
     }
   };
 
   const deleteMailbox = async (mailboxId: string) => {
+    if (!confirm("Are you sure you want to delete this mailbox?")) return;
+
     try {
       const { error } = await supabase
         .from("mailboxes")
         .delete()
         .eq("id", mailboxId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error deleting mailbox:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete mailbox",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      setMailboxes(prev => prev.filter(mb => mb.id !== mailboxId));
-      toast.success("Mailbox deleted successfully");
+      await fetchMailboxes();
+      toast({
+        title: "Success",
+        description: "Mailbox deleted successfully",
+      });
     } catch (error) {
-      console.error("Error deleting mailbox:", error);
-      toast.error("Failed to delete mailbox");
+      console.error("Error:", error);
     }
   };
 
-  if (loading || isLoading) {
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "connected":
+        return <Badge variant="default" className="bg-status-success text-white">Connected</Badge>;
+      case "paused":
+        return <Badge variant="secondary">Paused</Badge>;
+      case "error":
+        return <Badge variant="destructive">Error</Badge>;
+      case "pending":
+        return <Badge variant="outline">Pending</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    window.location.href = "/auth";
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="mt-2 text-muted-foreground">Loading mailboxes...</p>
+        </div>
       </div>
     );
   }
 
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      pending: "outline",
-      connected: "default",
-      error: "destructive",
-      paused: "secondary",
-    };
-
-    return (
-      <Badge variant={variants[status] || "outline"}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </Badge>
-    );
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      <header className="border-b bg-background/80 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Lyfe Email Management</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              Welcome, {user.email}
-            </span>
-            <Link to="/settings">
-              <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-border bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-primary rounded-lg shadow-glow-primary"></div>
+                <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                  Lyfe Email Management
+                </h1>
+              </div>
+              <nav className="hidden md:flex items-center space-x-6">
+                <Link to="/dashboard" className="text-foreground font-medium">
+                  Dashboard
+                </Link>
+                <Link to="/workflows" className="text-muted-foreground hover:text-foreground">
+                  Workflows
+                </Link>
+                <Link to="/settings" className="text-muted-foreground hover:text-foreground">
+                  Settings
+                </Link>
+              </nav>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Welcome, {user.email}</span>
+              </div>
+              <Button onClick={handleSignOut} variant="ghost" size="sm" className="gap-2">
+                <LogOut className="h-4 w-4" />
+                Sign Out
               </Button>
-            </Link>
-            <Button variant="outline" onClick={signOut}>
-              Sign Out
-            </Button>
+            </div>
           </div>
         </div>
       </header>
 
+      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold mb-2">Your Mailboxes</h2>
-            <p className="text-muted-foreground">
-              Manage your connected email accounts and automation workflows
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground mt-2">
+              Manage your connected mailboxes and monitor email automation workflows
             </p>
           </div>
-          <Link to="/add-mailbox">
-            <Button className="gap-2">
+          <Button asChild variant="premium" className="gap-2">
+            <Link to="/add-mailbox">
               <Plus className="h-4 w-4" />
               Add Mailbox
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
 
         {mailboxes.length === 0 ? (
-          <Card className="text-center py-12">
-            <CardContent>
-              <Mail className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">No mailboxes connected</h3>
-              <p className="text-muted-foreground mb-4">
-                Get started by connecting your first email account
+          <Card>
+            <CardContent className="text-center py-12">
+              <div className="w-16 h-16 bg-gradient-primary rounded-full mx-auto mb-4 flex items-center justify-center">
+                <Plus className="h-8 w-8 text-primary-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">No mailboxes connected</h3>
+              <p className="text-muted-foreground mb-6">
+                Get started by connecting your first mailbox to begin email automation
               </p>
-              <Link to="/add-mailbox">
-                <Button>Add Your First Mailbox</Button>
-              </Link>
+              <Button asChild variant="premium" size="lg" className="gap-2">
+                <Link to="/add-mailbox">
+                  <Plus className="h-5 w-5" />
+                  Connect Your First Mailbox
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {mailboxes.map((mailbox) => (
-              <Card key={mailbox.id} className="hover:shadow-md transition-shadow">
+              <Card key={mailbox.id} className="card-neon">
                 <CardHeader>
-                  <div className="flex justify-between items-start">
+                  <div className="flex items-start justify-between">
                     <div>
                       <CardTitle className="text-lg">{mailbox.display_name}</CardTitle>
-                      <CardDescription>{mailbox.email_address}</CardDescription>
+                      <CardDescription className="mt-1">
+                        {mailbox.email_address}
+                      </CardDescription>
                     </div>
                     {getStatusBadge(mailbox.status)}
                   </div>
                 </CardHeader>
                 <CardContent>
                   {mailbox.error_message && (
-                    <div className="text-sm text-destructive mb-4 p-2 bg-destructive/10 rounded">
-                      {mailbox.error_message}
+                    <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                      <p className="text-sm text-destructive">{mailbox.error_message}</p>
                     </div>
                   )}
                   
                   {mailbox.last_sync_at && (
-                    <p className="text-xs text-muted-foreground mb-4">
+                    <div className="mb-4 text-sm text-muted-foreground">
                       Last sync: {new Date(mailbox.last_sync_at).toLocaleString()}
-                    </p>
+                    </div>
                   )}
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Link to={`/mailbox/${mailbox.id}/settings`}>
                       <Button variant="outline" size="sm" className="gap-1">
                         <Settings className="h-3 w-3" />

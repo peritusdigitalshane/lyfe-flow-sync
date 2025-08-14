@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { api } from '@/lib/api';
+import { workflowCloner } from '@/lib/n8nWorkflowCloner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, Play, Pause, Copy, Settings } from 'lucide-react';
+import { AlertCircle, Play, Pause, Copy, Settings, ExternalLink, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface N8NBinding {
@@ -26,6 +26,8 @@ interface Mailbox {
   display_name: string;
   status: 'pending' | 'connected' | 'error' | 'paused';
   n8n_workflow_id: string | null;
+  n8n_credential_id: string | null;
+  microsoft_graph_token: string | null;
 }
 
 export default function WorkflowManagement() {
@@ -76,13 +78,9 @@ export default function WorkflowManagement() {
       const mailbox = mailboxes.find(m => m.id === mailboxId);
       if (!mailbox) throw new Error('Mailbox not found');
 
-      // Create a new workflow by cloning the master template
-      const workflowName = `${mailbox.display_name} - Email Security`;
-      
-      // This would call your N8N API to clone a master workflow
-      // For now, we'll simulate creating a workflow
-      const mockWorkflowId = `workflow_${Date.now()}`;
-      const mockCredentialId = `cred_${Date.now()}`;
+      if (!mailbox.microsoft_graph_token) {
+        throw new Error('Microsoft Graph token not found for this mailbox');
+      }
 
       // Get tenant_id for the binding
       const { data: profile } = await supabase
@@ -93,36 +91,24 @@ export default function WorkflowManagement() {
 
       if (!profile) throw new Error('Profile not found');
 
-      // Create n8n binding record
-      const { error: bindingError } = await supabase
-        .from('n8n_bindings')
-        .insert({
-          mailbox_id: mailboxId,
-          n8n_workflow_id: mockWorkflowId,
-          n8n_credential_id: mockCredentialId,
-          workflow_name: workflowName,
-          tenant_id: profile.tenant_id,
-          is_active: true
-        });
+      // Parse Microsoft Graph token
+      const graphToken = JSON.parse(mailbox.microsoft_graph_token);
 
-      if (bindingError) throw bindingError;
+      // Use the N8N workflow cloner to create the workflow
+      await workflowCloner.cloneWorkflowForMailbox({
+        mailboxId: mailbox.id,
+        emailAddress: mailbox.email_address,
+        displayName: mailbox.display_name,
+        tenantId: profile.tenant_id,
+        microsoftGraphToken: graphToken,
+      });
 
-      // Update mailbox with workflow ID
-      const { error: updateError } = await supabase
-        .from('mailboxes')
-        .update({ 
-          n8n_workflow_id: mockWorkflowId,
-          n8n_credential_id: mockCredentialId
-        })
-        .eq('id', mailboxId);
+      toast.success(`Workflow created successfully for ${mailbox.display_name}`);
+      await loadData(); // Refresh the data
 
-      if (updateError) throw updateError;
-
-      toast.success('Workflow cloned successfully');
-      await loadData();
     } catch (error) {
       console.error('Error cloning workflow:', error);
-      toast.error('Failed to clone workflow');
+      toast.error(`Failed to create workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setActionLoading(null);
     }
@@ -135,26 +121,30 @@ export default function WorkflowManagement() {
       const binding = bindings.find(b => b.id === bindingId);
       if (!binding) throw new Error('Binding not found');
 
-      // Update binding status
-      const { error: updateError } = await supabase
-        .from('n8n_bindings')
-        .update({ is_active: !isActive })
-        .eq('id', bindingId);
-
-      if (updateError) throw updateError;
-
-      // Call N8N API to activate/deactivate workflow
+      // Toggle the workflow in N8N
       if (isActive) {
-        await api.updateMailboxState(binding.mailbox_id, 'pause');
+        await workflowCloner.deactivateWorkflow(binding.n8n_workflow_id);
       } else {
-        await api.updateMailboxState(binding.mailbox_id, 'resume');
+        await workflowCloner.activateWorkflow(binding.n8n_workflow_id);
       }
 
-      toast.success(`Workflow ${isActive ? 'paused' : 'activated'} successfully`);
-      await loadData();
+      // Update the binding in the database
+      const { error } = await supabase
+        .from('n8n_bindings')
+        .update({ 
+          is_active: !isActive,
+          last_synced_at: new Date().toISOString()
+        })
+        .eq('id', bindingId);
+
+      if (error) throw error;
+
+      toast.success(`Workflow ${!isActive ? 'activated' : 'deactivated'} successfully`);
+      await loadData(); // Refresh the data
+
     } catch (error) {
       console.error('Error toggling workflow:', error);
-      toast.error('Failed to update workflow status');
+      toast.error(`Failed to ${!isActive ? 'activate' : 'deactivate'} workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setActionLoading(null);
     }
@@ -164,7 +154,7 @@ export default function WorkflowManagement() {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
           <p className="mt-2 text-muted-foreground">Loading workflows...</p>
         </div>
       </div>
@@ -213,8 +203,12 @@ export default function WorkflowManagement() {
                       disabled={actionLoading === mailbox.id}
                       className="flex items-center gap-2"
                     >
-                      <Copy className="h-4 w-4" />
-                      {actionLoading === mailbox.id ? 'Cloning...' : 'Clone Workflow'}
+                      {actionLoading === mailbox.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                      {actionLoading === mailbox.id ? 'Creating...' : 'Create Workflow'}
                     </Button>
                   </div>
                 ))}
@@ -237,7 +231,7 @@ export default function WorkflowManagement() {
                 <Settings className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-medium">No workflows configured</h3>
                 <p className="mt-2 text-muted-foreground">
-                  Connect a mailbox and clone a workflow to get started
+                  Connect a mailbox and create a workflow to get started
                 </p>
               </div>
             ) : (
@@ -295,7 +289,9 @@ export default function WorkflowManagement() {
                               variant="outline"
                               size="sm"
                               onClick={() => window.open(`https://agent.lyfeai.com.au/workflow/${binding.n8n_workflow_id}`, '_blank')}
+                              className="flex items-center gap-1"
                             >
+                              <ExternalLink className="h-3 w-3" />
                               Open in N8N
                             </Button>
                           </div>
