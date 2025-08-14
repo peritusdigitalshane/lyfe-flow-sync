@@ -88,6 +88,17 @@ export default function Settings() {
     try {
       setLoading(true);
       
+      // Check super admin status first
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user?.id)
+        .eq("role", "super_admin")
+        .single();
+
+      const isAdmin = !roleError && !!roleData;
+      setIsSuperAdmin(isAdmin);
+      
       // Load email settings
       const { data: emailData, error: emailError } = await supabase
         .from("app_settings")
@@ -109,7 +120,7 @@ export default function Settings() {
       }
 
       // Load Microsoft OAuth settings (super admin only)
-      if (isSuperAdmin) {
+      if (isAdmin) {
         const { data: oauthData, error: oauthError } = await supabase
           .from("app_settings")
           .select("*")
@@ -410,19 +421,19 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="client-id">Client ID</Label>
-                    <Input
-                      id="client-id"
-                      type="text"
-                      value={oauthSettings.client_id}
-                      onChange={(e) => setOauthSettings({
-                        ...oauthSettings,
-                        client_id: e.target.value
-                      })}
-                      placeholder="Azure App Registration Client ID"
-                    />
-                  </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="client-id">Application ID (Client ID)</Label>
+                     <Input
+                       id="client-id"
+                       type="text"
+                       value={oauthSettings.client_id}
+                       onChange={(e) => setOauthSettings({
+                         ...oauthSettings,
+                         client_id: e.target.value
+                       })}
+                       placeholder="Azure App Registration Application ID"
+                     />
+                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="tenant-id">Tenant ID</Label>
@@ -439,34 +450,34 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="client-secret">Client Secret</Label>
-                  <div className="relative">
-                    <Input
-                      id="client-secret"
-                      type={showClientSecret ? "text" : "password"}
-                      value={oauthSettings.client_secret}
-                      onChange={(e) => setOauthSettings({
-                        ...oauthSettings,
-                        client_secret: e.target.value
-                      })}
-                      placeholder="Azure App Registration Client Secret"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowClientSecret(!showClientSecret)}
-                    >
-                      {showClientSecret ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
+                 <div className="space-y-2">
+                   <Label htmlFor="client-secret">Application Secret (Client Secret)</Label>
+                   <div className="relative">
+                     <Input
+                       id="client-secret"
+                       type={showClientSecret ? "text" : "password"}
+                       value={oauthSettings.client_secret}
+                       onChange={(e) => setOauthSettings({
+                         ...oauthSettings,
+                         client_secret: e.target.value
+                       })}
+                       placeholder="Azure App Registration Application Secret"
+                     />
+                     <Button
+                       type="button"
+                       variant="ghost"
+                       size="sm"
+                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                       onClick={() => setShowClientSecret(!showClientSecret)}
+                     >
+                       {showClientSecret ? (
+                         <EyeOff className="h-4 w-4" />
+                       ) : (
+                         <Eye className="h-4 w-4" />
+                       )}
+                     </Button>
+                   </div>
+                 </div>
 
                 <Button onClick={handleSaveOAuth} disabled={saving} className="gap-2">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
