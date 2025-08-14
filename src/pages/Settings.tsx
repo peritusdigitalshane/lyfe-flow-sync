@@ -226,6 +226,33 @@ export default function Settings() {
           </p>
         </div>
 
+        {/* Quick Actions Card */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>
+              Access frequently used configuration pages
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3">
+              <a href="/email-categories" className="block">
+                <Button variant="outline" className="w-full justify-start gap-3 h-auto p-4">
+                  <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
+                    <span className="text-sm">🏷️</span>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Email Categories & Classification</div>
+                    <div className="text-xs text-muted-foreground">
+                      Manage email categories and automatic classification rules
+                    </div>
+                  </div>
+                </Button>
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

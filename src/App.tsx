@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import AddMailbox from "./pages/AddMailbox";
 import MailboxSettings from "./pages/MailboxSettings";
 import MailboxActivity from "./pages/MailboxActivity";
+import EmailCategories from "./pages/EmailCategories";
 import WorkflowManagement from "./pages/WorkflowManagement";
 import AuthCallback from "./pages/AuthCallback";
 import Settings from "./pages/Settings";
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/mailbox/:mailboxId/settings" element={<MailboxSettings />} />
             <Route path="/mailbox/:mailboxId/activity" element={<MailboxActivity />} />
             <Route path="/workflows" element={<WorkflowManagement />} />
+            <Route path="/email-categories" element={<EmailCategories />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

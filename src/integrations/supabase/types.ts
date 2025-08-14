@@ -85,6 +85,150 @@ export type Database = {
           },
         ]
       }
+      email_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          priority: number | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          priority?: number | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          priority?: number | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_classification_rules: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          priority: number | null
+          rule_type: string
+          rule_value: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          priority?: number | null
+          rule_type: string
+          rule_value: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          priority?: number | null
+          rule_type?: string
+          rule_value?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_classification_rules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "email_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_classifications: {
+        Row: {
+          category_id: string
+          classification_method: string
+          confidence_score: number | null
+          created_at: string
+          email_id: string
+          id: string
+          mailbox_id: string
+          metadata: Json | null
+          rule_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          category_id: string
+          classification_method: string
+          confidence_score?: number | null
+          created_at?: string
+          email_id: string
+          id?: string
+          mailbox_id: string
+          metadata?: Json | null
+          rule_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          category_id?: string
+          classification_method?: string
+          confidence_score?: number | null
+          created_at?: string
+          email_id?: string
+          id?: string
+          mailbox_id?: string
+          metadata?: Json | null
+          rule_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_classifications_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "email_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_classifications_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_classifications_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "email_classification_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mailbox_configs: {
         Row: {
           config: Json
