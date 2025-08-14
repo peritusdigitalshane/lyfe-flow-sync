@@ -221,8 +221,11 @@ async function logAudit(
 }
 
 serve(async (req) => {
+  console.log('Edge function called:', req.method, req.url);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight');
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -240,6 +243,8 @@ serve(async (req) => {
     const url = new URL(req.url);
     const path = url.pathname;
     const method = req.method;
+    
+    console.log('Request details:', { path, method, url: req.url });
 
     // Get user from JWT (automatically handled by Supabase when verify_jwt = true)
     const authHeader = req.headers.get('Authorization');
@@ -276,12 +281,16 @@ serve(async (req) => {
     }
 
     const tenantId = profile.tenant_id;
+    console.log('User authenticated:', { userId: user.id, tenantId });
 
     // Route handling
+    console.log('Checking routes for:', path, method);
     if (path.includes('/mailbox-api') && method === 'POST') {
+      console.log('Matched mailbox creation route');
       // Create new mailbox
       const body = await req.json();
       const { emailAddress, displayName, preset } = body;
+      console.log('Creating mailbox:', { emailAddress, displayName, preset });
 
       // For now, create a mock credential ID and OAuth URL for testing
       // TODO: Replace with actual n8n integration once environment variables are configured
@@ -387,15 +396,16 @@ serve(async (req) => {
       );
     }
 
+    console.log('No route matched, returning 404');
     return new Response(
-      JSON.stringify({ error: 'Not found' }),
+      JSON.stringify({ error: 'Route not found', path, method }),
       { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Edge function error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
