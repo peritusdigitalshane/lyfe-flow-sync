@@ -229,6 +229,148 @@ export type Database = {
           },
         ]
       }
+      email_polling_status: {
+        Row: {
+          created_at: string
+          errors_count: number | null
+          id: string
+          is_polling_active: boolean | null
+          last_email_received_at: string | null
+          last_error_message: string | null
+          last_poll_at: string | null
+          last_successful_poll_at: string | null
+          mailbox_id: string
+          polling_interval_minutes: number | null
+          tenant_id: string
+          total_emails_processed: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          errors_count?: number | null
+          id?: string
+          is_polling_active?: boolean | null
+          last_email_received_at?: string | null
+          last_error_message?: string | null
+          last_poll_at?: string | null
+          last_successful_poll_at?: string | null
+          mailbox_id: string
+          polling_interval_minutes?: number | null
+          tenant_id: string
+          total_emails_processed?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          errors_count?: number | null
+          id?: string
+          is_polling_active?: boolean | null
+          last_email_received_at?: string | null
+          last_error_message?: string | null
+          last_poll_at?: string | null
+          last_successful_poll_at?: string | null
+          mailbox_id?: string
+          polling_interval_minutes?: number | null
+          tenant_id?: string
+          total_emails_processed?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_polling_status_mailbox"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emails: {
+        Row: {
+          body_content: string | null
+          body_preview: string | null
+          conversation_id: string | null
+          created_at: string
+          error_message: string | null
+          folder_id: string | null
+          folder_name: string | null
+          has_attachments: boolean | null
+          id: string
+          importance: string | null
+          internet_message_id: string | null
+          is_read: boolean | null
+          mailbox_id: string
+          microsoft_id: string
+          processed_at: string | null
+          processing_status: string | null
+          received_at: string
+          recipient_emails: string[] | null
+          sender_email: string
+          sender_name: string | null
+          subject: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          body_content?: string | null
+          body_preview?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          folder_id?: string | null
+          folder_name?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          importance?: string | null
+          internet_message_id?: string | null
+          is_read?: boolean | null
+          mailbox_id: string
+          microsoft_id: string
+          processed_at?: string | null
+          processing_status?: string | null
+          received_at: string
+          recipient_emails?: string[] | null
+          sender_email: string
+          sender_name?: string | null
+          subject: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          body_content?: string | null
+          body_preview?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          folder_id?: string | null
+          folder_name?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          importance?: string | null
+          internet_message_id?: string | null
+          is_read?: boolean | null
+          mailbox_id?: string
+          microsoft_id?: string
+          processed_at?: string | null
+          processing_status?: string | null
+          received_at?: string
+          recipient_emails?: string[] | null
+          sender_email?: string
+          sender_name?: string | null
+          subject?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_emails_mailbox"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mailbox_configs: {
         Row: {
           config: Json

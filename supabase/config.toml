@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.classify-email]
 verify_jwt = false
+
+[functions.email-poller]
+verify_jwt = false
