@@ -14,7 +14,210 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_logs: {
+        Row: {
+          action: Database["public"]["Enums"]["audit_action"]
+          created_at: string | null
+          details: Json | null
+          id: string
+          ip_address: unknown | null
+          mailbox_id: string | null
+          tenant_id: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["audit_action"]
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          mailbox_id?: string | null
+          tenant_id: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["audit_action"]
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          mailbox_id?: string | null
+          tenant_id?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mailbox_configs: {
+        Row: {
+          config: Json
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          mailbox_id: string
+          tenant_id: string
+          version: number
+        }
+        Insert: {
+          config: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          mailbox_id: string
+          tenant_id: string
+          version?: number
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          mailbox_id?: string
+          tenant_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailbox_configs_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mailboxes: {
+        Row: {
+          created_at: string | null
+          display_name: string
+          email_address: string
+          error_message: string | null
+          id: string
+          last_sync_at: string | null
+          microsoft_graph_token: string | null
+          n8n_credential_id: string | null
+          n8n_workflow_id: string | null
+          status: Database["public"]["Enums"]["mailbox_status"] | null
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_name: string
+          email_address: string
+          error_message?: string | null
+          id?: string
+          last_sync_at?: string | null
+          microsoft_graph_token?: string | null
+          n8n_credential_id?: string | null
+          n8n_workflow_id?: string | null
+          status?: Database["public"]["Enums"]["mailbox_status"] | null
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string
+          email_address?: string
+          error_message?: string | null
+          id?: string
+          last_sync_at?: string | null
+          microsoft_graph_token?: string | null
+          n8n_credential_id?: string | null
+          n8n_workflow_id?: string | null
+          status?: Database["public"]["Enums"]["mailbox_status"] | null
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      n8n_bindings: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_synced_at: string | null
+          mailbox_id: string
+          n8n_credential_id: string
+          n8n_workflow_id: string
+          tenant_id: string
+          updated_at: string | null
+          workflow_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_synced_at?: string | null
+          mailbox_id: string
+          n8n_credential_id: string
+          n8n_workflow_id: string
+          tenant_id: string
+          updated_at?: string | null
+          workflow_name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_synced_at?: string | null
+          mailbox_id?: string
+          n8n_credential_id?: string
+          n8n_workflow_id?: string
+          tenant_id?: string
+          updated_at?: string | null
+          workflow_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "n8n_bindings_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +226,15 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      audit_action:
+        | "mailbox_created"
+        | "mailbox_connected"
+        | "mailbox_paused"
+        | "mailbox_resumed"
+        | "config_updated"
+        | "workflow_synced"
+        | "error_occurred"
+      mailbox_status: "pending" | "connected" | "error" | "paused"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +361,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      audit_action: [
+        "mailbox_created",
+        "mailbox_connected",
+        "mailbox_paused",
+        "mailbox_resumed",
+        "config_updated",
+        "workflow_synced",
+        "error_occurred",
+      ],
+      mailbox_status: ["pending", "connected", "error", "paused"],
+    },
   },
 } as const
