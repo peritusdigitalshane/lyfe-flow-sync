@@ -49,10 +49,10 @@ serve(async (req) => {
     const { data: settingsData, error: settingsError } = await supabase
       .from('app_settings')
       .select('value')
-      .eq('key', 'openai_api_key')
+      .eq('key', 'openai_config')
       .single();
 
-    if (settingsError || !settingsData?.value) {
+    if (settingsError || !settingsData?.value?.api_key) {
       console.error('OpenAI API key not found in settings:', settingsError);
       return new Response(
         JSON.stringify({ error: 'OpenAI API key not configured' }),
@@ -62,6 +62,8 @@ serve(async (req) => {
         }
       );
     }
+
+    const openaiApiKey = settingsData.value.api_key;
 
     const { emailData }: { emailData: EmailData } = await req.json();
 

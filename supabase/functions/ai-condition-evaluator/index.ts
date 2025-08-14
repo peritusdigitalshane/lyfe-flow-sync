@@ -38,12 +38,29 @@ serve(async (req) => {
       );
     }
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    // Get OpenAI API key from environment or app settings
+    let openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    
     if (!openAIApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      // Try to get from Supabase app settings as fallback
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      const { data: openaiConfig, error: configError } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'openai_config')
+        .single();
+
+      if (configError || !openaiConfig?.value?.api_key) {
+        return new Response(
+          JSON.stringify({ error: 'OpenAI API key not configured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      openAIApiKey = openaiConfig.value.api_key;
     }
 
     // Prepare email content for analysis
