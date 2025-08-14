@@ -154,6 +154,8 @@ Deno.serve(async (req) => {
     console.log('Fetching categories from Microsoft Graph API...');
 
     // Fetch categories from Microsoft Graph API
+    console.log('Making request to Microsoft Graph API with token:', parsedToken.access_token?.substring(0, 20) + '...');
+    
     const graphResponse = await fetch('https://graph.microsoft.com/v1.0/me/outlook/masterCategories', {
       headers: {
         'Authorization': `Bearer ${parsedToken.access_token}`,
@@ -161,11 +163,18 @@ Deno.serve(async (req) => {
       }
     });
 
+    console.log('Graph API response status:', graphResponse.status);
+    console.log('Graph API response ok:', graphResponse.ok);
+
     if (!graphResponse.ok) {
       const errorText = await graphResponse.text();
       console.error('Microsoft Graph API error:', graphResponse.status, errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch categories from Microsoft Graph' }),
+        JSON.stringify({ 
+          error: 'Failed to fetch categories from Microsoft Graph',
+          status: graphResponse.status,
+          details: errorText
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
