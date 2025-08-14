@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, Play, Pause, Copy, Settings, ExternalLink, Loader2 } from 'lucide-react';
+import { AlertCircle, Play, Pause, Copy, Settings, ExternalLink, Loader2, User, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
 
 interface N8NBinding {
   id: string;
@@ -31,7 +32,7 @@ interface Mailbox {
 }
 
 export default function WorkflowManagement() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [bindings, setBindings] = useState<N8NBinding[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,6 +151,11 @@ export default function WorkflowManagement() {
     }
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    window.location.href = "/auth";
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -166,144 +172,184 @@ export default function WorkflowManagement() {
   );
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Settings className="h-6 w-6" />
-          Workflow Management
-        </h1>
-        <p className="text-muted-foreground">
-          Manage N8N workflows for your connected mailboxes
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-border bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-primary rounded-lg shadow-glow-primary"></div>
+                <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                  Lyfe Email Management
+                </h1>
+              </div>
+              <nav className="hidden md:flex items-center space-x-6">
+                <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
+                  Dashboard
+                </Link>
+                <Link to="/workflows" className="text-foreground font-medium">
+                  Workflows
+                </Link>
+                <Link to="/settings" className="text-muted-foreground hover:text-foreground">
+                  Settings
+                </Link>
+              </nav>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Welcome, {user?.email}</span>
+              </div>
+              <Button onClick={handleSignOut} variant="ghost" size="sm" className="gap-2">
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
 
-      <div className="grid gap-6">
-        {/* Mailboxes without workflows */}
-        {mailboxesWithoutWorkflows.length > 0 && (
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Settings className="h-6 w-6" />
+            Workflow Management
+          </h1>
+          <p className="text-muted-foreground">
+            Manage N8N workflows for your connected mailboxes
+          </p>
+        </div>
+
+        <div className="grid gap-6">
+          {/* Mailboxes without workflows */}
+          {mailboxesWithoutWorkflows.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-orange-500" />
+                  Mailboxes Pending Workflow Setup
+                </CardTitle>
+                <CardDescription>
+                  These mailboxes need workflows to be cloned and configured
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {mailboxesWithoutWorkflows.map((mailbox) => (
+                    <div key={mailbox.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <h3 className="font-medium">{mailbox.display_name}</h3>
+                        <p className="text-sm text-muted-foreground">{mailbox.email_address}</p>
+                      </div>
+                      <Button
+                        onClick={() => cloneWorkflowForMailbox(mailbox.id)}
+                        disabled={actionLoading === mailbox.id}
+                        className="flex items-center gap-2"
+                      >
+                        {actionLoading === mailbox.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                        {actionLoading === mailbox.id ? 'Creating...' : 'Create Workflow'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Active workflows */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-orange-500" />
-                Mailboxes Pending Workflow Setup
-              </CardTitle>
+              <CardTitle>Active Workflows</CardTitle>
               <CardDescription>
-                These mailboxes need workflows to be cloned and configured
+                Manage and monitor your mailbox workflows
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {mailboxesWithoutWorkflows.map((mailbox) => (
-                  <div key={mailbox.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-medium">{mailbox.display_name}</h3>
-                      <p className="text-sm text-muted-foreground">{mailbox.email_address}</p>
-                    </div>
-                    <Button
-                      onClick={() => cloneWorkflowForMailbox(mailbox.id)}
-                      disabled={actionLoading === mailbox.id}
-                      className="flex items-center gap-2"
-                    >
-                      {actionLoading === mailbox.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                      {actionLoading === mailbox.id ? 'Creating...' : 'Create Workflow'}
-                    </Button>
-                  </div>
-                ))}
-              </div>
+              {bindings.length === 0 ? (
+                <div className="text-center py-8">
+                  <Settings className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-medium">No workflows configured</h3>
+                  <p className="mt-2 text-muted-foreground">
+                    Connect a mailbox and create a workflow to get started
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Mailbox</TableHead>
+                      <TableHead>Workflow Name</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Last Sync</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bindings.map((binding) => {
+                      const mailbox = mailboxes.find(m => m.id === binding.mailbox_id);
+                      return (
+                        <TableRow key={binding.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{mailbox?.display_name || 'Unknown'}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {mailbox?.email_address || 'Unknown'}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{binding.workflow_name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              ID: {binding.n8n_workflow_id}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={binding.is_active ? 'default' : 'secondary'}>
+                              {binding.is_active ? 'Active' : 'Paused'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {binding.last_synced_at ? (
+                              <div className="text-sm">
+                                {new Date(binding.last_synced_at).toLocaleString()}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">Never</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={binding.is_active}
+                                onCheckedChange={() => toggleWorkflow(binding.id, binding.is_active)}
+                                disabled={actionLoading === binding.id}
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(`https://agent.lyfeai.com.au/workflow/${binding.n8n_workflow_id}`, '_blank')}
+                                className="flex items-center gap-1"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                Open in N8N
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
-        )}
-
-        {/* Active workflows */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Workflows</CardTitle>
-            <CardDescription>
-              Manage and monitor your mailbox workflows
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {bindings.length === 0 ? (
-              <div className="text-center py-8">
-                <Settings className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-medium">No workflows configured</h3>
-                <p className="mt-2 text-muted-foreground">
-                  Connect a mailbox and create a workflow to get started
-                </p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mailbox</TableHead>
-                    <TableHead>Workflow Name</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last Sync</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {bindings.map((binding) => {
-                    const mailbox = mailboxes.find(m => m.id === binding.mailbox_id);
-                    return (
-                      <TableRow key={binding.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{mailbox?.display_name || 'Unknown'}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {mailbox?.email_address || 'Unknown'}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">{binding.workflow_name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            ID: {binding.n8n_workflow_id}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={binding.is_active ? 'default' : 'secondary'}>
-                            {binding.is_active ? 'Active' : 'Paused'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {binding.last_synced_at ? (
-                            <div className="text-sm">
-                              {new Date(binding.last_synced_at).toLocaleString()}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">Never</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={binding.is_active}
-                              onCheckedChange={() => toggleWorkflow(binding.id, binding.is_active)}
-                              disabled={actionLoading === binding.id}
-                            />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(`https://agent.lyfeai.com.au/workflow/${binding.n8n_workflow_id}`, '_blank')}
-                              className="flex items-center gap-1"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              Open in N8N
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        </div>
       </div>
     </div>
   );
