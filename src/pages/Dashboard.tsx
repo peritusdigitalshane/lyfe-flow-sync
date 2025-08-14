@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Mail, Plus, Settings, Activity, Pause, Play } from "lucide-react";
+import { Mail, Plus, Settings, Activity, Pause, Play, Trash2 } from "lucide-react";
 
 interface Mailbox {
   id: string;
@@ -70,6 +70,23 @@ export default function Dashboard() {
       toast.success(`Mailbox ${newStatus === "paused" ? "paused" : "resumed"}`);
     } catch (error) {
       toast.error("Failed to toggle mailbox state");
+    }
+  };
+
+  const deleteMailbox = async (mailboxId: string) => {
+    try {
+      const { error } = await supabase
+        .from("mailboxes")
+        .delete()
+        .eq("id", mailboxId);
+
+      if (error) throw error;
+
+      setMailboxes(prev => prev.filter(mb => mb.id !== mailboxId));
+      toast.success("Mailbox deleted successfully");
+    } catch (error) {
+      console.error("Error deleting mailbox:", error);
+      toast.error("Failed to delete mailbox");
     }
   };
 
@@ -198,6 +215,18 @@ export default function Dashboard() {
                         ) : (
                           <><Pause className="h-3 w-3" /> Pause</>
                         )}
+                      </Button>
+                    ) : null}
+
+                    {mailbox.status === "pending" || mailbox.status === "error" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 text-destructive hover:text-destructive"
+                        onClick={() => deleteMailbox(mailbox.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Delete
                       </Button>
                     ) : null}
                   </div>
