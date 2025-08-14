@@ -169,6 +169,9 @@ export default function MailboxSettings() {
     try {
       setReAuthenticating(true);
       
+      // Store the current page in localStorage so we can return here after auth
+      localStorage.setItem('post_auth_redirect', `/mailbox/${mailbox.id}/settings`);
+      
       // Call the mailbox-api edge function to get a new auth URL
       const { data, error } = await supabase.functions.invoke('mailbox-api', {
         body: {

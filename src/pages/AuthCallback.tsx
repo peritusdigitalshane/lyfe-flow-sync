@@ -123,10 +123,17 @@ export default function AuthCallback() {
         }
 
         setStatus("success");
-        setMessage("Authentication successful! Redirecting to dashboard...");
+        setMessage("Authentication successful! Redirecting...");
         toast.success("Mailbox connected successfully!");
         
-        setTimeout(() => navigate("/dashboard"), 2000);
+        // Check if there's a stored redirect URL (from re-authentication)
+        const postAuthRedirect = localStorage.getItem('post_auth_redirect');
+        if (postAuthRedirect) {
+          localStorage.removeItem('post_auth_redirect');
+          setTimeout(() => navigate(postAuthRedirect), 2000);
+        } else {
+          setTimeout(() => navigate("/dashboard"), 2000);
+        }
 
       } catch (error) {
         console.error("Callback handling error:", error);
