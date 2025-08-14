@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.email-poller]
 verify_jwt = false
+
+[functions.ai-email-classifier]
+verify_jwt = false

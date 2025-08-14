@@ -628,6 +628,13 @@ export default function Settings() {
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
                     Test Connection
                   </Button>
+                  
+                  <Link to="/ai-classification">
+                    <Button variant="outline" className="gap-2">
+                      <TestTube className="h-4 w-4" />
+                      Test AI Classification
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>

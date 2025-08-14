@@ -94,8 +94,51 @@ serve(async (req) => {
 
     const startTime = Date.now();
 
-    // Step 1: Analyze email
-    const analysis = analyzeEmail(email);
+    // Step 1: Analyze email with AI
+    let analysis: EmailAnalysis;
+    try {
+      // Call the AI email classifier
+      const classifierResponse = await supabase.functions.invoke('ai-email-classifier', {
+        body: { 
+          emailData: {
+            subject: email.subject,
+            body: email.body_content || '',
+            sender_email: email.sender_email,
+            sender_name: email.sender_name
+          }
+        }
+      });
+
+      if (classifierResponse.error) {
+        console.error('AI classifier error:', classifierResponse.error);
+        // Fallback to basic analysis
+        analysis = analyzeEmail(email);
+      } else {
+        const aiResult = classifierResponse.data;
+        console.log('AI classification result:', aiResult);
+        
+        // Convert AI result to our analysis format
+        analysis = {
+          risk_score: aiResult.classification.confidence < 0.7 ? 0.3 : 0.1,
+          category: aiResult.classification.category,
+          confidence: aiResult.classification.confidence,
+          analysis_details: {
+            suspicious_patterns: [],
+            risk_factors: [{
+              factor: 'ai_classification',
+              score: aiResult.classification.confidence,
+              description: aiResult.classification.reasoning
+            }],
+            category_indicators: [aiResult.classification.reasoning]
+          }
+        };
+      }
+    } catch (error) {
+      console.error('Error calling AI classifier:', error);
+      // Fallback to basic analysis
+      analysis = analyzeEmail(email);
+    }
+    
     console.log('Email analysis completed:', analysis);
 
     // Step 2: Get applicable workflow rules
