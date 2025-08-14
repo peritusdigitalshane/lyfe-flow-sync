@@ -44,8 +44,18 @@ Deno.serve(async (req) => {
 
     console.log('User authenticated:', user.id);
 
-    const { mailboxId } = await req.json();
-    console.log('Mailbox ID:', mailboxId);
+    const requestBody = await req.json();
+    const { mailboxId, test } = requestBody;
+    console.log('Request body:', requestBody);
+
+    // Handle test calls
+    if (test) {
+      console.log('Test call received');
+      return new Response(
+        JSON.stringify({ success: true, message: 'Function is available and responding' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!mailboxId) {
       return new Response(
