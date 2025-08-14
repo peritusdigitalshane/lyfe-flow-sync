@@ -35,11 +35,15 @@ export default function AuthCallback() {
 
         setMessage("Exchanging authorization code for tokens...");
 
+        const currentOrigin = window.location.origin;
+        console.log('AuthCallback: Current origin:', currentOrigin);
+        console.log('AuthCallback: Full redirect URI:', `${currentOrigin}/auth/callback`);
+
         // Call edge function to exchange code for tokens
         const { data, error: exchangeError } = await supabase.functions.invoke('mailbox-oauth-callback', {
           body: {
             code,
-            redirectUri: `${window.location.origin}/auth/callback`,
+            redirectUri: `${currentOrigin}/auth/callback`,
           },
         });
 
