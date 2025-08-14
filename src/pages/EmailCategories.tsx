@@ -11,8 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Tag, ArrowLeft, Loader2, Settings } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Plus, Edit, Trash2, Tag, ArrowLeft, Loader2, Settings, Download } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 interface EmailCategory {
@@ -39,9 +39,11 @@ interface ClassificationRule {
 
 export default function EmailCategories() {
   const { user } = useAuth();
+  const location = useLocation();
   const [categories, setCategories] = useState<EmailCategory[]>([]);
   const [rules, setRules] = useState<ClassificationRule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [ruleDialogOpen, setRuleDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<EmailCategory | null>(null);
@@ -314,6 +316,51 @@ export default function EmailCategories() {
     setRuleDialogOpen(true);
   };
 
+  const handleSyncCategories = async () => {
+    const pathParts = location.pathname.split('/');
+    const mailboxId = pathParts[2]; // /mailbox/{id}/settings
+
+    if (!mailboxId) {
+      toast.error('No mailbox selected');
+      return;
+    }
+
+    try {
+      setSyncing(true);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch('/api/sync-mailbox-categories', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mailboxId }),
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to sync categories');
+      }
+
+      toast.success(`${result.imported} categories imported successfully`);
+      loadData(); // Refresh the categories list
+    } catch (error) {
+      console.error('Error syncing categories:', error);
+      toast.error('Failed to sync categories from mailbox');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Extract mailbox ID from URL to show sync button only when in mailbox context
+  const isInMailboxContext = location.pathname.includes('/mailbox/');
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -358,10 +405,27 @@ export default function EmailCategories() {
                   Define categories for automatic email classification
                 </CardDescription>
               </div>
-              <Button onClick={() => openCategoryDialog()} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Category
-              </Button>
+              <div className="flex gap-2">
+                {isInMailboxContext && (
+                  <Button 
+                    onClick={handleSyncCategories} 
+                    variant="outline" 
+                    className="gap-2"
+                    disabled={syncing}
+                  >
+                    {syncing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    {syncing ? 'Syncing...' : 'Sync from Mailbox'}
+                  </Button>
+                )}
+                <Button onClick={() => openCategoryDialog()} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Category
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
