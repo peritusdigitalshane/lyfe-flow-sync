@@ -99,6 +99,7 @@ export type Database = {
           priority: number | null
           tenant_id: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           color?: string | null
@@ -110,6 +111,7 @@ export type Database = {
           priority?: number | null
           tenant_id: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           color?: string | null
@@ -121,6 +123,7 @@ export type Database = {
           priority?: number | null
           tenant_id?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -136,6 +139,7 @@ export type Database = {
           rule_value: string
           tenant_id: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           category_id: string
@@ -148,6 +152,7 @@ export type Database = {
           rule_value: string
           tenant_id: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           category_id?: string
@@ -160,6 +165,7 @@ export type Database = {
           rule_value?: string
           tenant_id?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {

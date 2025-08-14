@@ -130,6 +130,7 @@ export default function EmailCategories() {
         .from('email_categories')
         .insert({
           ...categoryForm,
+          user_id: user!.id,
           tenant_id: profile.tenant_id
         });
 
@@ -200,6 +201,7 @@ export default function EmailCategories() {
         .from('email_classification_rules')
         .insert({
           ...ruleForm,
+          user_id: user!.id,
           tenant_id: profile.tenant_id
         });
 
