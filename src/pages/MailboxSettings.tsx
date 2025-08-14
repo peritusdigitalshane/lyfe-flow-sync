@@ -172,9 +172,16 @@ export default function MailboxSettings() {
       // Store the current page in localStorage so we can return here after auth
       // Use window.location.pathname to ensure we get the correct current URL
       const currentPath = window.location.pathname;
-      console.log('MailboxSettings: Current path:', currentPath);
+      console.log('MailboxSettings: Current path before re-auth:', currentPath);
+      console.log('MailboxSettings: Current URL:', window.location.href);
       console.log('MailboxSettings: Mailbox ID:', mailbox.id);
-      localStorage.setItem('post_auth_redirect', currentPath);
+      
+      // Ensure we construct the path correctly
+      const targetPath = `/mailbox/${mailbox.id}/settings`;
+      console.log('MailboxSettings: Target path:', targetPath);
+      console.log('MailboxSettings: Paths match:', currentPath === targetPath);
+      
+      localStorage.setItem('post_auth_redirect', targetPath);
       
       // Call the mailbox-api edge function to get a new auth URL
       const { data, error } = await supabase.functions.invoke('mailbox-api', {

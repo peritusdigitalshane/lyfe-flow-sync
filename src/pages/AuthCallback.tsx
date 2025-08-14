@@ -129,14 +129,18 @@ export default function AuthCallback() {
         // Check if there's a stored redirect URL (from re-authentication)
         const postAuthRedirect = localStorage.getItem('post_auth_redirect');
         console.log('AuthCallback: Retrieved stored URL:', postAuthRedirect);
+        console.log('AuthCallback: Current URL:', window.location.href);
+        
         if (postAuthRedirect) {
           console.log('AuthCallback: Redirecting to stored URL:', postAuthRedirect);
           localStorage.removeItem('post_auth_redirect');
+          
           // Validate the URL before navigating
           if (postAuthRedirect.includes('/undefined')) {
             console.error('AuthCallback: Detected undefined in URL, redirecting to dashboard instead');
             setTimeout(() => navigate("/dashboard"), 2000);
           } else {
+            console.log('AuthCallback: Valid URL, navigating to:', postAuthRedirect);
             setTimeout(() => navigate(postAuthRedirect), 2000);
           }
         } else {
