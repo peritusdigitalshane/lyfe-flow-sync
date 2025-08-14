@@ -13,6 +13,7 @@ import MailboxActivity from "./pages/MailboxActivity";
 import EmailCategories from "./pages/EmailCategories";
 import EmailMonitoring from "./pages/EmailMonitoring";
 import WorkflowManagement from "./pages/WorkflowManagement";
+import WorkflowRules from "./pages/WorkflowRules";
 import AuthCallback from "./pages/AuthCallback";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/mailbox/:mailboxId/settings" element={<MailboxSettings />} />
             <Route path="/mailbox/:mailboxId/activity" element={<MailboxActivity />} />
             <Route path="/workflows" element={<WorkflowManagement />} />
+            <Route path="/workflow-rules" element={<WorkflowRules />} />
             <Route path="/email-categories" element={<EmailCategories />} />
             <Route path="/email-monitoring" element={<EmailMonitoring />} />
             <Route path="/auth/callback" element={<AuthCallback />} />

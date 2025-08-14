@@ -5,7 +5,8 @@ export interface WorkflowRule {
   id: string;
   name: string;
   tenant_id: string;
-  mailbox_id?: string;
+  mailbox_id?: string | null;
+  description?: string | null;
   conditions: WorkflowCondition[];
   actions: WorkflowAction[];
   is_active: boolean;
@@ -226,7 +227,12 @@ class EmailWorkflowEngine {
       return [];
     }
     
-    return data || [];
+    // Convert JSON fields to proper types
+    return (data || []).map(rule => ({
+      ...rule,
+      conditions: Array.isArray(rule.conditions) ? rule.conditions as unknown as WorkflowCondition[] : [],
+      actions: Array.isArray(rule.actions) ? rule.actions as unknown as WorkflowAction[] : []
+    } as WorkflowRule));
   }
   
   /**
@@ -411,8 +417,9 @@ class EmailWorkflowEngine {
       .insert({
         tenant_id: email.tenant_id,
         mailbox_id: email.mailbox_id,
-        action: 'notification_sent',
+        action: 'config_updated', // Use existing enum value
         details: {
+          action_type: 'notification_sent',
           email_id: email.id,
           notification_type: parameters.type,
           recipient: parameters.recipient,
@@ -428,8 +435,14 @@ class EmailWorkflowEngine {
     await supabase
       .from('workflow_executions')
       .insert({
-        ...execution,
-        created_at: new Date().toISOString()
+        tenant_id: execution.tenant_id,
+        email_id: execution.email_id,
+        mailbox_id: execution.mailbox_id,
+        rule_id: execution.rule_id,
+        execution_status: execution.execution_status,
+        actions_taken: execution.actions_taken as any, // Convert to JSON
+        error_message: execution.error_message,
+        execution_time_ms: execution.execution_time_ms
       });
   }
   

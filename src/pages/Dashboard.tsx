@@ -179,6 +179,9 @@ export default function Dashboard() {
                 <Link to="/workflows" className="text-muted-foreground hover:text-foreground">
                   Workflows
                 </Link>
+                <Link to="/workflow-rules" className="text-muted-foreground hover:text-foreground">
+                  Rules
+                </Link>
                 <Link to="/settings" className="text-muted-foreground hover:text-foreground">
                   Settings
                 </Link>

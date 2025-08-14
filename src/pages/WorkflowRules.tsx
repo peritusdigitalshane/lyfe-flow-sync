@@ -72,6 +72,13 @@ export default function WorkflowRules() {
 
       if (rulesError) throw rulesError;
 
+      // Convert JSON fields to proper types
+      const convertedRules = (rulesData || []).map(rule => ({
+        ...rule,
+        conditions: Array.isArray(rule.conditions) ? rule.conditions as unknown as WorkflowCondition[] : [],
+        actions: Array.isArray(rule.actions) ? rule.actions as unknown as WorkflowAction[] : []
+      } as WorkflowRule));
+
       // Load categories
       const { data: categoriesData, error: categoriesError } = await supabase
         .from('email_categories')
@@ -88,7 +95,7 @@ export default function WorkflowRules() {
 
       if (mailboxesError) throw mailboxesError;
 
-      setRules(rulesData || []);
+      setRules(convertedRules);
       setCategories(categoriesData || []);
       setMailboxes(mailboxesData || []);
     } catch (error) {
@@ -105,11 +112,23 @@ export default function WorkflowRules() {
 
   const saveRule = async (rule: Partial<WorkflowRule>) => {
     try {
+      // Convert arrays to JSON for database storage
+      const ruleData = {
+        name: rule.name,
+        tenant_id: rule.tenant_id,
+        mailbox_id: rule.mailbox_id,
+        description: rule.description || null,
+        conditions: rule.conditions as any,
+        actions: rule.actions as any,
+        is_active: rule.is_active,
+        priority: rule.priority
+      };
+
       if (rule.id) {
         // Update existing rule
         const { error } = await supabase
           .from('workflow_rules')
-          .update(rule)
+          .update(ruleData)
           .eq('id', rule.id);
 
         if (error) throw error;
@@ -117,7 +136,7 @@ export default function WorkflowRules() {
         // Create new rule
         const { error } = await supabase
           .from('workflow_rules')
-          .insert(rule);
+          .insert(ruleData);
 
         if (error) throw error;
       }

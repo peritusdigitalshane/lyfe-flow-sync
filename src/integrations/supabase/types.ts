@@ -558,6 +558,110 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_executions: {
+        Row: {
+          actions_taken: Json
+          created_at: string
+          email_id: string | null
+          error_message: string | null
+          execution_status: string
+          execution_time_ms: number
+          id: string
+          mailbox_id: string
+          rule_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          actions_taken?: Json
+          created_at?: string
+          email_id?: string | null
+          error_message?: string | null
+          execution_status: string
+          execution_time_ms?: number
+          id?: string
+          mailbox_id: string
+          rule_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          actions_taken?: Json
+          created_at?: string
+          email_id?: string | null
+          error_message?: string | null
+          execution_status?: string
+          execution_time_ms?: number
+          id?: string
+          mailbox_id?: string
+          rule_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_executions_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_executions_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_rules: {
+        Row: {
+          actions: Json
+          conditions: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          mailbox_id: string | null
+          name: string
+          priority: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          mailbox_id?: string | null
+          name: string
+          priority?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          mailbox_id?: string | null
+          name?: string
+          priority?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_rules_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
