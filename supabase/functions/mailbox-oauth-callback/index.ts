@@ -342,19 +342,31 @@ serve(async (req) => {
       userInfo: userInfo
     });
 
-    // Find the pending mailbox for this user and email
+    // Find the pending mailbox for this user and email (case-insensitive)
     const userEmail = userInfo.mail || userInfo.userPrincipalName;
+    console.log('Looking for mailbox with email:', userEmail);
+    
     const { data: mailbox, error: mailboxError } = await supabaseClient
       .from('mailboxes')
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('user_id', user.id)
-      .eq('email_address', userEmail)
+      .ilike('email_address', userEmail) // Case-insensitive match
       .eq('status', 'pending')
       .single();
 
     if (mailboxError || !mailbox) {
       console.error('No pending mailbox found for email:', userEmail);
+      console.error('Mailbox error:', mailboxError);
+      
+      // Also try to find any mailboxes for debugging
+      const { data: allMailboxes } = await supabaseClient
+        .from('mailboxes')
+        .select('email_address, status')
+        .eq('tenant_id', tenantId)
+        .eq('user_id', user.id);
+        
+      console.log('All user mailboxes:', allMailboxes);
       return new Response(
         JSON.stringify({ 
           success: false,
