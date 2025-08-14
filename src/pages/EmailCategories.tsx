@@ -346,21 +346,26 @@ export default function EmailCategories() {
 
     try {
       setSyncing(true);
+      console.log('Starting sync for mailbox:', mailboxId);
 
       const response = await supabase.functions.invoke('sync-mailbox-categories', {
         body: { mailboxId }
       });
 
+      console.log('Supabase function response:', response);
+
       if (response.error) {
+        console.error('Function error:', response.error);
         throw new Error(response.error.message || 'Failed to sync categories');
       }
 
       const result = response.data;
+      console.log('Sync result:', result);
       toast.success(`${result.imported} categories imported successfully`);
       loadData(); // Refresh the categories list
     } catch (error) {
       console.error('Error syncing categories:', error);
-      toast.error('Failed to sync categories from mailbox');
+      toast.error(`Failed to sync categories: ${error.message}`);
     } finally {
       setSyncing(false);
     }

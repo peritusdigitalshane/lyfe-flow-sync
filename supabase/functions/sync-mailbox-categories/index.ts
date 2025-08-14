@@ -109,6 +109,69 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check if token is expired and refresh if needed
+    const now = Date.now();
+    if (parsedToken.expires_at && parsedToken.expires_at <= now) {
+      console.log('Token expired, attempting to refresh...');
+      
+      // Get Microsoft OAuth config
+      const { data: oauthConfig, error: oauthError } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'microsoft_oauth')
+        .single();
+
+      if (oauthError || !oauthConfig?.value) {
+        console.error('Microsoft OAuth config not found');
+        return new Response(
+          JSON.stringify({ error: 'Microsoft OAuth configuration not found' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Refresh the token
+      const refreshResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: oauthConfig.value.client_id,
+          client_secret: oauthConfig.value.client_secret,
+          refresh_token: parsedToken.refresh_token,
+          grant_type: 'refresh_token',
+        }).toString(),
+      });
+
+      if (!refreshResponse.ok) {
+        const errorText = await refreshResponse.text();
+        console.error('Token refresh failed:', refreshResponse.status, errorText);
+        return new Response(
+          JSON.stringify({ error: 'Failed to refresh Microsoft Graph token. Please reconnect your mailbox.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const refreshData = await refreshResponse.json();
+      
+      // Update the token
+      parsedToken = {
+        access_token: refreshData.access_token,
+        refresh_token: refreshData.refresh_token || parsedToken.refresh_token,
+        expires_at: now + (refreshData.expires_in * 1000)
+      };
+
+      // Save the new token back to the database
+      await supabase
+        .from('mailboxes')
+        .update({
+          microsoft_graph_token: JSON.stringify(parsedToken)
+        })
+        .eq('id', mailboxId);
+
+      console.log('Token refreshed successfully');
+    }
+
     console.log('Fetching categories from Microsoft Graph API...');
 
     // Fetch categories from Microsoft Graph API
