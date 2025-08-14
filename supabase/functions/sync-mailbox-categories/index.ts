@@ -114,60 +114,22 @@ Deno.serve(async (req) => {
     if (parsedToken.expires_at && parsedToken.expires_at <= now) {
       console.log('Token expired, attempting to refresh...');
       
-      // Get Microsoft OAuth config from environment variables
-      const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
-      const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET');
-
-      if (!clientId || !clientSecret) {
-        console.error('Microsoft OAuth credentials not configured in environment');
+      if (!parsedToken.refresh_token) {
+        console.error('No refresh token available');
         return new Response(
-          JSON.stringify({ error: 'Microsoft OAuth credentials not configured. Please contact administrator.' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Refresh the token with proper scopes
-      const refreshResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          refresh_token: parsedToken.refresh_token,
-          grant_type: 'refresh_token',
-          scope: 'https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/User.Read openid profile email offline_access',
-        }).toString(),
-      });
-
-      if (!refreshResponse.ok) {
-        const errorText = await refreshResponse.text();
-        console.error('Token refresh failed:', refreshResponse.status, errorText);
-        return new Response(
-          JSON.stringify({ error: 'Failed to refresh Microsoft Graph token. Please reconnect your mailbox.' }),
+          JSON.stringify({ error: 'No refresh token available. Please reconnect your mailbox.' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const refreshData = await refreshResponse.json();
-      
-      // Update the token
-      parsedToken = {
-        access_token: refreshData.access_token,
-        refresh_token: refreshData.refresh_token || parsedToken.refresh_token,
-        expires_at: now + (refreshData.expires_in * 1000)
-      };
+      // For public client flows, we can't refresh tokens without client credentials
+      // The user will need to re-authenticate
+      console.error('Token expired and refresh not possible without client credentials');
+      return new Response(
+        JSON.stringify({ error: 'Token expired. Please reconnect your mailbox.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
-      // Save the new token back to the database
-      await supabase
-        .from('mailboxes')
-        .update({
-          microsoft_graph_token: JSON.stringify(parsedToken)
-        })
-        .eq('id', mailboxId);
-
-      console.log('Token refreshed successfully');
     }
 
     console.log('Fetching categories from Microsoft Graph API...');
