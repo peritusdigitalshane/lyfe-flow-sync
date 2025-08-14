@@ -86,22 +86,44 @@ export default function AuthCallback() {
           },
         });
 
+        // Log the full response for debugging
+        console.log('Edge function response:', { data, error: exchangeError });
+
         if (exchangeError) {
           console.error("Token exchange error:", exchangeError);
           setStatus("error");
           
-          // Show detailed error message from the edge function
-          const errorMessage = exchangeError.message || "Failed to exchange authorization code";
-          const errorDetails = data?.details || data?.microsoft_error?.error_description || "";
+          // Try to get more detailed error information
+          let errorMessage = "Failed to exchange authorization code";
+          let errorDetails = "";
+          
+          if (exchangeError.message) {
+            errorMessage = exchangeError.message;
+          }
+          
+          // Try to parse error details from the response
+          if (data) {
+            if (data.error) {
+              errorMessage = data.error;
+            }
+            if (data.details) {
+              errorDetails = data.details;
+            }
+            if (data.microsoft_error?.error_description) {
+              errorDetails = data.microsoft_error.error_description;
+            }
+          }
           
           let displayMessage = errorMessage;
           if (errorDetails) {
-            displayMessage += `: ${errorDetails}`;
+            displayMessage += `\n\nDetails: ${errorDetails}`;
           }
+          
+          console.error("Full error details:", { errorMessage, errorDetails, data, exchangeError });
           
           setMessage(displayMessage);
           toast.error("Authentication failed");
-          setTimeout(() => navigate("/dashboard"), 3000);
+          setTimeout(() => navigate("/dashboard"), 5000); // Increased timeout to read error
           return;
         }
 
