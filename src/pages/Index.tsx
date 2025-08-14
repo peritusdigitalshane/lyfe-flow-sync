@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Shield, Zap, Settings, Users, Activity, ArrowRight, CheckCircle } from "lucide-react";
@@ -17,8 +18,12 @@ const Index = () => {
               <h1 className="text-xl font-semibold text-brand-primary">Lyfe Email Management</h1>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="ghost">Sign In</Button>
-              <Button variant="brand">Get Started</Button>
+              <Button asChild variant="ghost">
+                <Link to="/auth">Sign In</Link>
+              </Button>
+              <Button asChild variant="brand">
+                <Link to="/auth">Get Started</Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -39,8 +44,10 @@ const Index = () => {
             Connect multiple mailboxes, set up intelligent automation rules, and manage your email workflow with n8n integration and Microsoft Graph.
           </p>
           <div className="flex items-center justify-center gap-4">
-            <Button variant="brand" size="lg" className="gap-2">
-              Start Free Trial <ArrowRight className="h-4 w-4" />
+            <Button asChild variant="brand" size="lg" className="gap-2">
+              <Link to="/auth">
+                Start Free Trial <ArrowRight className="h-4 w-4" />
+              </Link>
             </Button>
             <Button variant="brand-outline" size="lg">
               Watch Demo
@@ -147,8 +154,10 @@ const Index = () => {
             Get started with Lyfe Email Management today and experience the power of automated email workflows.
           </p>
           <div className="flex items-center justify-center gap-4">
-            <Button variant="secondary" size="lg" className="gap-2">
-              Start Your Free Trial <ArrowRight className="h-4 w-4" />
+            <Button asChild variant="secondary" size="lg" className="gap-2">
+              <Link to="/auth">
+                Start Your Free Trial <ArrowRight className="h-4 w-4" />
+              </Link>
             </Button>
             <Button variant="outline" size="lg" className="text-white border-white hover:bg-white hover:text-brand-primary">
               Contact Sales
