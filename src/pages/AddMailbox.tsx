@@ -96,25 +96,22 @@ export default function AddMailbox() {
     const displayName = formData.get("displayName") as string;
 
     try {
-      const response = await fetch("/supabase/functions/v1/mailbox-api", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${await (await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-        body: JSON.stringify({
+      console.log('Calling edge function...');
+      const { data, error } = await supabase.functions.invoke('mailbox-api', {
+        body: {
           emailAddress,
           displayName,
           preset: selectedPreset,
-        }),
+        },
       });
 
-      if (!response.ok) {
-        const error = await response.json();
+      if (error) {
+        console.error('Supabase function error:', error);
         throw new Error(error.message || "Failed to create mailbox");
       }
 
-      const { authUrl } = await response.json();
+      console.log('Function response:', data);
+      const { authUrl } = data;
       
       // Redirect to Microsoft OAuth
       window.location.href = authUrl;
