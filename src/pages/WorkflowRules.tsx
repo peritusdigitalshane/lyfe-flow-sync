@@ -112,10 +112,19 @@ export default function WorkflowRules() {
 
   const saveRule = async (rule: Partial<WorkflowRule>) => {
     try {
+      // Get user's tenant_id first
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (profileError) throw profileError;
+
       // Convert arrays to JSON for database storage
       const ruleData = {
         name: rule.name,
-        tenant_id: rule.tenant_id,
+        tenant_id: profile.tenant_id, // Use the user's tenant_id
         mailbox_id: rule.mailbox_id,
         description: rule.description || null,
         conditions: rule.conditions as any,
