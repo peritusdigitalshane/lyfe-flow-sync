@@ -245,6 +245,26 @@ export default function WorkflowRules() {
     }
   };
 
+  const addAICondition = (rule: Partial<WorkflowRule>) => {
+    const newCondition: WorkflowCondition = {
+      field: 'ai_analysis',
+      operator: 'ai_condition',
+      value: '',
+      case_sensitive: false
+    };
+
+    const updatedRule = {
+      ...rule,
+      conditions: [...(rule.conditions || []), newCondition]
+    };
+
+    if (rule.id) {
+      setRules(rules.map(r => r.id === rule.id ? updatedRule as WorkflowRule : r));
+    } else {
+      setNewRule(updatedRule);
+    }
+  };
+
   const addAction = (rule: Partial<WorkflowRule>) => {
     const newAction: WorkflowAction = {
       type: 'categorize',
@@ -398,6 +418,227 @@ export default function WorkflowRules() {
                 <Label>Active</Label>
               </div>
 
+              {/* Conditions Section */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-sm font-medium">Conditions</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addCondition(newRule)}
+                      className="gap-1"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add Standard Condition
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="premium"
+                      size="sm"
+                      onClick={() => addAICondition(newRule)}
+                      className="gap-1"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add AI Condition
+                    </Button>
+                  </div>
+                </div>
+                
+                {newRule.conditions && newRule.conditions.length > 0 ? (
+                  <div className="space-y-2">
+                    {newRule.conditions.map((condition, index) => (
+                      <div key={index} className="border rounded-lg p-3 bg-muted/50">
+                        {condition.field === 'ai_analysis' ? (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">AI Condition</Label>
+                            <div className="mt-1">
+                              <Input
+                                value={condition.value as string}
+                                onChange={(e) => {
+                                  const updatedConditions = [...(newRule.conditions || [])];
+                                  updatedConditions[index] = { ...condition, value: e.target.value };
+                                  setNewRule({ ...newRule, conditions: updatedConditions });
+                                }}
+                                placeholder="e.g., 'contains an urgent request' or 'appears to be spam'"
+                                className="text-sm"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Describe the condition in natural language. AI will evaluate if emails match this description.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-4 gap-2">
+                            <Select
+                              value={condition.field}
+                              onValueChange={(value) => {
+                                const updatedConditions = [...(newRule.conditions || [])];
+                                updatedConditions[index] = { ...condition, field: value as any };
+                                setNewRule({ ...newRule, conditions: updatedConditions });
+                              }}
+                            >
+                              <SelectTrigger className="text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="subject">Subject</SelectItem>
+                                <SelectItem value="sender_email">Sender Email</SelectItem>
+                                <SelectItem value="body_content">Body Content</SelectItem>
+                                <SelectItem value="has_attachments">Has Attachments</SelectItem>
+                                <SelectItem value="risk_score">Risk Score</SelectItem>
+                                <SelectItem value="category">Category</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            
+                            <Select
+                              value={condition.operator}
+                              onValueChange={(value) => {
+                                const updatedConditions = [...(newRule.conditions || [])];
+                                updatedConditions[index] = { ...condition, operator: value as any };
+                                setNewRule({ ...newRule, conditions: updatedConditions });
+                              }}
+                            >
+                              <SelectTrigger className="text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="contains">Contains</SelectItem>
+                                <SelectItem value="equals">Equals</SelectItem>
+                                <SelectItem value="not_equals">Not Equals</SelectItem>
+                                <SelectItem value="starts_with">Starts With</SelectItem>
+                                <SelectItem value="ends_with">Ends With</SelectItem>
+                                <SelectItem value="greater_than">Greater Than</SelectItem>
+                                <SelectItem value="less_than">Less Than</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            
+                            <Input
+                              value={condition.value as string}
+                              onChange={(e) => {
+                                const updatedConditions = [...(newRule.conditions || [])];
+                                updatedConditions[index] = { ...condition, value: e.target.value };
+                                setNewRule({ ...newRule, conditions: updatedConditions });
+                              }}
+                              placeholder="Value"
+                              className="text-sm"
+                            />
+                            
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const updatedConditions = newRule.conditions?.filter((_, i) => i !== index) || [];
+                                setNewRule({ ...newRule, conditions: updatedConditions });
+                              }}
+                              className="gap-1"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 border-2 border-dashed border-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">No conditions added yet</p>
+                    <p className="text-xs text-muted-foreground">Add conditions to define when this rule should trigger</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions Section */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-sm font-medium">Actions</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addAction(newRule)}
+                    className="gap-1"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add Action
+                  </Button>
+                </div>
+                
+                {newRule.actions && newRule.actions.length > 0 ? (
+                  <div className="space-y-2">
+                    {newRule.actions.map((action, index) => (
+                      <div key={index} className="border rounded-lg p-3 bg-muted/50">
+                        <div className="grid grid-cols-3 gap-2">
+                          <Select
+                            value={action.type}
+                            onValueChange={(value) => {
+                              const updatedActions = [...(newRule.actions || [])];
+                              updatedActions[index] = { ...action, type: value as any };
+                              setNewRule({ ...newRule, actions: updatedActions });
+                            }}
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="categorize">Categorize</SelectItem>
+                              <SelectItem value="quarantine">Quarantine</SelectItem>
+                              <SelectItem value="mark_as_read">Mark as Read</SelectItem>
+                              <SelectItem value="send_notification">Send Notification</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          {action.type === 'categorize' && (
+                            <Select
+                              value={action.parameters?.category_id || ''}
+                              onValueChange={(value) => {
+                                const updatedActions = [...(newRule.actions || [])];
+                                updatedActions[index] = { 
+                                  ...action, 
+                                  parameters: { ...action.parameters, category_id: value }
+                                };
+                                setNewRule({ ...newRule, actions: updatedActions });
+                              }}
+                            >
+                              <SelectTrigger className="text-sm">
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {categories.map((category) => (
+                                  <SelectItem key={category.id} value={category.id}>
+                                    {category.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const updatedActions = newRule.actions?.filter((_, i) => i !== index) || [];
+                              setNewRule({ ...newRule, actions: updatedActions });
+                            }}
+                            className="gap-1"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 border-2 border-dashed border-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">No actions added yet</p>
+                    <p className="text-xs text-muted-foreground">Add actions to define what happens when conditions are met</p>
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-2">
                 <Button onClick={() => saveRule(newRule)} className="gap-2">
                   <Save className="h-4 w-4" />
@@ -521,36 +762,43 @@ export default function WorkflowRules() {
                    </div>
                  ) : (
                    <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Conditions ({rule.conditions.length})</Label>
-                    <div className="mt-2 space-y-1">
-                      {rule.conditions.slice(0, 3).map((condition, index) => (
-                        <div key={index} className="text-sm text-muted-foreground">
-                          {condition.field} {condition.operator} "{condition.value}"
-                        </div>
-                      ))}
-                      {rule.conditions.length > 3 && (
-                        <div className="text-sm text-muted-foreground">
-                          ... and {rule.conditions.length - 3} more
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Actions ({rule.actions.length})</Label>
-                    <div className="mt-2 space-y-1">
-                      {rule.actions.slice(0, 3).map((action, index) => (
-                        <div key={index} className="text-sm text-muted-foreground">
-                          {action.type.replace('_', ' ')}
-                        </div>
-                      ))}
-                      {rule.actions.length > 3 && (
-                        <div className="text-sm text-muted-foreground">
-                          ... and {rule.actions.length - 3} more
-                        </div>
-                      )}
+                   <div>
+                     <Label className="text-sm font-medium">Conditions ({rule.conditions.length})</Label>
+                     <div className="mt-2 space-y-1">
+                       {rule.conditions.slice(0, 3).map((condition, index) => (
+                         <div key={index} className="text-sm text-muted-foreground">
+                           {condition.field === 'ai_analysis' ? (
+                             <span className="inline-flex items-center gap-1">
+                               <span className="inline-block w-2 h-2 bg-primary rounded-full"></span>
+                               AI: "{condition.value}"
+                             </span>
+                           ) : (
+                             `${condition.field} ${condition.operator} "${condition.value}"`
+                           )}
+                         </div>
+                       ))}
+                       {rule.conditions.length > 3 && (
+                         <div className="text-sm text-muted-foreground">
+                           ... and {rule.conditions.length - 3} more
+                         </div>
+                       )}
                      </div>
                    </div>
+                   <div>
+                     <Label className="text-sm font-medium">Actions ({rule.actions.length})</Label>
+                     <div className="mt-2 space-y-1">
+                       {rule.actions.slice(0, 3).map((action, index) => (
+                         <div key={index} className="text-sm text-muted-foreground">
+                           {action.type.replace('_', ' ')}
+                         </div>
+                       ))}
+                       {rule.actions.length > 3 && (
+                         <div className="text-sm text-muted-foreground">
+                           ... and {rule.actions.length - 3} more
+                         </div>
+                       )}
+                      </div>
+                    </div>
                  </div>
                  )}
                </CardContent>

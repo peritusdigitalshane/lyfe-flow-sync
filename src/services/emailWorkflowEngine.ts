@@ -16,8 +16,8 @@ export interface WorkflowRule {
 }
 
 export interface WorkflowCondition {
-  field: 'subject' | 'sender_email' | 'body_content' | 'has_attachments' | 'risk_score' | 'category';
-  operator: 'contains' | 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'starts_with' | 'ends_with';
+  field: 'subject' | 'sender_email' | 'body_content' | 'has_attachments' | 'risk_score' | 'category' | 'ai_analysis';
+  operator: 'contains' | 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'starts_with' | 'ends_with' | 'ai_condition';
   value: string | number | boolean;
   case_sensitive?: boolean;
 }

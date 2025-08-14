@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.ai-email-classifier]
 verify_jwt = false
+
+[functions.ai-condition-evaluator]
+verify_jwt = false
+
+[functions.email-workflow-processor]
+verify_jwt = false

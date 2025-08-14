@@ -312,16 +312,21 @@ function analyzeEmail(email: any): EmailAnalysis {
   };
 }
 
-function evaluateRule(rule: WorkflowRule, email: any, analysis: EmailAnalysis): boolean {
+async function evaluateRule(rule: WorkflowRule, email: any, analysis: EmailAnalysis): Promise<boolean> {
   for (const condition of rule.conditions) {
-    if (!evaluateCondition(condition, email, analysis)) {
+    if (!(await evaluateCondition(condition, email, analysis))) {
       return false; // All conditions must match
     }
   }
   return true;
 }
 
-function evaluateCondition(condition: WorkflowCondition, email: any, analysis: EmailAnalysis): boolean {
+async function evaluateCondition(condition: WorkflowCondition, email: any, analysis: EmailAnalysis): Promise<boolean> {
+  // Handle AI-based conditions
+  if (condition.field === 'ai_analysis' && condition.operator === 'ai_condition') {
+    return await evaluateAICondition(condition.value as string, email);
+  }
+
   let fieldValue: any;
   
   switch (condition.field) {
@@ -392,6 +397,48 @@ function evaluateCondition(condition: WorkflowCondition, email: any, analysis: E
   }
   
   return false;
+}
+
+// New function to evaluate AI-based conditions
+async function evaluateAICondition(condition: string, email: any): Promise<boolean> {
+  try {
+    console.log(`Evaluating AI condition: "${condition}" for email: ${email.subject}`);
+    
+    const response = await supabase.functions.invoke('ai-condition-evaluator', {
+      body: {
+        condition: condition,
+        email: {
+          id: email.id,
+          subject: email.subject,
+          sender_email: email.sender_email,
+          sender_name: email.sender_name,
+          body_content: email.body_content,
+          body_preview: email.body_preview,
+          importance: email.importance,
+          received_at: email.received_at
+        }
+      }
+    });
+
+    if (response.error) {
+      console.error('Error calling AI condition evaluator:', response.error);
+      return false;
+    }
+
+    const result = response.data;
+    if (result?.success && result?.result) {
+      console.log(`AI evaluation result: ${result.result.meets_condition} (confidence: ${result.result.confidence})`);
+      console.log(`Reasoning: ${result.result.reasoning}`);
+      
+      // Consider the condition met if confidence is above 0.7 and condition is true
+      return result.result.meets_condition && result.result.confidence > 0.7;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Error evaluating AI condition:', error);
+    return false;
+  }
 }
 
 async function executeAction(action: WorkflowAction, email: any, supabase: any): Promise<void> {
