@@ -117,9 +117,14 @@ serve(async (req) => {
       .single();
 
     if (!profile) {
+      console.error('User profile not found');
       return new Response(
-        JSON.stringify({ error: 'User profile not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'User profile not found',
+          details: 'Please ensure your account is properly set up'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -167,8 +172,12 @@ serve(async (req) => {
     if (!oauthConfig?.value) {
       console.error('Microsoft OAuth settings not found');
       return new Response(
-        JSON.stringify({ error: 'Microsoft OAuth not configured. Please configure the settings first.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Microsoft OAuth not configured',
+          details: 'Please configure the Microsoft OAuth settings first'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -186,8 +195,12 @@ serve(async (req) => {
     if (!clientId || !clientSecret) {
       console.error('Microsoft credentials not configured');
       return new Response(
-        JSON.stringify({ error: 'Microsoft OAuth not configured. Please set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Microsoft OAuth credentials missing',
+          details: 'Client ID or Client Secret not configured'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -251,8 +264,12 @@ serve(async (req) => {
     if (!userInfoResponse.ok) {
       console.error('Failed to get user info from Microsoft Graph');
       return new Response(
-        JSON.stringify({ error: 'Failed to get user information from Microsoft' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Failed to get user information from Microsoft',
+          details: 'Microsoft Graph API call failed'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -273,8 +290,12 @@ serve(async (req) => {
     if (mailboxError || !mailbox) {
       console.error('No pending mailbox found for email:', userEmail);
       return new Response(
-        JSON.stringify({ error: 'No pending mailbox found for this email address' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'No pending mailbox found',
+          details: `No pending mailbox found for email address: ${userEmail}`
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -298,8 +319,12 @@ serve(async (req) => {
     if (updateError) {
       console.error('Failed to update mailbox:', updateError);
       return new Response(
-        JSON.stringify({ error: 'Failed to update mailbox status' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Failed to update mailbox status',
+          details: updateError.message || 'Database update failed'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
