@@ -114,17 +114,14 @@ Deno.serve(async (req) => {
     if (parsedToken.expires_at && parsedToken.expires_at <= now) {
       console.log('Token expired, attempting to refresh...');
       
-      // Get Microsoft OAuth config
-      const { data: oauthConfig, error: oauthError } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'microsoft_oauth')
-        .single();
+      // Get Microsoft OAuth config from environment variables
+      const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
+      const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET');
 
-      if (oauthError || !oauthConfig?.value) {
-        console.error('Microsoft OAuth config not found');
+      if (!clientId || !clientSecret) {
+        console.error('Microsoft OAuth credentials not configured in environment');
         return new Response(
-          JSON.stringify({ error: 'Microsoft OAuth configuration not found' }),
+          JSON.stringify({ error: 'Microsoft OAuth credentials not configured. Please contact administrator.' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -136,8 +133,8 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
-          client_id: oauthConfig.value.client_id,
-          client_secret: oauthConfig.value.client_secret,
+          client_id: clientId,
+          client_secret: clientSecret,
           refresh_token: parsedToken.refresh_token,
           grant_type: 'refresh_token',
           scope: 'https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/User.Read openid profile email offline_access',
