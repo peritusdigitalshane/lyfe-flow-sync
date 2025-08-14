@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Eye, EyeOff, User, LogOut, Save, TestTube, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -23,11 +24,19 @@ interface MicrosoftOAuthSettings {
   tenant_id: string;
 }
 
+interface OpenAISettings {
+  api_key: string;
+  model: string;
+  max_tokens: number;
+  temperature: number;
+}
+
 export default function Settings() {
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showClientSecret, setShowClientSecret] = useState(false);
+  const [showOpenAIKey, setShowOpenAIKey] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({
@@ -40,6 +49,13 @@ export default function Settings() {
     client_id: "",
     client_secret: "",
     tenant_id: "common"
+  });
+
+  const [openaiSettings, setOpenaiSettings] = useState<OpenAISettings>({
+    api_key: "",
+    model: "gpt-4.1-2025-04-14",
+    max_tokens: 1000,
+    temperature: 0.2
   });
 
   useEffect(() => {
@@ -112,6 +128,27 @@ export default function Settings() {
             tenant_id: oauthConfig.tenant_id || "common"
           });
         }
+
+        // Load OpenAI settings (super admin only)
+        const { data: openaiData, error: openaiError } = await supabase
+          .from("app_settings")
+          .select("*")
+          .eq("key", "openai_config")
+          .maybeSingle();
+
+        if (openaiError && openaiError.code !== 'PGRST116') {
+          throw openaiError;
+        }
+
+        if (openaiData?.value) {
+          const openaiConfig = openaiData.value as any;
+          setOpenaiSettings({
+            api_key: openaiConfig.api_key || "",
+            model: openaiConfig.model || "gpt-4.1-2025-04-14",
+            max_tokens: openaiConfig.max_tokens || 1000,
+            temperature: openaiConfig.temperature || 0.2
+          });
+        }
       }
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -164,6 +201,60 @@ export default function Settings() {
     } catch (error) {
       console.error("Error saving OAuth settings:", error);
       toast.error("Failed to save OAuth settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveOpenAI = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert({
+          key: "openai_config",
+          value: openaiSettings as any,
+          description: "OpenAI configuration for AI-powered email analysis"
+        }, {
+          onConflict: 'key'
+        });
+
+      if (error) throw error;
+
+      toast.success("OpenAI settings saved successfully");
+    } catch (error) {
+      console.error("Error saving OpenAI settings:", error);
+      toast.error("Failed to save OpenAI settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const testOpenAIConnection = async () => {
+    if (!openaiSettings.api_key) {
+      toast.error("Please enter OpenAI API key");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${openaiSettings.api_key}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        toast.success("✅ OpenAI connection successful!");
+      } else if (response.status === 401) {
+        toast.error("❌ Invalid API key. Please check your OpenAI API key.");
+      } else {
+        toast.error("❌ Failed to connect to OpenAI. Please try again.");
+      }
+    } catch (error) {
+      console.error('OpenAI connection test failed:', error);
+      toast.error("❌ Connection failed. Please check your internet connection.");
     } finally {
       setSaving(false);
     }
@@ -381,6 +472,134 @@ export default function Settings() {
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Save OAuth Settings
                 </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* OpenAI Configuration (Super Admin Only) */}
+          {isSuperAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle>OpenAI Configuration</CardTitle>
+                <CardDescription>
+                  Configure OpenAI for AI-powered email analysis and automation (Super Admin Only)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="openai-key">API Key</Label>
+                  <div className="relative">
+                    <Input
+                      id="openai-key"
+                      type={showOpenAIKey ? "text" : "password"}
+                      value={openaiSettings.api_key}
+                      onChange={(e) => setOpenaiSettings({
+                        ...openaiSettings,
+                        api_key: e.target.value
+                      })}
+                      placeholder="sk-..."
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowOpenAIKey(!showOpenAIKey)}
+                    >
+                      {showOpenAIKey ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">OpenAI Platform</a>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="openai-model">Model</Label>
+                    <Select 
+                      value={openaiSettings.model} 
+                      onValueChange={(value) => setOpenaiSettings({
+                        ...openaiSettings,
+                        model: value
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select OpenAI model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gpt-4.1-2025-04-14">GPT-4.1 (Recommended)</SelectItem>
+                        <SelectItem value="o3-2025-04-16">O3 (Reasoning)</SelectItem>
+                        <SelectItem value="o4-mini-2025-04-16">O4 Mini (Fast Reasoning)</SelectItem>
+                        <SelectItem value="gpt-4.1-mini-2025-04-14">GPT-4.1 Mini</SelectItem>
+                        <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground">
+                      GPT-4.1 is recommended for most use cases
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="max-tokens">Max Tokens</Label>
+                    <Input
+                      id="max-tokens"
+                      type="number"
+                      min="100"
+                      max="4000"
+                      value={openaiSettings.max_tokens}
+                      onChange={(e) => setOpenaiSettings({
+                        ...openaiSettings,
+                        max_tokens: parseInt(e.target.value) || 1000
+                      })}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Maximum tokens for AI responses
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="temperature">Temperature: {openaiSettings.temperature}</Label>
+                  <input
+                    id="temperature"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={openaiSettings.temperature}
+                    onChange={(e) => setOpenaiSettings({
+                      ...openaiSettings,
+                      temperature: parseFloat(e.target.value)
+                    })}
+                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>More Focused (0.0)</span>
+                    <span>More Creative (1.0)</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={handleSaveOpenAI} disabled={saving} className="gap-2">
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save OpenAI Settings
+                  </Button>
+                  
+                  <Button 
+                    onClick={testOpenAIConnection} 
+                    disabled={saving || !openaiSettings.api_key}
+                    variant="outline" 
+                    className="gap-2"
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
+                    Test Connection
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
