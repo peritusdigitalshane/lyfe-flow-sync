@@ -89,29 +89,24 @@ export default function AuthCallback() {
         // Log the full response for debugging
         console.log('Edge function response:', { data, error: exchangeError });
 
-        if (exchangeError) {
+        // Check if the response indicates an error (even with 200 status)
+        if (exchangeError || (data && !data.success)) {
           console.error("Token exchange error:", exchangeError);
           setStatus("error");
           
-          // Try to get more detailed error information
+          // Get detailed error information
           let errorMessage = "Failed to exchange authorization code";
           let errorDetails = "";
           
-          if (exchangeError.message) {
-            errorMessage = exchangeError.message;
-          }
-          
-          // Try to parse error details from the response
-          if (data) {
-            if (data.error) {
-              errorMessage = data.error;
-            }
-            if (data.details) {
-              errorDetails = data.details;
-            }
-            if (data.microsoft_error?.error_description) {
-              errorDetails = data.microsoft_error.error_description;
-            }
+          if (data && !data.success) {
+            // Error returned in response body
+            errorMessage = data.error || errorMessage;
+            errorDetails = data.details || "";
+            
+            console.error("Microsoft error details:", data.microsoft_error);
+          } else if (exchangeError) {
+            // Network or other error
+            errorMessage = exchangeError.message || errorMessage;
           }
           
           let displayMessage = errorMessage;

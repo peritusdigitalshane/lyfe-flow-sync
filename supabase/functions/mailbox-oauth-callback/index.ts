@@ -184,27 +184,26 @@ serve(async (req) => {
       console.error('Token exchange failed:', errorText);
       
       // Parse error for better debugging
+      let errorDetails = {};
       try {
-        const errorJson = JSON.parse(errorText);
-        console.error('Parsed error:', errorJson);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Failed to exchange authorization code for token',
-            details: errorJson.error_description || errorJson.error || 'Unknown error',
-            microsoft_error: errorJson
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        errorDetails = JSON.parse(errorText);
+        console.error('Parsed Microsoft error:', errorDetails);
       } catch (parseError) {
         console.error('Could not parse error response:', parseError);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Failed to exchange authorization code for token',
-            details: errorText.substring(0, 500) // Limit error message length
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        errorDetails = { error: "unparseable_error", error_description: errorText.substring(0, 500) };
       }
+      
+      // Return 200 status with error details so client can access them
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Failed to exchange authorization code for token',
+          details: errorDetails.error_description || errorDetails.error || 'Unknown Microsoft error',
+          microsoft_error: errorDetails,
+          status_code: tokenResponse.status
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const tokenData = await tokenResponse.json();
