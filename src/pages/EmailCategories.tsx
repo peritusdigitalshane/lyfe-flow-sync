@@ -346,27 +346,16 @@ export default function EmailCategories() {
 
     try {
       setSyncing(true);
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
 
-      const response = await fetch('/api/sync-mailbox-categories', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ mailboxId }),
+      const response = await supabase.functions.invoke('sync-mailbox-categories', {
+        body: { mailboxId }
       });
 
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to sync categories');
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to sync categories');
       }
 
+      const result = response.data;
       toast.success(`${result.imported} categories imported successfully`);
       loadData(); // Refresh the categories list
     } catch (error) {
