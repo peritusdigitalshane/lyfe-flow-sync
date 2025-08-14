@@ -294,17 +294,15 @@ export default function Dashboard() {
                       </Button>
                     ) : null}
 
-                    {mailbox.status === "pending" || mailbox.status === "error" ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 text-destructive hover:text-destructive"
-                        onClick={() => deleteMailbox(mailbox.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        Delete
-                      </Button>
-                    ) : null}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 text-destructive hover:text-destructive"
+                      onClick={() => deleteMailbox(mailbox.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Delete
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
