@@ -133,11 +133,14 @@ export default function Settings() {
 
         if (oauthData?.value) {
           const oauthConfig = oauthData.value as any;
+          console.log('Loading OAuth config:', oauthConfig);
           setOauthSettings({
             client_id: oauthConfig.client_id || "",
             client_secret: oauthConfig.client_secret || "",
             tenant_id: oauthConfig.tenant_id || "common"
           });
+        } else {
+          console.log('No OAuth data found in database');
         }
 
         // Load OpenAI settings (super admin only)
@@ -431,8 +434,13 @@ export default function Settings() {
                          ...oauthSettings,
                          client_id: e.target.value
                        })}
-                       placeholder="Azure App Registration Application ID"
+                       placeholder={oauthSettings.client_id ? "" : "Azure App Registration Application ID"}
                      />
+                     {oauthSettings.client_id && (
+                       <p className="text-sm text-muted-foreground">
+                         Current: {oauthSettings.client_id.substring(0, 8)}...
+                       </p>
+                     )}
                    </div>
 
                   <div className="space-y-2">
@@ -445,8 +453,13 @@ export default function Settings() {
                         ...oauthSettings,
                         tenant_id: e.target.value
                       })}
-                      placeholder="Azure Tenant ID (or 'common')"
+                      placeholder={oauthSettings.tenant_id ? "" : "Azure Tenant ID (or 'common')"}
                     />
+                    {oauthSettings.tenant_id && (
+                      <p className="text-sm text-muted-foreground">
+                        Current: {oauthSettings.tenant_id}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -461,7 +474,7 @@ export default function Settings() {
                          ...oauthSettings,
                          client_secret: e.target.value
                        })}
-                       placeholder="Azure App Registration Application Secret"
+                       placeholder={oauthSettings.client_secret ? "" : "Azure App Registration Application Secret"}
                      />
                      <Button
                        type="button"
@@ -477,6 +490,11 @@ export default function Settings() {
                        )}
                      </Button>
                    </div>
+                   {oauthSettings.client_secret && (
+                     <p className="text-sm text-muted-foreground">
+                       Current: {oauthSettings.client_secret.substring(0, 8)}...
+                     </p>
+                   )}
                  </div>
 
                 <Button onClick={handleSaveOAuth} disabled={saving} className="gap-2">
