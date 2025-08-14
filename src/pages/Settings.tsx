@@ -117,6 +117,19 @@ export default function Settings() {
 
       if (oauthError) throw oauthError;
 
+      toast.success("Microsoft OAuth settings saved successfully");
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      toast.error("Failed to save settings");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveN8N = async () => {
+    setIsSaving(true);
+
+    try {
       // Save N8N settings
       const { error: n8nError } = await supabase
         .from("app_settings")
@@ -130,10 +143,10 @@ export default function Settings() {
 
       if (n8nError) throw n8nError;
 
-      toast.success("Settings saved successfully");
+      toast.success("N8N settings saved successfully");
     } catch (error) {
-      console.error("Error saving settings:", error);
-      toast.error("Failed to save settings");
+      console.error("Error saving N8N settings:", error);
+      toast.error("Failed to save N8N settings");
     } finally {
       setIsSaving(false);
     }
@@ -408,6 +421,15 @@ export default function Settings() {
               </div>
 
               <div className="flex gap-3">
+                <Button 
+                  type="button" 
+                  onClick={handleSaveN8N}
+                  disabled={isSaving}
+                  className="flex-1"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSaving ? "Saving..." : "Save N8N Settings"}
+                </Button>
                 <Button 
                   type="button" 
                   variant="outline" 
