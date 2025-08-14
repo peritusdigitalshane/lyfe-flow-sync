@@ -85,8 +85,23 @@ export default function WorkflowManagement() {
       if (executionsError) throw executionsError;
 
       setMailboxes(mailboxData || []);
-      setRules(rulesData || []);
-      setExecutions(executionsData || []);
+      
+      // Convert JSON fields to proper types for rules
+      const convertedRules = (rulesData || []).map(rule => ({
+        ...rule,
+        conditions: Array.isArray(rule.conditions) ? rule.conditions as unknown as any[] : [],
+        actions: Array.isArray(rule.actions) ? rule.actions as unknown as any[] : []
+      } as WorkflowRule));
+      
+      // Convert JSON fields to proper types for executions  
+      const convertedExecutions = (executionsData || []).map(execution => ({
+        ...execution,
+        actions_taken: Array.isArray(execution.actions_taken) ? execution.actions_taken : [],
+        execution_status: execution.execution_status as 'pending' | 'completed' | 'failed'
+      } as WorkflowExecution));
+
+      setRules(convertedRules);
+      setExecutions(convertedExecutions);
 
     } catch (error) {
       console.error('Error loading workflow data:', error);

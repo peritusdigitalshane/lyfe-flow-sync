@@ -27,8 +27,6 @@ interface Database {
           email_address: string;
           display_name: string;
           status: "pending" | "connected" | "error" | "paused";
-          n8n_credential_id: string | null;
-          n8n_workflow_id: string | null;
           microsoft_graph_token: string | null;
           last_sync_at: string | null;
           error_message: string | null;
@@ -42,8 +40,6 @@ interface Database {
           email_address: string;
           display_name: string;
           status?: "pending" | "connected" | "error" | "paused";
-          n8n_credential_id?: string | null;
-          n8n_workflow_id?: string | null;
           microsoft_graph_token?: string | null;
           last_sync_at?: string | null;
           error_message?: string | null;
@@ -52,8 +48,6 @@ interface Database {
         };
         Update: {
           status?: "pending" | "connected" | "error" | "paused";
-          n8n_credential_id?: string | null;
-          n8n_workflow_id?: string | null;
           microsoft_graph_token?: string | null;
           last_sync_at?: string | null;
           error_message?: string | null;
@@ -106,89 +100,6 @@ interface Database {
       };
     };
   };
-}
-
-class N8nClient {
-  private baseUrl: string;
-  private apiToken: string;
-
-  constructor(baseUrl: string, apiToken: string) {
-    this.baseUrl = baseUrl.replace(/\/$/, '');
-    this.apiToken = apiToken;
-  }
-
-  private async makeRequest<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<{ data?: T; error?: string }> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/v1${endpoint}`, {
-        ...options,
-        headers: {
-          'Authorization': `Bearer ${this.apiToken}`,
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return { error: `HTTP ${response.status}: ${errorText}` };
-      }
-
-      const data = await response.json();
-      return { data };
-    } catch (error) {
-      return { error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  }
-
-  async createCredential(name: string, type: string, data: Record<string, any>, tags?: string[]) {
-    return this.makeRequest('/credentials', {
-      method: 'POST',
-      body: JSON.stringify({ name, type, data, tags }),
-    });
-  }
-
-  async getCredentialOAuthUrl(credentialId: string) {
-    return this.makeRequest<{ authUrl: string }>(`/credentials/${credentialId}/oauth-url`);
-  }
-
-  async getWorkflow(id: string) {
-    return this.makeRequest(`/workflows/${id}`);
-  }
-
-  async createWorkflow(workflow: {
-    name: string;
-    nodes: any[];
-    connections: Record<string, any>;
-    active?: boolean;
-    tags?: string[];
-  }) {
-    return this.makeRequest('/workflows', {
-      method: 'POST',
-      body: JSON.stringify(workflow),
-    });
-  }
-
-  async patchWorkflow(id: string, updates: any) {
-    return this.makeRequest(`/workflows/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(updates),
-    });
-  }
-
-  async activateWorkflow(id: string) {
-    return this.makeRequest(`/workflows/${id}/activate`, {
-      method: 'POST',
-    });
-  }
-
-  async deactivateWorkflow(id: string) {
-    return this.makeRequest(`/workflows/${id}/deactivate`, {
-      method: 'POST',
-    });
-  }
 }
 
 async function logAudit(
@@ -255,12 +166,6 @@ serve(async (req) => {
     }
 
     const supabaseClient = createClient<Database>(supabaseUrl, supabaseKey);
-    console.log('Supabase client initialized successfully');
-
-    const n8nClient = new N8nClient(
-      Deno.env.get('N8N_BASE_URL') ?? 'https://agent.lyfeai.com.au',
-      Deno.env.get('N8N_API_TOKEN') ?? ''
-    );
 
     const url = new URL(req.url);
     const path = url.pathname;
@@ -479,7 +384,6 @@ serve(async (req) => {
 
       // Create mailbox record
       console.log('Creating mailbox record...');
-      const credentialId = `cred-${Date.now()}`;
 
       let mailbox, dbError;
       try {
@@ -490,7 +394,6 @@ serve(async (req) => {
             user_id: user.id,
             email_address: emailAddress,
             display_name: displayName,
-            n8n_credential_id: credentialId,
             status: 'pending',
           })
           .select()
@@ -607,18 +510,7 @@ serve(async (req) => {
 
       const newStatus = action === 'pause' ? 'paused' : 'connected';
       
-      // Update workflow in n8n
-      if (mailbox.n8n_workflow_id) {
-        try {
-          if (action === 'pause') {
-            await n8nClient.deactivateWorkflow(mailbox.n8n_workflow_id);
-          } else {
-            await n8nClient.activateWorkflow(mailbox.n8n_workflow_id);
-          }
-        } catch (error) {
-          console.error('N8N workflow update failed (non-fatal):', error);
-        }
-      }
+      // Update database directly (no n8n integration needed)
 
       // Update database
       try {

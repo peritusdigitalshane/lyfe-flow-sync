@@ -22,8 +22,6 @@ interface Database {
           email_address: string;
           display_name: string;
           status: 'pending' | 'connected' | 'error' | 'paused';
-          n8n_credential_id: string | null;
-          n8n_workflow_id: string | null;
           microsoft_graph_token: string | null;
           last_sync_at: string | null;
           error_message: string | null;
@@ -37,8 +35,6 @@ interface Database {
           email_address: string;
           display_name: string;
           status?: 'pending' | 'connected' | 'error' | 'paused';
-          n8n_credential_id?: string | null;
-          n8n_workflow_id?: string | null;
           microsoft_graph_token?: string | null;
           last_sync_at?: string | null;
           error_message?: string | null;
@@ -50,8 +46,6 @@ interface Database {
           email_address?: string;
           display_name?: string;
           status?: 'pending' | 'connected' | 'error' | 'paused';
-          n8n_credential_id?: string | null;
-          n8n_workflow_id?: string | null;
           microsoft_graph_token?: string | null;
           last_sync_at?: string | null;
           error_message?: string | null;

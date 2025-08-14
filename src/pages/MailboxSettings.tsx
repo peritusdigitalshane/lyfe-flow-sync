@@ -27,7 +27,6 @@ interface Mailbox {
   email_address: string;
   display_name: string;
   status: 'pending' | 'connected' | 'error' | 'paused';
-  n8n_workflow_id: string | null;
   error_message: string | null;
   last_sync_at: string | null;
 }

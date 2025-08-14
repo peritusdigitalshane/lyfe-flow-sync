@@ -421,8 +421,6 @@ export type Database = {
           id: string
           last_sync_at: string | null
           microsoft_graph_token: string | null
-          n8n_credential_id: string | null
-          n8n_workflow_id: string | null
           status: Database["public"]["Enums"]["mailbox_status"] | null
           tenant_id: string
           updated_at: string | null
@@ -436,8 +434,6 @@ export type Database = {
           id?: string
           last_sync_at?: string | null
           microsoft_graph_token?: string | null
-          n8n_credential_id?: string | null
-          n8n_workflow_id?: string | null
           status?: Database["public"]["Enums"]["mailbox_status"] | null
           tenant_id: string
           updated_at?: string | null
@@ -451,61 +447,12 @@ export type Database = {
           id?: string
           last_sync_at?: string | null
           microsoft_graph_token?: string | null
-          n8n_credential_id?: string | null
-          n8n_workflow_id?: string | null
           status?: Database["public"]["Enums"]["mailbox_status"] | null
           tenant_id?: string
           updated_at?: string | null
           user_id?: string
         }
         Relationships: []
-      }
-      n8n_bindings: {
-        Row: {
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          last_synced_at: string | null
-          mailbox_id: string
-          n8n_credential_id: string
-          n8n_workflow_id: string
-          tenant_id: string
-          updated_at: string | null
-          workflow_name: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          last_synced_at?: string | null
-          mailbox_id: string
-          n8n_credential_id: string
-          n8n_workflow_id: string
-          tenant_id: string
-          updated_at?: string | null
-          workflow_name: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          last_synced_at?: string | null
-          mailbox_id?: string
-          n8n_credential_id?: string
-          n8n_workflow_id?: string
-          tenant_id?: string
-          updated_at?: string | null
-          workflow_name?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "n8n_bindings_mailbox_id_fkey"
-            columns: ["mailbox_id"]
-            isOneToOne: false
-            referencedRelation: "mailboxes"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       profiles: {
         Row: {
