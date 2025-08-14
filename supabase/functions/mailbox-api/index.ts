@@ -304,13 +304,24 @@ serve(async (req) => {
         const config = oauthConfig.value as any;
         if (config.client_id && config.client_secret) {
           const originHeader = req.headers.get('origin');
+          const refererHeader = req.headers.get('referer');
           console.log('Request origin header:', originHeader);
+          console.log('Request referer header:', refererHeader);
+          
+          // Use the correct origin for the redirect URI
+          const redirectOrigin = originHeader || refererHeader?.split('/').slice(0, 3).join('/') || 'https://74583761-ea55-4459-9556-1f0b360c2bab.lovableproject.com';
+          console.log('Using redirect origin:', redirectOrigin);
+          
+          const redirectUri = `${redirectOrigin}/auth/callback`;
+          console.log('Generated redirect URI:', redirectUri);
+          
           authUrl = `https://login.microsoftonline.com/${config.tenant_id || 'common'}/oauth2/v2.0/authorize?` +
             `client_id=${encodeURIComponent(config.client_id)}&` +
             `response_type=code&` +
-            `redirect_uri=${encodeURIComponent(`${originHeader}/auth/callback`)}&` +
-            `scope=openid%20profile%20email%20Mail.ReadWrite%20offline_access`;
-          console.log('Generated auth URL redirect_uri:', `${originHeader}/auth/callback`);
+            `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+            `scope=openid%20profile%20email%20Mail.ReadWrite%20offline_access&` +
+            `state=${Date.now()}`; // Add state parameter to prevent caching
+          console.log('Generated auth URL redirect_uri:', redirectUri);
         } else {
           console.log('Microsoft OAuth not configured, using mock URL');
           authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=mock&response_type=code&redirect_uri=${encodeURIComponent(
