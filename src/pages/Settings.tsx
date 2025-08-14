@@ -73,6 +73,8 @@ export default function Settings() {
           key: "microsoft_oauth",
           value: settings as any,
           description: "Microsoft Azure OAuth configuration for mailbox connections",
+        }, {
+          onConflict: 'key'
         });
 
       if (error) throw error;
