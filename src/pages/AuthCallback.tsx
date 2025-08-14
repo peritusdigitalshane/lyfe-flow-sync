@@ -42,10 +42,22 @@ export default function AuthCallback() {
         console.log('AuthCallback: Using hardcoded redirect URI:', redirectUri);
 
         // Call edge function to exchange code for tokens
+        const { data: session } = await supabase.auth.getSession();
+        if (!session?.session?.access_token) {
+          setStatus("error");
+          setMessage("Authentication session not found");
+          toast.error("Authentication failed");
+          setTimeout(() => navigate("/dashboard"), 3000);
+          return;
+        }
+
         const { data, error: exchangeError } = await supabase.functions.invoke('mailbox-oauth-callback', {
           body: {
             code,
             redirectUri,
+          },
+          headers: {
+            Authorization: `Bearer ${session.session.access_token}`,
           },
         });
 
