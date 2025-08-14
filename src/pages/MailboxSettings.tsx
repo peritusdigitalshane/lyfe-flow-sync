@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Settings, Mail, Shield, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Settings, Mail, Shield, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MailboxConfig {
@@ -39,6 +39,7 @@ export default function MailboxSettings() {
   const [config, setConfig] = useState<MailboxConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [reAuthenticating, setReAuthenticating] = useState(false);
 
   // Config form state
   const [monitoredFolders, setMonitoredFolders] = useState<string[]>(['Inbox']);
@@ -162,6 +163,39 @@ export default function MailboxSettings() {
     setMonitoredFolders(monitoredFolders.filter((_, i) => i !== index));
   };
 
+  const handleReAuthenticate = async () => {
+    if (!mailbox) return;
+
+    try {
+      setReAuthenticating(true);
+      
+      // Call the mailbox-api edge function to get a new auth URL
+      const { data, error } = await supabase.functions.invoke('mailbox-api', {
+        body: {
+          emailAddress: mailbox.email_address,
+          displayName: mailbox.display_name,
+          preset: 'existing', // Indicate this is re-authentication
+          mailboxId: mailbox.id
+        },
+      });
+
+      if (error) {
+        console.error('Re-authentication error:', error);
+        throw new Error(error.message || "Failed to initiate re-authentication");
+      }
+
+      const { authUrl } = data;
+      
+      // Redirect to Microsoft OAuth for re-authentication
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error("Error during re-authentication:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to re-authenticate");
+    } finally {
+      setReAuthenticating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -241,6 +275,23 @@ export default function MailboxSettings() {
                 <Textarea value={mailbox.error_message} disabled />
               </div>
             )}
+            
+            {/* Re-authentication section */}
+            <div className="pt-4 border-t">
+              <Label className="text-base">Authentication</Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Re-authenticate if you're experiencing permission issues or after updating app permissions
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={handleReAuthenticate}
+                disabled={reAuthenticating}
+                className="gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${reAuthenticating ? 'animate-spin' : ''}`} />
+                {reAuthenticating ? 'Re-authenticating...' : 'Re-authenticate with Microsoft'}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
