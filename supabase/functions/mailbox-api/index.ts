@@ -344,11 +344,21 @@ serve(async (req) => {
         });
 
         if (config.client_id && config.client_secret) {
-          // Use the correct redirect URI
-          const CORRECT_ORIGIN = 'https://74583761-ea55-4459-9556-1f0b360c2bab.lovableproject.com';
-          const redirectUri = `${CORRECT_ORIGIN}/auth/callback`;
+          // Get the origin from the request headers (referer)
+          const refererHeader = req.headers.get('referer') || req.headers.get('origin');
+          let origin = 'https://74583761-ea55-4459-9556-1f0b360c2bab.lovableproject.com'; // fallback
           
-          console.log('Using hardcoded redirect URI:', redirectUri);
+          if (refererHeader) {
+            try {
+              const refererUrl = new URL(refererHeader);
+              origin = refererUrl.origin;
+            } catch (e) {
+              console.log('Failed to parse referer, using fallback origin');
+            }
+          }
+          
+          const redirectUri = `${origin}/auth/callback`;
+          console.log('Using dynamic redirect URI:', redirectUri, 'from referer:', refererHeader);
           
           authUrl = `https://login.microsoftonline.com/${config.tenant_id || 'common'}/oauth2/v2.0/authorize?` +
             `client_id=${encodeURIComponent(config.client_id)}&` +
