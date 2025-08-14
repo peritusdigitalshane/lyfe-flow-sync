@@ -42,6 +42,8 @@ export default function EmailCategories() {
   const location = useLocation();
   const [categories, setCategories] = useState<EmailCategory[]>([]);
   const [rules, setRules] = useState<ClassificationRule[]>([]);
+  const [mailboxes, setMailboxes] = useState<any[]>([]);
+  const [selectedMailbox, setSelectedMailbox] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -76,6 +78,16 @@ export default function EmailCategories() {
   const loadData = async () => {
     try {
       setLoading(true);
+
+      // Load mailboxes
+      const { data: mailboxesData, error: mailboxesError } = await supabase
+        .from('mailboxes')
+        .select('id, email_address, display_name, status')
+        .eq('status', 'connected')
+        .order('email_address');
+
+      if (mailboxesError) throw mailboxesError;
+      setMailboxes(mailboxesData || []);
 
       // Load categories
       const { data: categoriesData, error: categoriesError } = await supabase
@@ -317,11 +329,18 @@ export default function EmailCategories() {
   };
 
   const handleSyncCategories = async () => {
-    const pathParts = location.pathname.split('/');
-    const mailboxId = pathParts[2]; // /mailbox/{id}/settings
+    let mailboxId = selectedMailbox;
+    
+    // If in mailbox context, extract from URL
+    if (!mailboxId) {
+      const pathParts = location.pathname.split('/');
+      if (pathParts[1] === 'mailbox') {
+        mailboxId = pathParts[2];
+      }
+    }
 
     if (!mailboxId) {
-      toast.error('No mailbox selected');
+      toast.error('Please select a mailbox to sync from');
       return;
     }
 
@@ -358,8 +377,8 @@ export default function EmailCategories() {
     }
   };
 
-  // Extract mailbox ID from URL to show sync button only when in mailbox context
-  const isInMailboxContext = location.pathname.includes('/mailbox/');
+  // Show sync functionality if mailboxes are available
+  const showSyncOption = mailboxes.length > 0;
 
   if (loading) {
     return (
@@ -405,21 +424,35 @@ export default function EmailCategories() {
                   Define categories for automatic email classification
                 </CardDescription>
               </div>
-              <div className="flex gap-2">
-                {isInMailboxContext && (
-                  <Button 
-                    onClick={handleSyncCategories} 
-                    variant="outline" 
-                    className="gap-2"
-                    disabled={syncing}
-                  >
-                    {syncing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                    {syncing ? 'Syncing...' : 'Sync from Mailbox'}
-                  </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                {showSyncOption && (
+                  <div className="flex gap-2">
+                    <Select value={selectedMailbox} onValueChange={setSelectedMailbox}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Select mailbox to sync" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {mailboxes.map((mailbox) => (
+                          <SelectItem key={mailbox.id} value={mailbox.id}>
+                            {mailbox.display_name || mailbox.email_address}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      onClick={handleSyncCategories} 
+                      variant="outline" 
+                      className="gap-2"
+                      disabled={syncing || !selectedMailbox}
+                    >
+                      {syncing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      {syncing ? 'Syncing...' : 'Sync Categories'}
+                    </Button>
+                  </div>
                 )}
                 <Button onClick={() => openCategoryDialog()} className="gap-2">
                   <Plus className="h-4 w-4" />
