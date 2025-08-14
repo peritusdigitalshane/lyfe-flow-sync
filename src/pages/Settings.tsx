@@ -312,6 +312,9 @@ export default function Settings() {
                 <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
                   Dashboard
                 </Link>
+                <Link to="/email-categories" className="text-muted-foreground hover:text-foreground">
+                  Categories
+                </Link>
                 <Link to="/workflows" className="text-muted-foreground hover:text-foreground">
                   Workflows
                 </Link>
@@ -340,11 +343,19 @@ export default function Settings() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-8">
-          <div>
-            <h1 className="text-3xl font-bold">Settings</h1>
-            <p className="text-muted-foreground mt-2">
-              Configure your email automation and system preferences
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Settings</h1>
+              <p className="text-muted-foreground mt-2">
+                Configure your email automation and system preferences
+              </p>
+            </div>
+            <Link to="/email-categories">
+              <Button variant="outline" className="gap-2">
+                <User className="h-4 w-4" />
+                Manage Categories
+              </Button>
+            </Link>
           </div>
 
           {/* Email Processing Settings */}
