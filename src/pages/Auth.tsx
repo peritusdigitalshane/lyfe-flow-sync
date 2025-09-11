@@ -12,7 +12,6 @@ import { toast } from "sonner";
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [isProcessingSignup, setIsProcessingSignup] = useState(false);
 
   if (loading) {
     return (
@@ -22,8 +21,9 @@ export default function Auth() {
     );
   }
 
-  // Only redirect existing users who are not in the middle of signup process
-  if (user && !isProcessingSignup) {
+  // Always redirect authenticated users to dashboard
+  // Dashboard will handle account status checking
+  if (user) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -49,7 +49,6 @@ export default function Auth() {
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    setIsProcessingSignup(true);
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
@@ -57,36 +56,29 @@ export default function Auth() {
     const fullName = formData.get("fullName") as string;
 
     try {
-      // First create the user account
+      // Create the user account (will be pending until payment)
       const { error: signUpError } = await signUp(email, password, fullName);
-      
+
       if (signUpError) {
         toast.error(signUpError.message || "Failed to create account");
         setIsLoading(false);
-        setIsProcessingSignup(false);
         return;
       }
 
-      // Wait a moment for the auth state to settle
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Then immediately redirect to Stripe checkout for payment
+      // Immediately redirect to Stripe checkout for payment
       const { data, error } = await supabase.functions.invoke('create-checkout');
-      
+
       if (error) {
         toast.error("Failed to initiate payment process");
         setIsLoading(false);
-        setIsProcessingSignup(false);
         return;
       }
 
-      // Redirect to Stripe checkout
+      // Redirect to Stripe checkout in same tab
       window.location.href = data.url;
-      
     } catch (error) {
       toast.error("An error occurred during signup");
       setIsLoading(false);
-      setIsProcessingSignup(false);
     }
   };
 

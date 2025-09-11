@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRoles } from "@/hooks/useRoles";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import AccountStatusCheck from "@/components/AccountStatusCheck";
 
 interface Mailbox {
   id: string;
@@ -31,21 +32,7 @@ export default function Dashboard() {
     }
   }, [user, authLoading]);
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <p className="mt-2 text-muted-foreground">Loading application...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    window.location.href = "/auth";
-    return null;
-  }
+  // Remove the old auth checks - AccountStatusCheck handles them now
 
   const fetchMailboxes = async () => {
     try {

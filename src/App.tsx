@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
+import AccountStatusCheck from "@/components/AccountStatusCheck";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -37,23 +38,69 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/add-mailbox" element={<AddMailbox />} />
-            <Route path="/mailbox/:mailboxId/settings" element={<MailboxSettings />} />
-            <Route path="/mailbox/:mailboxId/activity" element={<MailboxActivity />} />
-            <Route path="/workflows" element={<WorkflowManagement />} />
-            <Route path="/workflow-rules" element={<WorkflowRules />} />
-            <Route path="/email-categories" element={<EmailCategories />} />
-            <Route path="/email-monitoring" element={<EmailMonitoring />} />
+            <Route path="/dashboard" element={
+              <AccountStatusCheck>
+                <Dashboard />
+              </AccountStatusCheck>
+            } />
+            <Route path="/add-mailbox" element={
+              <AccountStatusCheck>
+                <AddMailbox />
+              </AccountStatusCheck>
+            } />
+            <Route path="/mailbox/:mailboxId/settings" element={
+              <AccountStatusCheck>
+                <MailboxSettings />
+              </AccountStatusCheck>
+            } />
+            <Route path="/mailbox/:mailboxId/activity" element={
+              <AccountStatusCheck>
+                <MailboxActivity />
+              </AccountStatusCheck>
+            } />
+            <Route path="/workflows" element={
+              <AccountStatusCheck>
+                <WorkflowManagement />
+              </AccountStatusCheck>
+            } />
+            <Route path="/workflow-rules" element={
+              <AccountStatusCheck>
+                <WorkflowRules />
+              </AccountStatusCheck>
+            } />
+            <Route path="/email-categories" element={
+              <AccountStatusCheck>
+                <EmailCategories />
+              </AccountStatusCheck>
+            } />
+            <Route path="/email-monitoring" element={
+              <AccountStatusCheck>
+                <EmailMonitoring />
+              </AccountStatusCheck>
+            } />
             <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/ai-classification" element={<AIClassification />} />
-            <Route path="/admin/diagnostics" element={<AdminDiagnostics />} />
+            <Route path="/settings" element={
+              <AccountStatusCheck>
+                <Settings />
+              </AccountStatusCheck>
+            } />
+            <Route path="/ai-classification" element={
+              <AccountStatusCheck>
+                <AIClassification />
+              </AccountStatusCheck>
+            } />
+            <Route path="/admin/diagnostics" element={
+              <AccountStatusCheck>
+                <AdminDiagnostics />
+              </AccountStatusCheck>
+            } />
             <Route 
               path="/admin/users" 
               element={
                 <ProtectedRoute requireSuperAdmin>
-                  <UserManagement />
+                  <AccountStatusCheck>
+                    <UserManagement />
+                  </AccountStatusCheck>
                 </ProtectedRoute>
               } 
             />
@@ -61,7 +108,9 @@ const App = () => (
               path="/quarantine-test" 
               element={
                 <ProtectedRoute requireAdmin>
-                  <QuarantineTest />
+                  <AccountStatusCheck>
+                    <QuarantineTest />
+                  </AccountStatusCheck>
                 </ProtectedRoute>
               } 
             />
