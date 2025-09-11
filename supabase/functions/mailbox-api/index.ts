@@ -344,21 +344,27 @@ serve(async (req) => {
         });
 
         if (config.client_id && config.client_secret) {
-          // Get the origin from the request headers (referer)
+          // Use consistent redirect URI regardless of domain
+          // Both lovable.app and lovableproject.com domains should work
           const refererHeader = req.headers.get('referer') || req.headers.get('origin');
-          let origin = 'https://74583761-ea55-4459-9556-1f0b360c2bab.lovableproject.com'; // fallback
+          let origin;
           
           if (refererHeader) {
             try {
               const refererUrl = new URL(refererHeader);
               origin = refererUrl.origin;
+              console.log('Using origin from referer:', origin);
             } catch (e) {
-              console.log('Failed to parse referer, using fallback origin');
+              console.log('Failed to parse referer, using fallback');
+              origin = 'https://preview--lyfe-flow-sync.lovable.app'; // Default to lovable.app
             }
+          } else {
+            origin = 'https://preview--lyfe-flow-sync.lovable.app'; // Default to lovable.app
+            console.log('No referer header, using default origin:', origin);
           }
           
           const redirectUri = `${origin}/auth/callback`;
-          console.log('Using dynamic redirect URI:', redirectUri, 'from referer:', refererHeader);
+          console.log('OAuth redirect URI:', redirectUri);
           
           authUrl = `https://login.microsoftonline.com/${config.tenant_id || 'common'}/oauth2/v2.0/authorize?` +
             `client_id=${encodeURIComponent(config.client_id)}&` +
