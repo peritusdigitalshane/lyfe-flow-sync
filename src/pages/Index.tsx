@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowRight, Zap, Shield, Settings } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { PriorityScoreDemo } from "@/components/PriorityScoreDemo";
 
 export default function Index() {
   return (
@@ -50,9 +52,19 @@ export default function Index() {
                 Start Free Trial <ArrowRight className="h-5 w-5" />
               </Link>
             </Button>
-            <Button variant="brand-outline" size="xl" className="font-semibold">
-              Watch Demo
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="brand-outline" size="xl" className="font-semibold">
+                  Watch Demo
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Smart Priority Scoring Demo</DialogTitle>
+                </DialogHeader>
+                <PriorityScoreDemo />
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
