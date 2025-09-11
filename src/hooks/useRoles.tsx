@@ -16,12 +16,15 @@ interface UseRolesReturn {
 }
 
 export function useRoles(): UseRolesReturn {
-  const { user } = useAuth();
+  const { user, originalUser, isImpersonating } = useAuth();
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchRoles = async () => {
-    if (!user) {
+    // When impersonating, use the original user's roles for permission checks
+    const userForRoles = isImpersonating ? originalUser : user;
+    
+    if (!userForRoles) {
       setRoles([]);
       setLoading(false);
       return;
@@ -32,7 +35,7 @@ export function useRoles(): UseRolesReturn {
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", user.id);
+        .eq("user_id", userForRoles.id);
 
       if (error) {
         console.error("Error fetching user roles:", error);
@@ -50,7 +53,7 @@ export function useRoles(): UseRolesReturn {
 
   useEffect(() => {
     fetchRoles();
-  }, [user]);
+  }, [user, originalUser, isImpersonating]);
 
   const hasRole = (role: AppRole): boolean => {
     return roles.includes(role);
