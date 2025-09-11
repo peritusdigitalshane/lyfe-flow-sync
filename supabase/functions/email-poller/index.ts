@@ -303,6 +303,23 @@ const handler = async (req: Request): Promise<Response> => {
 async function fetchEmailsFromGraph(mailbox: Mailbox, lastPollTime?: string, maxEmails: number = 50): Promise<GraphApiEmail[]> {
   const graphUrl = 'https://graph.microsoft.com/v1.0/me/messages';
   
+  // Parse the token data
+  let tokenData;
+  try {
+    tokenData = typeof mailbox.microsoft_graph_token === 'string' 
+      ? JSON.parse(mailbox.microsoft_graph_token) 
+      : mailbox.microsoft_graph_token;
+  } catch (error) {
+    throw new Error('Invalid token format');
+  }
+
+  // Check if token is expired and refresh if needed
+  const currentTime = Date.now();
+  if (tokenData.expires_at && currentTime >= tokenData.expires_at) {
+    console.log('Token expired, attempting refresh...');
+    tokenData = await refreshToken(mailbox, tokenData);
+  }
+
   // Build query parameters
   const params = new URLSearchParams({
     '$top': maxEmails.toString(),
@@ -317,7 +334,7 @@ async function fetchEmailsFromGraph(mailbox: Mailbox, lastPollTime?: string, max
 
   const response = await fetch(`${graphUrl}?${params.toString()}`, {
     headers: {
-      'Authorization': `Bearer ${mailbox.microsoft_graph_token}`,
+      'Authorization': `Bearer ${tokenData.access_token}`,
       'Content-Type': 'application/json',
     },
   });
@@ -329,6 +346,54 @@ async function fetchEmailsFromGraph(mailbox: Mailbox, lastPollTime?: string, max
 
   const data = await response.json();
   return data.value || [];
+}
+
+async function refreshToken(mailbox: Mailbox, tokenData: any): Promise<any> {
+  const refreshUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+  
+  const params = new URLSearchParams({
+    client_id: '80b5126b-2f86-4a4d-8d55-43afbd7c970e', // Your app's client ID
+    scope: 'https://graph.microsoft.com/Mail.ReadWrite offline_access',
+    refresh_token: tokenData.refresh_token,
+    grant_type: 'refresh_token'
+  });
+
+  const response = await fetch(refreshUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Token refresh failed: ${response.status} - ${errorText}`);
+  }
+
+  const newTokenData = await response.json();
+  
+  // Update the expires_at timestamp
+  const expiresAt = Date.now() + (newTokenData.expires_in * 1000);
+  const updatedTokenData = {
+    access_token: newTokenData.access_token,
+    refresh_token: newTokenData.refresh_token || tokenData.refresh_token,
+    expires_at: expiresAt
+  };
+
+  // Update the mailbox with new token
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+
+  await supabase
+    .from('mailboxes')
+    .update({ microsoft_graph_token: JSON.stringify(updatedTokenData) })
+    .eq('id', mailbox.id);
+
+  console.log('Token refreshed successfully');
+  return updatedTokenData;
 }
 
 serve(handler);
