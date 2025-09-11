@@ -85,13 +85,19 @@ serve(async (req) => {
       mailbox_id: emailData.mailbox_id
     });
 
-    // Fetch user's email categories
+    // Fetch user's email categories for the specific mailbox
     let categoriesQuery = supabase
       .from('email_categories')
       .select('id, name, description, color, priority, is_active')
       .eq('user_id', emailData.user_id)
-      .eq('is_active', true)
-      .order('priority', { ascending: false });
+      .eq('is_active', true);
+
+    // If mailbox_id is provided, filter categories for that specific mailbox
+    if (emailData.mailbox_id) {
+      categoriesQuery = categoriesQuery.or(`mailbox_id.eq.${emailData.mailbox_id},mailbox_id.is.null`);
+    }
+
+    categoriesQuery = categoriesQuery.order('priority', { ascending: false });
 
     const { data: categories, error: categoriesError } = await categoriesQuery;
 
@@ -107,18 +113,17 @@ serve(async (req) => {
     }
 
     if (!categories || categories.length === 0) {
-      console.log('No categories found for user, creating default "Misc" classification');
+      console.log('No categories found for user/mailbox, cannot classify without categories');
       return new Response(
         JSON.stringify({
-          success: true,
-          classification: {
-            category: "Misc",
-            confidence: 0.5,
-            reasoning: "No categories configured for this user"
-          },
+          success: false,
+          error: 'No categories configured',
+          message: 'Please create email categories before attempting classification',
+          classification: null,
           categories: []
         }),
         {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );

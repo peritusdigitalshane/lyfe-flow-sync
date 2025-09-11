@@ -45,7 +45,7 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log('Processing email classification for:', email.id);
 
-    // Get all active classification rules for this tenant
+    // Get all active classification rules for this tenant and mailbox
     const { data: rules, error: rulesError } = await supabase
       .from('email_classification_rules')
       .select(`
@@ -63,6 +63,37 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Found ${rules?.length || 0} active rules`);
 
+    // Get available categories for this mailbox
+    const { data: availableCategories, error: categoriesError } = await supabase
+      .from('email_categories')
+      .select('id, name, priority')
+      .eq('tenant_id', email.tenantId)
+      .eq('is_active', true)
+      .or(`mailbox_id.eq.${email.mailboxId},mailbox_id.is.null`)
+      .order('priority', { ascending: false });
+
+    if (categoriesError) {
+      console.error('Error fetching categories:', categoriesError);
+      throw categoriesError;
+    }
+
+    if (!availableCategories || availableCategories.length === 0) {
+      console.log('No categories found for this mailbox');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No categories configured for this mailbox',
+        message: 'Please create email categories for this mailbox before classification can work'
+      }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      });
+    }
+
+    console.log(`Found ${availableCategories.length} available categories for mailbox`);
+
     // Process rules and find matches
     let bestMatch: {
       category_id: string;
@@ -72,6 +103,13 @@ const handler = async (req: Request): Promise<Response> => {
     } | null = null;
 
     for (const rule of rules || []) {
+      // Check if the rule's category is available for this mailbox
+      const categoryAvailable = availableCategories.find(cat => cat.id === rule.category_id);
+      if (!categoryAvailable) {
+        console.log(`Skipping rule ${rule.id} - category not available for this mailbox`);
+        continue;
+      }
+
       const match = checkRuleMatch(email, rule);
       if (match && (!bestMatch || rule.priority > bestMatch.confidence)) {
         bestMatch = {
@@ -83,28 +121,17 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // If no rule match found, use default category or AI classification
-    if (!bestMatch) {
-      console.log('No rule matches found, using default classification');
+    // If no rule match found, use the highest priority category for this mailbox
+    if (!bestMatch && availableCategories.length > 0) {
+      console.log('No rule matches found, using highest priority category for this mailbox');
       
-      // Get the lowest priority category as default (usually "General" or similar)
-      const { data: defaultCategory } = await supabase
-        .from('email_categories')
-        .select('id')
-        .eq('tenant_id', email.tenantId)
-        .eq('is_active', true)
-        .order('priority', { ascending: true })
-        .limit(1)
-        .single();
-
-      if (defaultCategory) {
-        bestMatch = {
-          category_id: defaultCategory.id,
-          rule_id: '',
-          confidence: 0.5,
-          method: 'default'
-        };
-      }
+      const defaultCategory = availableCategories[0]; // Already ordered by priority desc
+      bestMatch = {
+        category_id: defaultCategory.id,
+        rule_id: '',
+        confidence: 0.3,
+        method: 'default'
+      };
     }
 
     // Store the classification result

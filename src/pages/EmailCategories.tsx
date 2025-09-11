@@ -73,7 +73,7 @@ export default function EmailCategories() {
   useEffect(() => {
     if (!user) return;
     loadData();
-  }, [user]);
+  }, [user, selectedMailbox]);
 
   const loadData = async () => {
     try {
@@ -89,11 +89,26 @@ export default function EmailCategories() {
       if (mailboxesError) throw mailboxesError;
       setMailboxes(mailboxesData || []);
 
-      // Load categories
-      const { data: categoriesData, error: categoriesError } = await supabase
+      // Set first mailbox as default if none selected
+      if (!selectedMailbox && mailboxesData && mailboxesData.length > 0) {
+        setSelectedMailbox(mailboxesData[0].id);
+        return; // This will trigger useEffect again with the selected mailbox
+      }
+
+      // Load categories for selected mailbox (global + mailbox-specific)
+      let categoriesQuery = supabase
         .from('email_categories')
-        .select('*')
-        .order('priority', { ascending: false });
+        .select('*');
+
+      if (selectedMailbox) {
+        categoriesQuery = categoriesQuery.or(`mailbox_id.eq.${selectedMailbox},mailbox_id.is.null`);
+      } else {
+        categoriesQuery = categoriesQuery.is('mailbox_id', null);
+      }
+
+      categoriesQuery = categoriesQuery.order('priority', { ascending: false });
+
+      const { data: categoriesData, error: categoriesError } = await categoriesQuery;
 
       if (categoriesError) throw categoriesError;
       setCategories(categoriesData || []);
@@ -140,13 +155,16 @@ export default function EmailCategories() {
 
       if (!profile) throw new Error('Profile not found');
 
+      const categoryData = {
+        ...categoryForm,
+        user_id: user!.id,
+        tenant_id: profile.tenant_id,
+        mailbox_id: selectedMailbox || null // Associate with selected mailbox or make it global
+      };
+
       const { error } = await supabase
         .from('email_categories')
-        .insert({
-          ...categoryForm,
-          user_id: user!.id,
-          tenant_id: profile.tenant_id
-        });
+        .insert(categoryData);
 
       if (error) throw error;
 
@@ -403,8 +421,16 @@ export default function EmailCategories() {
           Email Categories & Classification
         </h1>
         <p className="text-muted-foreground">
-          Manage email categories and automatic classification rules
+          Manage email categories and automatic classification rules for each mailbox
         </p>
+        {selectedMailbox && mailboxes.length > 0 && (
+          <div className="mt-2 flex items-center gap-2">
+            <Badge variant="outline" className="gap-1">
+              Currently viewing: {mailboxes.find(m => m.id === selectedMailbox)?.display_name || 
+                                 mailboxes.find(m => m.id === selectedMailbox)?.email_address}
+            </Badge>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6">

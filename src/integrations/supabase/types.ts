@@ -95,6 +95,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean | null
+          mailbox_id: string | null
           name: string
           priority: number | null
           tenant_id: string
@@ -107,6 +108,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          mailbox_id?: string | null
           name: string
           priority?: number | null
           tenant_id: string
@@ -119,13 +121,22 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          mailbox_id?: string | null
           name?: string
           priority?: number | null
           tenant_id?: string
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_categories_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_classification_rules: {
         Row: {
