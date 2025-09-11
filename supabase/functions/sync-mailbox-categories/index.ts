@@ -169,6 +169,21 @@ Deno.serve(async (req) => {
     if (!graphResponse.ok) {
       const errorText = await graphResponse.text();
       console.error('Microsoft Graph API error:', graphResponse.status, errorText);
+      
+      // Add more detailed error handling for common issues
+      if (graphResponse.status === 403) {
+        console.error('403 Forbidden - likely missing MailboxSettings.ReadWrite permission');
+        return new Response(
+          JSON.stringify({ 
+            error: 'Access denied to categories. Please ensure MailboxSettings.ReadWrite permission is granted in your Microsoft App Registration.',
+            status: graphResponse.status,
+            details: errorText,
+            troubleshooting: 'The app needs MailboxSettings.ReadWrite permission to access Outlook categories. Add this permission in Azure Portal and re-authenticate.'
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ 
           error: 'Failed to fetch categories from Microsoft Graph',
