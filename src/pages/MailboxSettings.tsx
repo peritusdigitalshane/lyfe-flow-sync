@@ -40,6 +40,7 @@ export default function MailboxSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [reAuthenticating, setReAuthenticating] = useState(false);
+  const [globalQuarantineEnabled, setGlobalQuarantineEnabled] = useState(false);
 
   // Config form state
   const [monitoredFolders, setMonitoredFolders] = useState<string[]>(['Inbox']);
@@ -57,6 +58,18 @@ export default function MailboxSettings() {
   const loadMailboxAndConfig = async () => {
     try {
       setLoading(true);
+
+      // Load global quarantine settings first
+      const { data: globalQuarantineData } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'quarantine_config')
+        .single();
+
+      if (globalQuarantineData) {
+        const quarantineConfig = globalQuarantineData.value as any;
+        setGlobalQuarantineEnabled(quarantineConfig.enabled || false);
+      }
 
       // Load mailbox
       const { data: mailboxData, error: mailboxError } = await supabase
@@ -372,12 +385,16 @@ export default function MailboxSettings() {
                 <div>
                   <Label className="text-base">Quarantine Suspicious Emails</Label>
                   <p className="text-sm text-muted-foreground">
-                    Move potentially harmful emails to quarantine
+                    {globalQuarantineEnabled 
+                      ? "Move potentially harmful emails to quarantine for this mailbox"
+                      : "Global quarantine system is disabled by administrator"
+                    }
                   </p>
                 </div>
                 <Switch
                   checked={quarantineEnabled}
                   onCheckedChange={setQuarantineEnabled}
+                  disabled={!globalQuarantineEnabled}
                 />
               </div>
 
