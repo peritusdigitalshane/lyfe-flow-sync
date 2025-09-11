@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export default function Auth() {
@@ -52,15 +53,32 @@ export default function Auth() {
     const password = formData.get("password") as string;
     const fullName = formData.get("fullName") as string;
 
-    const { error } = await signUp(email, password, fullName);
-    
-    if (error) {
-      toast.error(error.message || "Failed to create account");
-    } else {
-      toast.success("Account created! Please check your email to confirm.");
+    try {
+      // First create the user account
+      const { error: signUpError } = await signUp(email, password, fullName);
+      
+      if (signUpError) {
+        toast.error(signUpError.message || "Failed to create account");
+        setIsLoading(false);
+        return;
+      }
+
+      // Then immediately redirect to Stripe checkout for payment
+      const { data, error } = await supabase.functions.invoke('create-checkout');
+      
+      if (error) {
+        toast.error("Failed to initiate payment process");
+        setIsLoading(false);
+        return;
+      }
+
+      // Redirect to Stripe checkout
+      window.location.href = data.url;
+      
+    } catch (error) {
+      toast.error("An error occurred during signup");
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
@@ -140,7 +158,7 @@ export default function Auth() {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Creating account..." : "Create Account"}
+                  {isLoading ? "Creating account..." : "Create Account & Subscribe"}
                 </Button>
               </form>
             </TabsContent>
