@@ -58,15 +58,16 @@ const handler = async (req: Request): Promise<Response> => {
     // Parse request body for custom parameters
     let maxEmails = 50; // Default
     let hoursBack = null; // Default: only new emails since last poll
+    let requestBody = {};
     
     if (req.method === 'POST') {
       try {
-        const body = await req.json();
-        if (body.maxEmails && body.maxEmails > 0) {
-          maxEmails = Math.min(body.maxEmails, 500); // Cap at 500 for performance
+        requestBody = await req.json();
+        if (requestBody.maxEmails && requestBody.maxEmails > 0) {
+          maxEmails = Math.min(requestBody.maxEmails, 500); // Cap at 500 for performance
         }
-        if (body.hoursBack && body.hoursBack > 0) {
-          hoursBack = Math.min(body.hoursBack, 168); // Cap at 1 week
+        if (requestBody.hoursBack && requestBody.hoursBack > 0) {
+          hoursBack = Math.min(requestBody.hoursBack, 168); // Cap at 1 week
         }
       } catch (e) {
         // If no body or invalid JSON, use defaults
@@ -109,8 +110,7 @@ const handler = async (req: Request): Promise<Response> => {
         
         // If this is an automated call, check if polling is due
         if (req.method === 'POST') {
-          const body = await req.clone().json().catch(() => ({}));
-          if (body.automated) {
+          if (requestBody.automated) {
             if (!pollingStatus?.is_polling_active) {
               console.log(`Skipping ${mailbox.email_address} - polling disabled`);
               continue;
@@ -136,14 +136,21 @@ const handler = async (req: Request): Promise<Response> => {
         const currentTime = new Date().toISOString();
 
         // Update polling status - mark as started
-        await supabase
+        const { error: upsertError } = await supabase
           .from('email_polling_status')
           .upsert({
             tenant_id: mailbox.tenant_id,
             mailbox_id: mailbox.id,
             last_poll_at: currentTime,
             is_polling_active: true
+          }, { 
+            onConflict: 'tenant_id,mailbox_id',
+            ignoreDuplicates: false 
           });
+
+        if (upsertError) {
+          console.error('Error updating polling status:', upsertError);
+        }
 
         // Determine the time filter for fetching emails
         let timeFilter = lastPollTime;
@@ -253,7 +260,7 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         // Update polling status with results
-        await supabase
+        const { error: finalUpsertError } = await supabase
           .from('email_polling_status')
           .upsert({
             tenant_id: mailbox.tenant_id,
@@ -265,7 +272,14 @@ const handler = async (req: Request): Promise<Response> => {
             errors_count: (pollingStatus?.errors_count || 0) + errorCount,
             last_error_message: errorCount > 0 ? `${errorCount} errors during last poll` : null,
             is_polling_active: true
+          }, { 
+            onConflict: 'tenant_id,mailbox_id',
+            ignoreDuplicates: false 
           });
+
+        if (finalUpsertError) {
+          console.error('Error updating final polling status:', finalUpsertError);
+        }
 
         totalProcessed += processedCount;
         results.push({
@@ -279,7 +293,7 @@ const handler = async (req: Request): Promise<Response> => {
         console.error(`Error processing mailbox ${mailbox.email_address}:`, mailboxError);
         
         // Update polling status with error
-        await supabase
+        const { error: errorUpsertError } = await supabase
           .from('email_polling_status')
           .upsert({
             tenant_id: mailbox.tenant_id,
@@ -288,7 +302,14 @@ const handler = async (req: Request): Promise<Response> => {
             errors_count: (pollingStatus?.errors_count || 0) + 1,
             last_error_message: mailboxError.message,
             is_polling_active: true
+          }, { 
+            onConflict: 'tenant_id,mailbox_id',
+            ignoreDuplicates: false 
           });
+
+        if (errorUpsertError) {
+          console.error('Error updating error polling status:', errorUpsertError);
+        }
 
         results.push({
           mailbox: mailbox.email_address,
