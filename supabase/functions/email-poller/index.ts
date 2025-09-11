@@ -75,12 +75,21 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Starting email polling process... maxEmails: ${maxEmails}, hoursBack: ${hoursBack}`);
 
-    // Get all active mailboxes that need polling
-    const { data: mailboxes, error: mailboxError } = await supabase
+    // Check if this is an automated call - if so, only poll mailboxes that are due
+    let mailboxQuery = supabase
       .from('mailboxes')
-      .select('*')
+      .select(`
+        *,
+        email_polling_status (
+          last_poll_at,
+          polling_interval_minutes,
+          is_polling_active
+        )
+      `)
       .eq('status', 'connected')
       .not('microsoft_graph_token', 'is', null);
+
+    const { data: mailboxes, error: mailboxError } = await mailboxQuery;
 
     if (mailboxError) {
       console.error('Error fetching mailboxes:', mailboxError);
@@ -93,18 +102,36 @@ const handler = async (req: Request): Promise<Response> => {
     const results = [];
 
     for (const mailbox of mailboxes || []) {
-      let pollingStatus = null; // Declare here for wider scope
+      let pollingStatus = null;
       try {
-        console.log(`Processing mailbox: ${mailbox.email_address}`);
+        // Check if polling data exists and if it's time to poll
+        pollingStatus = mailbox.email_polling_status?.[0];
         
-        // Get last poll time for this mailbox
-        const { data: pollingStatusData } = await supabase
-          .from('email_polling_status')
-          .select('*')
-          .eq('mailbox_id', mailbox.id)
-          .maybeSingle();
-
-        pollingStatus = pollingStatusData;
+        // If this is an automated call, check if polling is due
+        if (req.method === 'POST') {
+          const body = await req.clone().json().catch(() => ({}));
+          if (body.automated) {
+            if (!pollingStatus?.is_polling_active) {
+              console.log(`Skipping ${mailbox.email_address} - polling disabled`);
+              continue;
+            }
+            
+            const lastPollTime = pollingStatus?.last_poll_at;
+            const intervalMinutes = pollingStatus?.polling_interval_minutes || 5;
+            
+            if (lastPollTime) {
+              const timeSinceLastPoll = Date.now() - new Date(lastPollTime).getTime();
+              const intervalMs = intervalMinutes * 60 * 1000;
+              
+              if (timeSinceLastPoll < intervalMs) {
+                console.log(`Skipping ${mailbox.email_address} - not due yet (${Math.round(timeSinceLastPoll/1000/60)}min ago, interval: ${intervalMinutes}min)`);
+                continue;
+              }
+            }
+          }
+        }
+        
+        console.log(`Processing mailbox: ${mailbox.email_address}`);
         const lastPollTime = pollingStatus?.last_successful_poll_at;
         const currentTime = new Date().toISOString();
 
