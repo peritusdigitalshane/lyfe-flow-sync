@@ -153,8 +153,20 @@ Deno.serve(async (req) => {
 
     console.log('Fetching categories from Microsoft Graph API...');
 
+    // Log the full token details (without exposing the actual token)
+    console.log('Token details:', {
+      hasAccessToken: !!parsedToken.access_token,
+      tokenType: typeof parsedToken.access_token,
+      tokenLength: parsedToken.access_token?.length,
+      expiresAt: parsedToken.expires_at,
+      currentTime: now,
+      isExpired: parsedToken.expires_at && parsedToken.expires_at <= now
+    });
+
     // Fetch categories from Microsoft Graph API
-    console.log('Making request to Microsoft Graph API with token:', parsedToken.access_token?.substring(0, 20) + '...');
+    console.log('Making request to Microsoft Graph API...');
+    console.log('Request URL: https://graph.microsoft.com/v1.0/me/outlook/masterCategories');
+    console.log('Authorization header present:', !!parsedToken.access_token);
     
     const graphResponse = await fetch('https://graph.microsoft.com/v1.0/me/outlook/masterCategories', {
       headers: {
