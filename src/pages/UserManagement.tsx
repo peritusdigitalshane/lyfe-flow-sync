@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Shield, UserCheck, Crown, Mail, Search, AlertCircle, Plus, Trash2, X } from "lucide-react";
+import { Users, Shield, UserCheck, Crown, Mail, Search, AlertCircle, Plus, Trash2, X, User, LogOut, ArrowLeft } from "lucide-react";
 import { useRoles } from "@/hooks/useRoles";
+import { useAuth } from "@/hooks/useAuth";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -44,6 +46,7 @@ interface CreateUserForm {
 }
 
 export default function UserManagement() {
+  const { user, signOut } = useAuth();
   const { isSuperAdmin, isAdmin } = useRoles();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -332,18 +335,113 @@ export default function UserManagement() {
     </Card>
   );
 
+  const handleSignOut = async () => {
+    await signOut();
+    window.location.href = "/auth";
+  };
+
   if (loading) {
     return (
-      <div className="container mx-auto py-8">
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="border-b border-border bg-card">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 bg-gradient-primary rounded-lg shadow-glow-primary"></div>
+                  <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                    Lyfe Email Management
+                  </h1>
+                </div>
+                <nav className="hidden md:flex items-center space-x-6">
+                  <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
+                    Dashboard
+                  </Link>
+                  <Link to="/workflows" className="text-muted-foreground hover:text-foreground">
+                    Workflows
+                  </Link>
+                  <Link to="/workflow-rules" className="text-muted-foreground hover:text-foreground">
+                    Rules
+                  </Link>
+                  <Link to="/settings" className="text-muted-foreground hover:text-foreground">
+                    Settings
+                  </Link>
+                  <Link to="/admin/users" className="text-foreground font-medium">
+                    User Management
+                  </Link>
+                </nav>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Welcome, {user?.email}</span>
+                </div>
+                <Button onClick={handleSignOut} variant="ghost" size="sm" className="gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </Button>
+              </div>
+            </div>
+          </div>
+        </header>
+        
+        <div className="container mx-auto py-8">
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-border bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-primary rounded-lg shadow-glow-primary"></div>
+                <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                  Lyfe Email Management
+                </h1>
+              </div>
+              <nav className="hidden md:flex items-center space-x-6">
+                <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
+                  Dashboard
+                </Link>
+                <Link to="/workflows" className="text-muted-foreground hover:text-foreground">
+                  Workflows
+                </Link>
+                <Link to="/workflow-rules" className="text-muted-foreground hover:text-foreground">
+                  Rules
+                </Link>
+                <Link to="/settings" className="text-muted-foreground hover:text-foreground">
+                  Settings
+                </Link>
+                <Link to="/admin/users" className="text-foreground font-medium">
+                  User Management
+                </Link>
+              </nav>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Welcome, {user?.email}</span>
+              </div>
+              <Button onClick={handleSignOut} variant="ghost" size="sm" className="gap-2">
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
@@ -731,14 +829,15 @@ export default function UserManagement() {
         </CardContent>
       </Card>
 
-      {/* Security Notice */}
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Security Notice:</strong> Only Super Administrators can access this user management portal. 
-          Role changes are logged for audit purposes. Exercise caution when assigning Super Admin roles.
-        </AlertDescription>
-      </Alert>
+        {/* Security Notice */}
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Security Notice:</strong> Only Super Administrators can access this user management portal. 
+            Role changes are logged for audit purposes. Exercise caution when assigning Super Admin roles.
+          </AlertDescription>
+        </Alert>
+      </main>
     </div>
   );
 }
