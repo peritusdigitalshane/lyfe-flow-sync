@@ -25,6 +25,12 @@ interface ActivityLog {
   user_agent: string | null;
 }
 
+interface EmailCategory {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export default function MailboxActivity() {
   const { mailboxId } = useParams<{ mailboxId: string }>();
   const { user, loading: authLoading } = useAuth();
@@ -32,12 +38,14 @@ export default function MailboxActivity() {
   
   const [mailbox, setMailbox] = useState<MailboxInfo | null>(null);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [categories, setCategories] = useState<EmailCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && user && mailboxId) {
       fetchMailboxData();
       fetchActivityLogs();
+      fetchCategories();
     }
   }, [user, authLoading, mailboxId]);
 
@@ -91,6 +99,26 @@ export default function MailboxActivity() {
       setActivityLogs(data || []);
     } catch (error) {
       console.error("Error:", error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    if (!mailboxId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("email_categories")
+        .select("id, name, color")
+        .eq("mailbox_id", mailboxId);
+
+      if (error) {
+        console.error("Error fetching categories:", error);
+        return;
+      }
+
+      setCategories(data || []);
+    } catch (error) {
+      console.error("Error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -127,6 +155,12 @@ export default function MailboxActivity() {
         return <CheckCircle2 className="h-4 w-4 text-status-success" />;
       case "workflow_deactivated":
         return <Clock className="h-4 w-4 text-status-warning" />;
+      case "email_received":
+        return <CheckCircle2 className="h-4 w-4 text-blue-600" />;
+      case "email_categorized":
+        return <Activity className="h-4 w-4 text-purple-600" />;
+      case "email_processed":
+        return <CheckCircle2 className="h-4 w-4 text-green-600" />;
       default:
         return <Activity className="h-4 w-4 text-muted-foreground" />;
     }
@@ -138,6 +172,44 @@ export default function MailboxActivity() {
 
   const formatAction = (action: string) => {
     return action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const getCategoryName = (categoryId: string) => {
+    const category = categories.find(cat => cat.id === categoryId);
+    return category ? category.name : `Unknown Category (${categoryId.slice(0, 8)}...)`;
+  };
+
+  const getCategoryBadge = (categoryId: string) => {
+    const category = categories.find(cat => cat.id === categoryId);
+    if (!category) {
+      return <Badge variant="outline">Unknown Category</Badge>;
+    }
+    
+    return (
+      <Badge 
+        variant="outline" 
+        style={{ 
+          borderColor: category.color,
+          color: category.color,
+          backgroundColor: `${category.color}10`
+        }}
+      >
+        {category.name}
+      </Badge>
+    );
+  };
+
+  const formatActivityDetails = (action: string, details: any) => {
+    if (!details || typeof details !== 'object') return details;
+
+    const formatted = { ...details };
+
+    // For email categorization, add the category name
+    if (action === 'email_categorized' && details.category_id) {
+      formatted.category_name = getCategoryName(details.category_id);
+    }
+
+    return formatted;
   };
 
   if (authLoading || isLoading) {
@@ -237,9 +309,17 @@ export default function MailboxActivity() {
                       </div>
                       {log.details && (
                         <div className="text-sm text-muted-foreground mb-2">
+                          {/* Special handling for email categorization */}
+                          {log.action === 'email_categorized' && log.details.category_id && (
+                            <div className="mb-2">
+                              <span className="text-sm font-medium">Category assigned: </span>
+                              {getCategoryBadge(log.details.category_id)}
+                            </div>
+                          )}
+                          
                           {typeof log.details === 'object' ? (
                             <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-auto">
-                              {JSON.stringify(log.details, null, 2)}
+                              {JSON.stringify(formatActivityDetails(log.action, log.details), null, 2)}
                             </pre>
                           ) : (
                             <p>{log.details}</p>
