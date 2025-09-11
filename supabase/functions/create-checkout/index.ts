@@ -55,13 +55,20 @@ serve(async (req) => {
       logStep("No existing customer found");
     }
 
-    // Get price ID from environment or use a default
-    const priceId = Deno.env.get("STRIPE_PRICE_ID");
-    if (!priceId) {
-      throw new Error("STRIPE_PRICE_ID not configured in environment. Please set this to your Stripe Price ID from the dashboard.");
+    // Get the active price for the product
+    const productId = "prod_T27n47RAqvF1jv";
+    const prices = await stripe.prices.list({ 
+      product: productId,
+      active: true,
+      limit: 1
+    });
+    
+    if (prices.data.length === 0) {
+      throw new Error(`No active prices found for product ${productId}`);
     }
-
-    logStep("Using Stripe Price ID", { priceId });
+    
+    const priceId = prices.data[0].id;
+    logStep("Found active price for product", { productId, priceId, amount: prices.data[0].unit_amount });
 
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
