@@ -15,17 +15,6 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Quick test - return immediately to see if function works
-  console.log('⚡ Quick test response');
-  return new Response(
-    JSON.stringify({ 
-      success: true, 
-      message: 'Function is alive!',
-      timestamp: new Date().toISOString()
-    }),
-    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-
   try {
     console.log('=== Starting function execution ===');
     
@@ -170,13 +159,9 @@ Deno.serve(async (req) => {
         );
       }
 
-      // For public client flows, we can't refresh tokens without client credentials
-      // The user will need to re-authenticate
-      console.error('Token expired and refresh not possible without client credentials');
-      return new Response(
-        JSON.stringify({ error: 'Token expired. Please reconnect your mailbox.' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      // Refresh the token
+      parsedToken = await refreshToken(parsedToken, mailboxId, supabase);
+      console.log('Token refreshed successfully');
     }
 
     console.log('Fetching categories from Microsoft Graph API...');
@@ -306,3 +291,47 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+async function refreshToken(tokenData: any, mailboxId: string, supabase: any): Promise<any> {
+  const refreshUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+  
+  const params = new URLSearchParams({
+    client_id: '80b5126b-2f86-4a4d-8d55-43afbd7c970e',
+    client_secret: Deno.env.get('MICROSOFT_CLIENT_SECRET') ?? '',
+    scope: 'https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/MailboxSettings.ReadWrite offline_access',
+    refresh_token: tokenData.refresh_token,
+    grant_type: 'refresh_token'
+  });
+
+  const response = await fetch(refreshUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Token refresh failed: ${response.status} - ${errorText}`);
+  }
+
+  const newTokenData = await response.json();
+  
+  // Update the expires_at timestamp
+  const expiresAt = Date.now() + (newTokenData.expires_in * 1000);
+  const updatedTokenData = {
+    access_token: newTokenData.access_token,
+    refresh_token: newTokenData.refresh_token || tokenData.refresh_token,
+    expires_at: expiresAt
+  };
+
+  // Update the mailbox with new token
+  await supabase
+    .from('mailboxes')
+    .update({ microsoft_graph_token: JSON.stringify(updatedTokenData) })
+    .eq('id', mailboxId);
+
+  console.log('Token refreshed successfully for category sync');
+  return updatedTokenData;
+}
