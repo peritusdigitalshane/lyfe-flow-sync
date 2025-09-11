@@ -343,7 +343,9 @@ export default function UserManagement() {
   const handleImpersonate = async (targetUserId: string) => {
     try {
       await impersonateUser(targetUserId);
-      toast.success("Now impersonating user. You can view their settings and data.");
+      toast.success("Now impersonating user. Navigate to other pages to view their settings and data.", {
+        duration: 4000,
+      });
     } catch (error) {
       console.error("Error impersonating user:", error);
       toast.error("Failed to impersonate user");
@@ -443,14 +445,17 @@ export default function UserManagement() {
             </div>
               <div className="flex items-center space-x-4">
                 {isImpersonating && (
-                  <div className="flex items-center space-x-2 bg-orange-100 dark:bg-orange-900/20 px-3 py-1 rounded-md">
+                  <div className="flex items-center space-x-2 bg-orange-100 dark:bg-orange-900/20 px-3 py-1 rounded-md border border-orange-200">
                     <UserX className="h-4 w-4 text-orange-600" />
-                    <span className="text-sm text-orange-600">Impersonating: {user?.email}</span>
+                    <span className="text-sm text-orange-600 font-medium">
+                      Impersonating: {user?.email}
+                    </span>
                     <Button 
                       onClick={handleStopImpersonating}
                       variant="ghost" 
                       size="sm" 
-                      className="text-orange-600 hover:text-orange-700 p-1 h-auto"
+                      className="text-orange-600 hover:text-orange-700 hover:bg-orange-200 p-1 h-auto ml-2"
+                      title="Stop impersonating"
                     >
                       <X className="h-3 w-3" />
                     </Button>
@@ -460,6 +465,9 @@ export default function UserManagement() {
                   <User className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
                     Welcome, {isImpersonating ? originalUser?.email : user?.email}
+                    {isImpersonating && (
+                      <span className="ml-1 text-orange-600 font-medium">(Admin)</span>
+                    )}
                   </span>
                 </div>
                 <Button onClick={handleSignOut} variant="ghost" size="sm" className="gap-2">
