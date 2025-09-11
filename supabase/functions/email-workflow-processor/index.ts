@@ -94,56 +94,99 @@ serve(async (req) => {
 
     const startTime = Date.now();
 
-    // Step 1: Analyze email with AI
+    console.log('Starting enhanced email workflow processing...');
+
+    // Step 1: Check global quarantine settings
+    const { data: quarantineConfig, error: quarantineError } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'quarantine_config')
+      .maybeSingle();
+
+    let shouldCheckQuarantine = false;
+    let quarantineSettings: any = {};
+
+    if (!quarantineError && quarantineConfig?.value) {
+      quarantineSettings = quarantineConfig.value;
+      shouldCheckQuarantine = quarantineSettings.enabled === true;
+      console.log('Quarantine system enabled:', shouldCheckQuarantine);
+      console.log('AI quarantine enabled:', quarantineSettings.ai_enabled);
+    }
+
+    // Step 2: Pre-quarantine checks (before AI analysis)
+    if (shouldCheckQuarantine) {
+      const preQuarantineResult = await checkPreQuarantineRules(email, quarantineSettings);
+      if (preQuarantineResult.shouldQuarantine) {
+        console.log('Pre-quarantine triggered:', preQuarantineResult.reason);
+        await quarantineEmail(email, supabase, preQuarantineResult.reason);
+        
+        // Log and return early
+        await logWorkflowExecution(email, null, [{ type: 'quarantine', parameters: { reason: preQuarantineResult.reason } }], startTime, supabase);
+        return createResponse(true, emailId, null, [{ type: 'quarantine', parameters: { reason: preQuarantineResult.reason } }], null, startTime);
+      }
+    }
+
+    // Step 3: AI Analysis
     let analysis: EmailAnalysis;
     try {
-      // Call the AI email classifier
-      const classifierResponse = await supabase.functions.invoke('ai-email-classifier', {
-        body: { 
-          emailData: {
-            subject: email.subject,
-            body: email.body_content || '',
-            sender_email: email.sender_email,
-            sender_name: email.sender_name,
-            user_id: email.user_id || null,
-            mailbox_id: email.mailbox_id
-          }
-        }
-      });
-
-      if (classifierResponse.error) {
-        console.error('AI classifier error:', classifierResponse.error);
-        // Fallback to basic analysis
-        analysis = analyzeEmail(email);
-      } else {
-        const aiResult = classifierResponse.data;
-        console.log('AI classification result:', aiResult);
+      if (shouldCheckQuarantine && quarantineSettings.ai_enabled) {
+        // Enhanced AI analysis for quarantine
+        const aiResult = await performAIThreatAnalysis(email, quarantineSettings, supabase);
+        analysis = aiResult;
         
-        // Convert AI result to our analysis format
-        analysis = {
-          risk_score: aiResult.classification.confidence < 0.7 ? 0.3 : 0.1,
-          category: aiResult.classification.category,
-          confidence: aiResult.classification.confidence,
-          analysis_details: {
-            suspicious_patterns: [],
-            risk_factors: [{
-              factor: 'ai_classification',
-              score: aiResult.classification.confidence,
-              description: aiResult.classification.reasoning
-            }],
-            category_indicators: [aiResult.classification.reasoning]
+        // Check if AI analysis triggers quarantine
+        if (aiResult.risk_score >= (quarantineSettings.risk_threshold || 70)) {
+          console.log(`AI quarantine triggered - Risk score: ${aiResult.risk_score}%`);
+          const quarantineReason = `AI threat detection: ${aiResult.risk_score}% risk (threshold: ${quarantineSettings.risk_threshold}%)`;
+          await quarantineEmail(email, supabase, quarantineReason);
+          
+          await logWorkflowExecution(email, null, [{ type: 'quarantine', parameters: { reason: quarantineReason, ai_analysis: aiResult } }], startTime, supabase);
+          return createResponse(true, emailId, analysis, [{ type: 'quarantine', parameters: { reason: quarantineReason } }], null, startTime);
+        }
+      } else {
+        // Standard AI classification
+        const classifierResponse = await supabase.functions.invoke('ai-email-classifier', {
+          body: { 
+            emailData: {
+              subject: email.subject,
+              body: email.body_content || '',
+              sender_email: email.sender_email,
+              sender_name: email.sender_name,
+              user_id: email.user_id || null,
+              mailbox_id: email.mailbox_id
+            }
           }
-        };
+        });
+
+        if (classifierResponse.error) {
+          console.error('AI classifier error:', classifierResponse.error);
+          analysis = analyzeEmail(email);
+        } else {
+          const aiResult = classifierResponse.data;
+          analysis = {
+            risk_score: aiResult.classification.confidence < 0.7 ? 0.3 : 0.1,
+            category: aiResult.classification.category,
+            confidence: aiResult.classification.confidence,
+            analysis_details: {
+              suspicious_patterns: [],
+              risk_factors: [{
+                factor: 'ai_classification',
+                score: aiResult.classification.confidence,
+                description: aiResult.classification.reasoning
+              }],
+              category_indicators: [aiResult.classification.reasoning]
+            }
+          };
+        }
       }
     } catch (error) {
-      console.error('Error calling AI classifier:', error);
-      // Fallback to basic analysis
+      console.error('Error in AI analysis:', error);
       analysis = analyzeEmail(email);
     }
     
     console.log('Email analysis completed:', analysis);
 
-    // Step 2: Get applicable workflow rules
+    // Step 4: Get applicable workflow rules
     const { data: rules, error: rulesError } = await supabase
       .from('workflow_rules')
       .select('*')
@@ -158,7 +201,7 @@ serve(async (req) => {
 
     console.log(`Found ${rules?.length || 0} workflow rules to evaluate`);
 
-    // Step 3: Evaluate rules and determine actions
+    // Step 5: Evaluate rules and determine actions
     const actionsToExecute: WorkflowAction[] = [];
     let matchedRule: WorkflowRule | null = null;
 
@@ -171,7 +214,7 @@ serve(async (req) => {
       }
     }
 
-    // Step 4: Execute actions
+    // Step 6: Execute actions
     const executedActions: WorkflowAction[] = [];
     
     for (const action of actionsToExecute) {
@@ -185,7 +228,7 @@ serve(async (req) => {
       }
     }
 
-    // Step 5: Update email status
+    // Step 7: Update email status and log execution
     await supabase
       .from('emails')
       .update({
@@ -194,49 +237,11 @@ serve(async (req) => {
       })
       .eq('id', email.id);
 
-    // Step 6: Log execution and activities
-    await supabase
-      .from('workflow_executions')
-      .insert({
-        tenant_id: email.tenant_id,
-        email_id: email.id,
-        mailbox_id: email.mailbox_id,
-        rule_id: matchedRule?.id,
-        execution_status: 'completed',
-        actions_taken: executedActions,
-        execution_time_ms: Date.now() - startTime
-      });
-
-    // Log email processing activity
-    await supabase
-      .from('audit_logs')
-      .insert({
-        tenant_id: email.tenant_id,
-        mailbox_id: email.mailbox_id,
-        action: 'email_processed',
-        details: {
-          email_id: email.id,
-          subject: email.subject,
-          matched_rule: matchedRule?.name,
-          actions_executed: executedActions.length,
-          risk_score: analysis.risk_score,
-          category: analysis.category,
-          execution_time_ms: Date.now() - startTime
-        }
-      });
+    await logWorkflowExecution(email, matchedRule, executedActions, startTime, supabase);
 
     console.log(`Email workflow processing completed for ${emailId}`);
 
-    return new Response(JSON.stringify({
-      success: true,
-      email_id: emailId,
-      analysis,
-      actions_executed: executedActions,
-      matched_rule: matchedRule?.name,
-      execution_time_ms: Date.now() - startTime
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createResponse(true, emailId, analysis, executedActions, matchedRule, startTime);
 
   } catch (error) {
     console.error('Error in email workflow processor:', error);
@@ -510,7 +515,7 @@ async function categorizeEmail(email: any, categoryId: string, supabase: any): P
     });
 }
 
-async function quarantineEmail(email: any, supabase: any): Promise<void> {
+async function quarantineEmail(email: any, supabase: any, reason?: string): Promise<void> {
   await supabase
     .from('emails')
     .update({
@@ -530,7 +535,8 @@ async function quarantineEmail(email: any, supabase: any): Promise<void> {
         email_id: email.id,
         subject: email.subject,
         sender: email.sender_email,
-        reason: 'workflow_rule_triggered'
+        reason: reason || 'workflow_rule_triggered',
+        quarantined_at: new Date().toISOString()
       }
     });
 }
@@ -564,4 +570,202 @@ function isInternalDomain(email: string): boolean {
   const internalDomains = ['company.com', 'organization.org'];
   const domain = email.split('@')[1]?.toLowerCase();
   return internalDomains.includes(domain);
+}
+
+// New helper functions for enhanced quarantine system
+
+async function checkPreQuarantineRules(email: any, settings: any): Promise<{shouldQuarantine: boolean, reason?: string}> {
+  const content = `${email.subject} ${email.body_content || email.body_preview || ''}`.toLowerCase();
+  const senderDomain = email.sender_email.split('@')[1]?.toLowerCase();
+  
+  // Check whitelist first
+  if (settings.whitelist_domains?.length > 0) {
+    for (const domain of settings.whitelist_domains) {
+      if (senderDomain === domain.toLowerCase().trim()) {
+        console.log(`Email from whitelisted domain: ${senderDomain}`);
+        return { shouldQuarantine: false };
+      }
+    }
+  }
+  
+  // Check auto-quarantine keywords
+  if (settings.auto_quarantine_keywords?.length > 0) {
+    for (const keyword of settings.auto_quarantine_keywords) {
+      if (content.includes(keyword.toLowerCase().trim())) {
+        return { 
+          shouldQuarantine: true, 
+          reason: `Auto-quarantine keyword detected: "${keyword}"` 
+        };
+      }
+    }
+  }
+  
+  // Check suspicious patterns
+  if (settings.suspicious_patterns?.length > 0) {
+    let suspiciousCount = 0;
+    const foundPatterns: string[] = [];
+    
+    for (const pattern of settings.suspicious_patterns) {
+      if (content.includes(pattern.toLowerCase().trim())) {
+        suspiciousCount++;
+        foundPatterns.push(pattern);
+      }
+    }
+    
+    // Quarantine if multiple suspicious patterns found
+    if (suspiciousCount >= 2) {
+      return { 
+        shouldQuarantine: true, 
+        reason: `Multiple suspicious patterns detected: ${foundPatterns.join(', ')}` 
+      };
+    }
+  }
+  
+  return { shouldQuarantine: false };
+}
+
+async function performAIThreatAnalysis(email: any, settings: any, supabase: any): Promise<EmailAnalysis> {
+  try {
+    // Get OpenAI settings
+    const { data: openaiConfig } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'openai_config')
+      .maybeSingle();
+
+    if (!openaiConfig?.value?.api_key) {
+      console.log('No OpenAI API key configured, falling back to basic analysis');
+      return analyzeEmail(email);
+    }
+
+    const apiKey = openaiConfig.value.api_key;
+    const model = openaiConfig.value.model || 'gpt-4.1-2025-04-14';
+
+    // Prepare the threat analysis prompt
+    const threatAnalysisPrompt = `You are a cybersecurity expert analyzing emails for threats. Analyze this email and provide a detailed threat assessment.
+
+Email Details:
+Subject: ${email.subject}
+Sender: ${email.sender_email}
+Content: ${email.body_content || email.body_preview || 'No content available'}
+Has Attachments: ${email.has_attachments ? 'Yes' : 'No'}
+
+Analyze for:
+1. Phishing attempts
+2. Social engineering tactics
+3. Malware indicators
+4. Suspicious URLs or attachments
+5. Business email compromise (BEC)
+6. Urgency tactics and pressure techniques
+7. Impersonation attempts
+
+Provide your response as JSON with:
+{
+  "risk_score": number (0-100),
+  "threat_level": "low" | "medium" | "high" | "critical",
+  "threat_types": ["phishing", "malware", "bec", "social_engineering"],
+  "confidence": number (0-1),
+  "reasoning": "detailed explanation",
+  "suspicious_indicators": ["list of specific indicators found"],
+  "recommended_action": "allow" | "flag" | "quarantine"
+}`;
+
+    // Call OpenAI API for threat analysis
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: 'system', content: 'You are a cybersecurity expert. Respond only with valid JSON.' },
+          { role: 'user', content: threatAnalysisPrompt }
+        ],
+        max_completion_tokens: 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('OpenAI API error:', response.status);
+      return analyzeEmail(email);
+    }
+
+    const aiResponse = await response.json();
+    const content = aiResponse.choices[0].message.content;
+
+    console.log('AI threat analysis result:', content);
+
+    // Parse AI response
+    let aiAnalysis;
+    try {
+      aiAnalysis = JSON.parse(content);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError);
+      return analyzeEmail(email);
+    }
+
+    // Convert to our analysis format
+    return {
+      risk_score: aiAnalysis.risk_score || 0,
+      category: 'threat_analysis',
+      confidence: aiAnalysis.confidence || 0.5,
+      analysis_details: {
+        suspicious_patterns: aiAnalysis.suspicious_indicators || [],
+        risk_factors: [{
+          factor: 'ai_threat_analysis',
+          score: aiAnalysis.risk_score || 0,
+          description: aiAnalysis.reasoning || 'AI threat analysis completed'
+        }],
+        category_indicators: aiAnalysis.threat_types || []
+      }
+    };
+
+  } catch (error) {
+    console.error('Error in AI threat analysis:', error);
+    return analyzeEmail(email);
+  }
+}
+
+async function logWorkflowExecution(email: any, rule: any, actions: any[], startTime: number, supabase: any): Promise<void> {
+  await supabase
+    .from('workflow_executions')
+    .insert({
+      tenant_id: email.tenant_id,
+      email_id: email.id,
+      mailbox_id: email.mailbox_id,
+      rule_id: rule?.id,
+      execution_status: 'completed',
+      actions_taken: actions,
+      execution_time_ms: Date.now() - startTime
+    });
+
+  await supabase
+    .from('audit_logs')
+    .insert({
+      tenant_id: email.tenant_id,
+      mailbox_id: email.mailbox_id,
+      action: 'email_processed',
+      details: {
+        email_id: email.id,
+        subject: email.subject,
+        matched_rule: rule?.name,
+        actions_executed: actions.length,
+        execution_time_ms: Date.now() - startTime
+      }
+    });
+}
+
+function createResponse(success: boolean, emailId: string, analysis: any, actions: any[], rule: any, startTime: number) {
+  return new Response(JSON.stringify({
+    success,
+    email_id: emailId,
+    analysis,
+    actions_executed: actions,
+    matched_rule: rule?.name,
+    execution_time_ms: Date.now() - startTime
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }

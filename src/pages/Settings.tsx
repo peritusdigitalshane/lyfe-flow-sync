@@ -31,6 +31,17 @@ interface OpenAISettings {
   temperature: number;
 }
 
+interface QuarantineSettings {
+  enabled: boolean;
+  ai_enabled: boolean;
+  risk_threshold: number;
+  suspicious_patterns: string[];
+  auto_quarantine_keywords: string[];
+  whitelist_domains: string[];
+  check_attachments: boolean;
+  check_links: boolean;
+}
+
 export default function Settings() {
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -56,6 +67,31 @@ export default function Settings() {
     model: "gpt-4.1-2025-04-14",
     max_tokens: 1000,
     temperature: 0.2
+  });
+
+  const [quarantineSettings, setQuarantineSettings] = useState<QuarantineSettings>({
+    enabled: false,
+    ai_enabled: false,
+    risk_threshold: 70,
+    suspicious_patterns: [
+      "urgent action required",
+      "verify your account",
+      "click here immediately",
+      "suspended account",
+      "confirm your identity",
+      "tax refund",
+      "congratulations you've won"
+    ],
+    auto_quarantine_keywords: [
+      "phishing",
+      "malware",
+      "bitcoin",
+      "crypto scam",
+      "Nigerian prince"
+    ],
+    whitelist_domains: [],
+    check_attachments: true,
+    check_links: true
   });
 
   useEffect(() => {
@@ -139,28 +175,44 @@ export default function Settings() {
             client_secret: oauthConfig.client_secret || "",
             tenant_id: oauthConfig.tenant_id || "common"
           });
-        } else {
-          console.log('No OAuth data found in database');
         }
 
-        // Load OpenAI settings (super admin only)
-        const { data: openaiData, error: openaiError } = await supabase
+        // Load quarantine settings (super admin only)
+        const { data: quarantineData, error: quarantineError } = await supabase
           .from("app_settings")
           .select("*")
-          .eq("key", "openai_config")
+          .eq("key", "quarantine_config")
           .maybeSingle();
 
-        if (openaiError && openaiError.code !== 'PGRST116') {
-          throw openaiError;
+        if (quarantineError && quarantineError.code !== 'PGRST116') {
+          throw quarantineError;
         }
 
-        if (openaiData?.value) {
-          const openaiConfig = openaiData.value as any;
-          setOpenaiSettings({
-            api_key: openaiConfig.api_key || "",
-            model: openaiConfig.model || "gpt-4.1-2025-04-14",
-            max_tokens: openaiConfig.max_tokens || 1000,
-            temperature: openaiConfig.temperature || 0.2
+        if (quarantineData?.value) {
+          const quarantineConfig = quarantineData.value as any;
+          setQuarantineSettings({
+            enabled: quarantineConfig.enabled || false,
+            ai_enabled: quarantineConfig.ai_enabled || false,
+            risk_threshold: quarantineConfig.risk_threshold || 70,
+            suspicious_patterns: quarantineConfig.suspicious_patterns || [
+              "urgent action required",
+              "verify your account",
+              "click here immediately",
+              "suspended account",
+              "confirm your identity",
+              "tax refund",
+              "congratulations you've won"
+            ],
+            auto_quarantine_keywords: quarantineConfig.auto_quarantine_keywords || [
+              "phishing",
+              "malware", 
+              "bitcoin",
+              "crypto scam",
+              "Nigerian prince"
+            ],
+            whitelist_domains: quarantineConfig.whitelist_domains || [],
+            check_attachments: quarantineConfig.check_attachments !== false,
+            check_links: quarantineConfig.check_links !== false
           });
         }
       }
@@ -239,6 +291,30 @@ export default function Settings() {
     } catch (error) {
       console.error("Error saving OpenAI settings:", error);
       toast.error("Failed to save OpenAI settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveQuarantine = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert({
+          key: "quarantine_config",
+          value: quarantineSettings as any,
+          description: "AI-powered quarantine configuration for automatic threat detection"
+        }, {
+          onConflict: 'key'
+        });
+
+      if (error) throw error;
+
+      toast.success("Quarantine settings saved successfully");
+    } catch (error) {
+      console.error("Error saving quarantine settings:", error);
+      toast.error("Failed to save quarantine settings");
     } finally {
       setSaving(false);
     }
@@ -657,6 +733,191 @@ export default function Settings() {
                     </Button>
                   </Link>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* AI-Powered Quarantine Settings (Super Admin Only) */}
+          {isSuperAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle>AI-Powered Quarantine System</CardTitle>
+                <CardDescription>
+                  Configure automatic threat detection and quarantine using AI analysis (Super Admin Only)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Master Enable/Disable */}
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="quarantine-enabled"
+                      checked={quarantineSettings.enabled}
+                      onCheckedChange={(checked) => setQuarantineSettings({
+                        ...quarantineSettings,
+                        enabled: checked
+                      })}
+                    />
+                    <Label htmlFor="quarantine-enabled" className="text-base font-medium">
+                      Enable Global Quarantine System
+                    </Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground ml-6">
+                    When enabled, this system will automatically quarantine suspicious emails across all mailboxes
+                  </p>
+                </div>
+
+                <Separator />
+
+                {/* AI-Powered Detection */}
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="ai-quarantine-enabled"
+                      checked={quarantineSettings.ai_enabled}
+                      onCheckedChange={(checked) => setQuarantineSettings({
+                        ...quarantineSettings,
+                        ai_enabled: checked
+                      })}
+                      disabled={!quarantineSettings.enabled}
+                    />
+                    <Label htmlFor="ai-quarantine-enabled" className="text-base font-medium">
+                      Enable AI Threat Detection
+                    </Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground ml-6">
+                    Uses OpenAI to analyze email content for sophisticated threats and phishing attempts
+                  </p>
+                </div>
+
+                {/* Risk Threshold */}
+                <div className="space-y-2">
+                  <Label htmlFor="risk-threshold">
+                    AI Risk Threshold: {quarantineSettings.risk_threshold}%
+                  </Label>
+                  <input
+                    id="risk-threshold"
+                    type="range"
+                    min="30"
+                    max="95"
+                    step="5"
+                    value={quarantineSettings.risk_threshold}
+                    onChange={(e) => setQuarantineSettings({
+                      ...quarantineSettings,
+                      risk_threshold: parseInt(e.target.value)
+                    })}
+                    disabled={!quarantineSettings.enabled || !quarantineSettings.ai_enabled}
+                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Low Sensitivity (30%)</span>
+                    <span>High Sensitivity (95%)</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Emails with AI risk scores above this threshold will be automatically quarantined
+                  </p>
+                </div>
+
+                <Separator />
+
+                {/* Pattern-Based Detection */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="suspicious-patterns">Suspicious Patterns</Label>
+                    <textarea
+                      id="suspicious-patterns"
+                      className="w-full min-h-[100px] px-3 py-2 border border-input rounded-md bg-background text-sm"
+                      value={quarantineSettings.suspicious_patterns.join('\n')}
+                      onChange={(e) => setQuarantineSettings({
+                        ...quarantineSettings,
+                        suspicious_patterns: e.target.value.split('\n').filter(p => p.trim())
+                      })}
+                      disabled={!quarantineSettings.enabled}
+                      placeholder="Enter suspicious patterns, one per line..."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Emails containing these phrases will be flagged as suspicious
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="auto-quarantine-keywords">Auto-Quarantine Keywords</Label>
+                    <textarea
+                      id="auto-quarantine-keywords"
+                      className="w-full min-h-[80px] px-3 py-2 border border-input rounded-md bg-background text-sm"
+                      value={quarantineSettings.auto_quarantine_keywords.join('\n')}
+                      onChange={(e) => setQuarantineSettings({
+                        ...quarantineSettings,
+                        auto_quarantine_keywords: e.target.value.split('\n').filter(k => k.trim())
+                      })}
+                      disabled={!quarantineSettings.enabled}
+                      placeholder="Enter keywords that trigger immediate quarantine..."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Emails containing these keywords will be immediately quarantined
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="whitelist-domains">Trusted Domains (Whitelist)</Label>
+                    <textarea
+                      id="whitelist-domains"
+                      className="w-full min-h-[60px] px-3 py-2 border border-input rounded-md bg-background text-sm"
+                      value={quarantineSettings.whitelist_domains.join('\n')}
+                      onChange={(e) => setQuarantineSettings({
+                        ...quarantineSettings,
+                        whitelist_domains: e.target.value.split('\n').filter(d => d.trim())
+                      })}
+                      disabled={!quarantineSettings.enabled}
+                      placeholder="example.com&#10;trusted-company.org"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Emails from these domains will never be quarantined
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Content Analysis Options */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium">Content Analysis</h4>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="check-attachments"
+                      checked={quarantineSettings.check_attachments}
+                      onCheckedChange={(checked) => setQuarantineSettings({
+                        ...quarantineSettings,
+                        check_attachments: checked
+                      })}
+                      disabled={!quarantineSettings.enabled}
+                    />
+                    <Label htmlFor="check-attachments">
+                      Flag emails with suspicious attachments
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="check-links"
+                      checked={quarantineSettings.check_links}
+                      onCheckedChange={(checked) => setQuarantineSettings({
+                        ...quarantineSettings,
+                        check_links: checked
+                      })}
+                      disabled={!quarantineSettings.enabled}
+                    />
+                    <Label htmlFor="check-links">
+                      Analyze suspicious links and URLs
+                    </Label>
+                  </div>
+                </div>
+
+                <Button onClick={handleSaveQuarantine} disabled={saving} className="gap-2">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save Quarantine Settings
+                </Button>
               </CardContent>
             </Card>
           )}
