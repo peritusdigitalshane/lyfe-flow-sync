@@ -3,11 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { emailPollingService, EmailPollingStatus, Email } from "@/services/emailPollingService";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Mail, RefreshCw, Play, Pause, AlertCircle, CheckCircle } from "lucide-react";
+import { Loader2, Mail, RefreshCw, Play, Pause, AlertCircle, CheckCircle, Settings } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface MailboxWithStats {
@@ -36,6 +39,9 @@ const EmailMonitoring = () => {
   const [loading, setLoading] = useState(true);
   const [pollingLoading, setPollingLoading] = useState(false);
   const [emailsLoading, setEmailsLoading] = useState(false);
+  const [pollingDialogOpen, setPollingDialogOpen] = useState(false);
+  const [maxEmails, setMaxEmails] = useState(50);
+  const [hoursBack, setHoursBack] = useState<number | ''>('');
 
   useEffect(() => {
     if (user) {
@@ -117,10 +123,10 @@ const EmailMonitoring = () => {
     }
   }, [selectedMailbox]);
 
-  const triggerPolling = async () => {
+  const triggerPolling = async (options?: { maxEmails?: number; hoursBack?: number }) => {
     try {
       setPollingLoading(true);
-      const result = await emailPollingService.triggerEmailPolling();
+      const result = await emailPollingService.triggerEmailPolling(options);
       
       if (result.success) {
         toast({
@@ -145,7 +151,22 @@ const EmailMonitoring = () => {
       });
     } finally {
       setPollingLoading(false);
+      setPollingDialogOpen(false);
     }
+  };
+
+  const handleCustomPolling = async () => {
+    const options: { maxEmails?: number; hoursBack?: number } = {};
+    
+    if (maxEmails > 0) {
+      options.maxEmails = maxEmails;
+    }
+    
+    if (hoursBack !== '' && hoursBack > 0) {
+      options.hoursBack = hoursBack;
+    }
+    
+    await triggerPolling(options);
   };
 
   const togglePollingForMailbox = async (mailboxId: string, currentlyActive: boolean) => {
@@ -189,14 +210,84 @@ const EmailMonitoring = () => {
           <h1 className="text-3xl font-bold">Email Monitoring</h1>
           <p className="text-muted-foreground">Monitor and manage email polling from your connected mailboxes</p>
         </div>
-        <Button onClick={triggerPolling} disabled={pollingLoading}>
-          {pollingLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          )}
-          Poll Now
-        </Button>
+        <div className="flex space-x-2">
+          <Button onClick={() => triggerPolling()} disabled={pollingLoading}>
+            {pollingLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Poll Now
+          </Button>
+          
+          <Dialog open={pollingDialogOpen} onOpenChange={setPollingDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" disabled={pollingLoading}>
+                <Settings className="mr-2 h-4 w-4" />
+                Custom Poll
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Custom Email Polling</DialogTitle>
+                <DialogDescription>
+                  Configure how many emails to scan and how far back to look.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="maxEmails" className="text-right">
+                    Max Emails
+                  </Label>
+                  <Input
+                    id="maxEmails"
+                    type="number"
+                    value={maxEmails}
+                    onChange={(e) => setMaxEmails(Number(e.target.value))}
+                    className="col-span-3"
+                    min="1"
+                    max="500"
+                    placeholder="50"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="hoursBack" className="text-right">
+                    Hours Back
+                  </Label>
+                  <Input
+                    id="hoursBack"
+                    type="number"
+                    value={hoursBack}
+                    onChange={(e) => setHoursBack(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="col-span-3"
+                    min="1"
+                    max="168"
+                    placeholder="Leave empty for new emails only"
+                  />
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <p>• Max Emails: Up to 500 emails per poll (default: 50)</p>
+                  <p>• Hours Back: How many hours back to scan (default: only new emails since last poll)</p>
+                  <p>• Leave Hours Back empty to only get new emails since the last successful poll</p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button 
+                  onClick={handleCustomPolling} 
+                  disabled={pollingLoading}
+                  className="w-full"
+                >
+                  {pollingLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Start Custom Poll
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Mailbox Status Cards */}

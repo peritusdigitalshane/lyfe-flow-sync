@@ -55,7 +55,25 @@ const handler = async (req: Request): Promise<Response> => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log('Starting email polling process...');
+    // Parse request body for custom parameters
+    let maxEmails = 50; // Default
+    let hoursBack = null; // Default: only new emails since last poll
+    
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        if (body.maxEmails && body.maxEmails > 0) {
+          maxEmails = Math.min(body.maxEmails, 500); // Cap at 500 for performance
+        }
+        if (body.hoursBack && body.hoursBack > 0) {
+          hoursBack = Math.min(body.hoursBack, 168); // Cap at 1 week
+        }
+      } catch (e) {
+        // If no body or invalid JSON, use defaults
+      }
+    }
+
+    console.log(`Starting email polling process... maxEmails: ${maxEmails}, hoursBack: ${hoursBack}`);
 
     // Get all active mailboxes that need polling
     const { data: mailboxes, error: mailboxError } = await supabase
@@ -98,8 +116,17 @@ const handler = async (req: Request): Promise<Response> => {
             is_polling_active: true
           });
 
+        // Determine the time filter for fetching emails
+        let timeFilter = lastPollTime;
+        if (hoursBack) {
+          const hoursBackTime = new Date();
+          hoursBackTime.setHours(hoursBackTime.getHours() - hoursBack);
+          timeFilter = hoursBackTime.toISOString();
+          console.log(`Using time filter: ${hoursBack} hours back (${timeFilter})`);
+        }
+
         // Fetch emails from Microsoft Graph API
-        const emails = await fetchEmailsFromGraph(mailbox, lastPollTime);
+        const emails = await fetchEmailsFromGraph(mailbox, timeFilter, maxEmails);
         console.log(`Fetched ${emails.length} emails from ${mailbox.email_address}`);
 
         let processedCount = 0;
@@ -231,12 +258,12 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-async function fetchEmailsFromGraph(mailbox: Mailbox, lastPollTime?: string): Promise<GraphApiEmail[]> {
+async function fetchEmailsFromGraph(mailbox: Mailbox, lastPollTime?: string, maxEmails: number = 50): Promise<GraphApiEmail[]> {
   const graphUrl = 'https://graph.microsoft.com/v1.0/me/messages';
   
   // Build query parameters
   const params = new URLSearchParams({
-    '$top': '50', // Limit to 50 emails per poll
+    '$top': maxEmails.toString(),
     '$orderby': 'receivedDateTime desc',
     '$select': 'id,subject,sender,toRecipients,body,bodyPreview,receivedDateTime,isRead,importance,hasAttachments,parentFolderId,internetMessageId,conversationId'
   });

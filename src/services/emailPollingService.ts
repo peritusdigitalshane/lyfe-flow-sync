@@ -46,7 +46,10 @@ class EmailPollingService {
   /**
    * Trigger manual email polling for all active mailboxes
    */
-  async triggerEmailPolling(): Promise<{
+  async triggerEmailPolling(options?: {
+    maxEmails?: number;
+    hoursBack?: number;
+  }): Promise<{
     success: boolean;
     message: string;
     total_processed?: number;
@@ -54,7 +57,9 @@ class EmailPollingService {
     error?: string;
   }> {
     try {
-      const { data, error } = await supabase.functions.invoke('email-poller');
+      const { data, error } = await supabase.functions.invoke('email-poller', {
+        body: options || {}
+      });
       
       if (error) {
         throw error;
