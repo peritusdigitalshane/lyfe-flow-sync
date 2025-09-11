@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoles } from "@/hooks/useRoles";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -12,6 +13,7 @@ interface AccountStatusCheckProps {
 
 export default function AccountStatusCheck({ children }: AccountStatusCheckProps) {
   const { user, loading: authLoading } = useAuth();
+  const { isSuperAdmin, loading: rolesLoading } = useRoles();
   const [accountStatus, setAccountStatus] = useState<'loading' | 'pending' | 'active' | 'suspended'>('loading');
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
 
@@ -83,8 +85,8 @@ export default function AccountStatusCheck({ children }: AccountStatusCheckProps
     }
   };
 
-  // Show loading while checking auth or account status
-  if (authLoading || accountStatus === 'loading') {
+  // Show loading while checking auth, roles, or account status
+  if (authLoading || rolesLoading || accountStatus === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -95,6 +97,11 @@ export default function AccountStatusCheck({ children }: AccountStatusCheckProps
   // Redirect to auth if not authenticated
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Super admins bypass payment requirements
+  if (isSuperAdmin) {
+    return <>{children}</>;
   }
 
   // Show payment required screen for pending accounts
