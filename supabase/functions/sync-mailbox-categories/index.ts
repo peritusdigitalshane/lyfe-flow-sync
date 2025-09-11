@@ -6,15 +6,25 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
-  console.log('=== Sync Categories Function Started ===');
-  console.log('Request method:', req.method);
-  console.log('Request URL:', req.url);
+  console.log('🚀 FUNCTION CALLED AT:', new Date().toISOString());
+  console.log('🔍 Method:', req.method, 'URL:', req.url);
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    console.log('Handling CORS preflight request');
+    console.log('📋 Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Quick test - return immediately to see if function works
+  console.log('⚡ Quick test response');
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      message: 'Function is alive!',
+      timestamp: new Date().toISOString()
+    }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 
   try {
     console.log('=== Starting function execution ===');
