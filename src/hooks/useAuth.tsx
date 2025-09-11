@@ -2,14 +2,23 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+interface ImpersonatedUser {
+  id: string;
+  email: string;
+  user_metadata?: {
+    full_name?: string;
+  };
+  created_at: string;
+}
+
 interface AuthContextType {
-  user: User | null;
+  user: User | ImpersonatedUser | null;
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  impersonatedUser: User | null;
+  impersonatedUser: ImpersonatedUser | null;
   originalUser: User | null;
   isImpersonating: boolean;
   impersonateUser: (targetUserId: string) => Promise<void>;
@@ -22,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [impersonatedUser, setImpersonatedUser] = useState<User | null>(null);
+  const [impersonatedUser, setImpersonatedUser] = useState<ImpersonatedUser | null>(null);
   const [originalUser, setOriginalUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -77,20 +86,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const impersonateUser = async (targetUserId: string) => {
     try {
-      // Fetch the target user's auth data
-      const { data: { user: targetUser }, error } = await supabase.auth.admin.getUserById(targetUserId);
+      // Call the edge function to impersonate the user
+      const { data, error } = await supabase.functions.invoke('impersonate-user', {
+        body: { targetUserId }
+      });
       
-      if (error || !targetUser) {
-        throw new Error("Failed to fetch target user");
+      if (error) {
+        throw new Error(error.message || "Failed to impersonate user");
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || "Failed to impersonate user");
       }
 
       // Store the original user before impersonating
-      if (!originalUser) {
-        setOriginalUser(user);
+      if (!originalUser && user && 'aud' in user) {
+        setOriginalUser(user as User);
       }
       
+      // Create an impersonated user object from the profile data
+      const impersonatedUserData: ImpersonatedUser = {
+        id: data.targetUser.id,
+        email: data.targetUser.email,
+        user_metadata: {
+          full_name: data.targetUser.full_name
+        },
+        created_at: data.targetUser.created_at
+      };
+      
       // Set the impersonated user
-      setImpersonatedUser(targetUser);
+      setImpersonatedUser(impersonatedUserData);
     } catch (error) {
       console.error("Error impersonating user:", error);
       throw error;
