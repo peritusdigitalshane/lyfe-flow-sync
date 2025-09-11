@@ -18,7 +18,10 @@ import AuthCallback from "./pages/AuthCallback";
 import Settings from "./pages/Settings";
 import AIClassification from "./pages/AIClassification";
 import AdminDiagnostics from "./pages/AdminDiagnostics";
+import UserManagement from "./pages/UserManagement";
+import QuarantineTest from "./pages/QuarantineTest";
 import NotFound from "./pages/NotFound";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +47,22 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="/ai-classification" element={<AIClassification />} />
             <Route path="/admin/diagnostics" element={<AdminDiagnostics />} />
+            <Route 
+              path="/admin/users" 
+              element={
+                <ProtectedRoute requireSuperAdmin>
+                  <UserManagement />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/quarantine-test" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <QuarantineTest />
+                </ProtectedRoute>
+              } 
+            />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

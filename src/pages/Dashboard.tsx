@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoles } from "@/hooks/useRoles";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -19,6 +20,7 @@ interface Mailbox {
 
 export default function Dashboard() {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { isSuperAdmin } = useRoles();
   const { toast } = useToast();
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [loading, setLoading] = useState(true);
@@ -185,6 +187,11 @@ export default function Dashboard() {
                 <Link to="/settings" className="text-muted-foreground hover:text-foreground">
                   Settings
                 </Link>
+                {isSuperAdmin && (
+                  <Link to="/admin/users" className="text-muted-foreground hover:text-foreground">
+                    User Management
+                  </Link>
+                )}
               </nav>
             </div>
             <div className="flex items-center space-x-4">
