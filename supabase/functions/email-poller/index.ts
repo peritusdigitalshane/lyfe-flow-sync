@@ -93,16 +93,18 @@ const handler = async (req: Request): Promise<Response> => {
     const results = [];
 
     for (const mailbox of mailboxes || []) {
+      let pollingStatus = null; // Declare here for wider scope
       try {
         console.log(`Processing mailbox: ${mailbox.email_address}`);
         
         // Get last poll time for this mailbox
-        const { data: pollingStatus } = await supabase
+        const { data: pollingStatusData } = await supabase
           .from('email_polling_status')
           .select('*')
           .eq('mailbox_id', mailbox.id)
-          .single();
+          .maybeSingle();
 
+        pollingStatus = pollingStatusData;
         const lastPollTime = pollingStatus?.last_successful_poll_at;
         const currentTime = new Date().toISOString();
 
