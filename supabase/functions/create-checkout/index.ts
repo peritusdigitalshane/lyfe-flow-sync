@@ -55,20 +55,21 @@ serve(async (req) => {
       logStep("No existing customer found");
     }
 
+    // Get price ID from environment or use a default
+    const priceId = Deno.env.get("STRIPE_PRICE_ID");
+    if (!priceId) {
+      throw new Error("STRIPE_PRICE_ID not configured in environment. Please set this to your Stripe Price ID from the dashboard.");
+    }
+
+    logStep("Using Stripe Price ID", { priceId });
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
       line_items: [
         {
-          price_data: {
-            currency: "usd",
-            product_data: { 
-              name: "Premium Subscription" 
-            },
-            unit_amount: 1000, // $10.00
-            recurring: { interval: "month" },
-          },
+          price: priceId, // Use existing Stripe Price ID
           quantity: 1,
         },
       ],
