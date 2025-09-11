@@ -223,7 +223,7 @@ export default function AddMailbox() {
                       </div>
                       <div className="mt-2 text-xs text-blue-600">
                         💡 Tip: {selectedPreset === "starter" && "Inbox only is simplest to start with"}
-                        {selectedPreset === "newsletter" && "Use 4–7 categories for best organisation"}
+                         {selectedPreset === "newsletter" && "Use 4–7 categories for best organisation"}
                         {selectedPreset === "finance" && "Financial emails will be flagged for priority"}
                         {selectedPreset === "labelling" && "Start with Quarantine for week 1 to test rules safely"}
                       </div>

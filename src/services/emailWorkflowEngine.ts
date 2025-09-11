@@ -23,7 +23,7 @@ export interface WorkflowCondition {
 }
 
 export interface WorkflowAction {
-  type: 'categorize' | 'quarantine' | 'move_to_folder' | 'mark_as_read' | 'send_notification' | 'delete' | 'forward';
+  type: 'categorise' | 'quarantine' | 'move_to_folder' | 'mark_as_read' | 'send_notification' | 'delete' | 'forward';
   parameters: Record<string, any>;
 }
 
@@ -68,8 +68,8 @@ class EmailWorkflowEngine {
     const startTime = Date.now();
     
     try {
-      // Step 1: Analyze email for risk and category
-      const analysis = await this.analyzeEmail(email);
+      // Step 1: Analyse email for risk and category
+      const analysis = await this.analyseEmail(email);
       
       // Step 2: Get applicable workflow rules
       const rules = await this.getApplicableRules(email.mailbox_id);
@@ -130,9 +130,9 @@ class EmailWorkflowEngine {
   }
   
   /**
-   * Analyze email content for risk scoring and categorization
+   * Analyse email content for risk scoring and categorisation
    */
-  private async analyzeEmail(email: Email): Promise<EmailAnalysis> {
+  private async analyseEmail(email: Email): Promise<EmailAnalysis> {
     const content = `${email.subject} ${email.body_preview || ''} ${email.sender_name || ''}`.toLowerCase();
     const riskFactors: Array<{ factor: string; score: number; description: string }> = [];
     const suspiciousPatterns: string[] = [];
@@ -347,8 +347,8 @@ class EmailWorkflowEngine {
    */
   private async executeAction(action: WorkflowAction, email: Email): Promise<void> {
     switch (action.type) {
-      case 'categorize':
-        await this.categorizeEmail(email, action.parameters.category_id);
+      case 'categorise':
+        await this.categoriseEmail(email, action.parameters.category_id);
         break;
         
       case 'quarantine':
@@ -369,9 +369,9 @@ class EmailWorkflowEngine {
   }
   
   /**
-   * Categorize an email
+   * Categorise an email
    */
-  private async categorizeEmail(email: Email, categoryId: string): Promise<void> {
+  private async categoriseEmail(email: Email, categoryId: string): Promise<void> {
     await supabase
       .from('email_classifications')
       .upsert({
@@ -451,7 +451,7 @@ class EmailWorkflowEngine {
    */
   private isInternalDomain(email: string): boolean {
     // Define your internal domains here
-    const internalDomains = ['company.com', 'organization.org'];
+    const internalDomains = ['company.com', 'organisation.org'];
     const domain = email.split('@')[1]?.toLowerCase();
     return internalDomains.includes(domain);
   }

@@ -359,7 +359,7 @@ export default function MailboxSettings() {
                 <div>
                   <Label className="text-base">Category Classification</Label>
                   <p className="text-sm text-muted-foreground">
-                    Automatically categorize emails based on content
+                    Automatically categorise emails based on content
                   </p>
                 </div>
                 <Switch

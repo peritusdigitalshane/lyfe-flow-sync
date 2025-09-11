@@ -364,7 +364,7 @@ export default function AdminDiagnostics() {
       case 'running':
         return <RefreshCw className="h-4 w-4 text-blue-500 animate-spin" />;
       default:
-        return <div className="h-4 w-4 rounded-full bg-gray-300" />;
+        return <div className="h-4 w-4 rounded-full bg-grey-300" />;
     }
   };
 
@@ -374,7 +374,7 @@ export default function AdminDiagnostics() {
       error: 'bg-red-100 text-red-800',
       warning: 'bg-yellow-100 text-yellow-800',
       running: 'bg-blue-100 text-blue-800',
-      pending: 'bg-gray-100 text-gray-800'
+      pending: 'bg-grey-100 text-grey-800'
     };
     
     return (
@@ -393,9 +393,9 @@ export default function AdminDiagnostics() {
       case 'info':
         return 'text-blue-600';
       case 'debug':
-        return 'text-gray-600';
+        return 'text-grey-600';
       default:
-        return 'text-gray-800';
+        return 'text-grey-800';
     }
   };
 
@@ -509,9 +509,9 @@ export default function AdminDiagnostics() {
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">{test.message}</p>
                   {test.details && (
-                    <p className="text-xs text-gray-500 mt-1 font-mono">{test.details}</p>
+                    <p className="text-xs text-grey-500 mt-1 font-mono">{test.details}</p>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-grey-400 mt-1">
                     {new Date(test.timestamp).toLocaleTimeString()}
                   </p>
                 </div>
@@ -541,19 +541,19 @@ export default function AdminDiagnostics() {
           <ScrollArea className="h-96">
             <div className="space-y-2">
               {logs.map((log, index) => (
-                <div key={index} className="text-xs font-mono p-2 bg-gray-50 rounded">
+                <div key={index} className="text-xs font-mono p-2 bg-grey-50 rounded">
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-500">
+                    <span className="text-grey-500">
                       {new Date(log.timestamp).toLocaleTimeString()}
                     </span>
                     <span className={`font-semibold ${getLevelColor(log.level)}`}>
                       [{log.level.toUpperCase()}]
                     </span>
-                    <span className="text-gray-700">[{log.component}]</span>
+                    <span className="text-grey-700">[{log.component}]</span>
                     <span>{log.message}</span>
                   </div>
                   {log.details && (
-                    <div className="mt-1 pl-4 text-gray-600">
+                    <div className="mt-1 pl-4 text-grey-600">
                       {typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2)}
                     </div>
                   )}

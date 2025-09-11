@@ -258,7 +258,7 @@ Banking Security Team`
                   {result.analysis && (
                     <div className="space-y-2">
                       <h4 className="font-medium">AI Analysis</h4>
-                      <div className="p-3 bg-gray-50 rounded-lg space-y-2">
+                      <div className="p-3 bg-grey-50 rounded-lg space-y-2">
                         <div className="flex justify-between">
                           <span>Risk Score:</span>
                           <span className={`font-bold ${getRiskColor(result.analysis.risk_score)}`}>

@@ -267,7 +267,7 @@ export default function WorkflowRules() {
 
   const addAction = (rule: Partial<WorkflowRule>) => {
     const newAction: WorkflowAction = {
-      type: 'categorize',
+      type: 'categorise',
       parameters: {}
     };
 
@@ -583,14 +583,14 @@ export default function WorkflowRules() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="categorize">Categorize</SelectItem>
+                              <SelectItem value="categorise">Categorise</SelectItem>
                               <SelectItem value="quarantine">Quarantine</SelectItem>
                               <SelectItem value="mark_as_read">Mark as Read</SelectItem>
                               <SelectItem value="send_notification">Send Notification</SelectItem>
                             </SelectContent>
                           </Select>
                           
-                          {action.type === 'categorize' && (
+                          {action.type === 'categorise' && (
                             <Select
                               value={action.parameters?.category_id || ''}
                               onValueChange={(value) => {

@@ -667,7 +667,7 @@ export default function EmailCategories() {
               />
             </div>
             <div>
-              <Label htmlFor="color">Color</Label>
+              <Label htmlFor="color">Colour</Label>
               <Input
                 id="color"
                 type="color"

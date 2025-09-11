@@ -15,7 +15,7 @@ import { Link } from "react-router-dom";
 interface EmailSettings {
   polling_interval_minutes: number;
   max_emails_per_poll: number;
-  auto_categorize: boolean;
+  auto_categorise: boolean;
 }
 
 interface MicrosoftOAuthSettings {
@@ -53,7 +53,7 @@ export default function Settings() {
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({
     polling_interval_minutes: 5,
     max_emails_per_poll: 50,
-    auto_categorize: true
+    auto_categorise: true
   });
 
   const [oauthSettings, setOauthSettings] = useState<MicrosoftOAuthSettings>({
@@ -151,7 +151,7 @@ export default function Settings() {
         setEmailSettings({
           polling_interval_minutes: emailConfig.polling_interval_minutes || 5,
           max_emails_per_poll: emailConfig.max_emails_per_poll || 50,
-          auto_categorize: emailConfig.auto_categorize !== false
+          auto_categorise: emailConfig.auto_categorise !== false
         });
       }
 
@@ -449,7 +449,7 @@ export default function Settings() {
             <CardHeader>
               <CardTitle>Email Processing</CardTitle>
               <CardDescription>
-                Configure how emails are processed and analyzed
+                Configure how emails are processed and analysed
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -493,14 +493,14 @@ export default function Settings() {
 
               <div className="flex items-center space-x-2">
                 <Switch
-                  id="auto-categorize"
-                  checked={emailSettings.auto_categorize}
+                  id="auto-categorise"
+                  checked={emailSettings.auto_categorise}
                   onCheckedChange={(checked) => setEmailSettings({
                     ...emailSettings,
-                    auto_categorize: checked
+                    auto_categorise: checked
                   })}
                 />
-                <Label htmlFor="auto-categorize">Enable automatic email categorization</Label>
+                <Label htmlFor="auto-categorise">Enable automatic email categorisation</Label>
               </div>
 
               <Button onClick={handleSaveEmail} disabled={saving} className="gap-2">
@@ -786,7 +786,7 @@ export default function Settings() {
                     </Label>
                   </div>
                   <p className="text-sm text-muted-foreground ml-6">
-                    Uses OpenAI to analyze email content for sophisticated threats and phishing attempts
+                    Uses OpenAI to analyse email content for sophisticated threats and phishing attempts
                   </p>
                 </div>
 
@@ -909,7 +909,7 @@ export default function Settings() {
                       disabled={!quarantineSettings.enabled}
                     />
                     <Label htmlFor="check-links">
-                      Analyze suspicious links and URLs
+                      Analyse suspicious links and URLs
                     </Label>
                   </div>
                 </div>
