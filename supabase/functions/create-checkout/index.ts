@@ -35,25 +35,15 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Get Stripe settings from database
-    const { data: settings, error: settingsError } = await supabaseClient
-      .from("app_settings")
-      .select("value")
-      .eq("key", "stripe")
-      .single();
-
-    if (settingsError || !settings?.value?.secret_key) {
-      throw new Error("Stripe secret key not configured in settings");
+    // Get Stripe secret key from environment
+    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeSecretKey) {
+      throw new Error("Stripe secret key not configured in environment");
     }
 
-    const stripeConfig = settings.value;
-    if (!stripeConfig.enabled) {
-      throw new Error("Stripe is not enabled in settings");
-    }
+    logStep("Stripe key retrieved from environment");
 
-    logStep("Stripe settings retrieved", { enabled: stripeConfig.enabled });
-
-    const stripe = new Stripe(stripeConfig.secret_key, { apiVersion: "2023-10-16" });
+    const stripe = new Stripe(stripeSecretKey, { apiVersion: "2023-10-16" });
     
     // Check if customer exists
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
@@ -72,11 +62,11 @@ serve(async (req) => {
       line_items: [
         {
           price_data: {
-            currency: stripeConfig.currency || "usd",
+            currency: "usd",
             product_data: { 
-              name: stripeConfig.subscription_name || "Premium Subscription" 
+              name: "Premium Subscription" 
             },
-            unit_amount: Math.round((stripeConfig.subscription_price || 10) * 100),
+            unit_amount: 2999, // $29.99
             recurring: { interval: "month" },
           },
           quantity: 1,
