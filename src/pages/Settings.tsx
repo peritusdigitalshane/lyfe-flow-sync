@@ -42,6 +42,13 @@ interface QuarantineSettings {
   check_links: boolean;
 }
 
+interface StripeSettings {
+  enabled: boolean;
+  subscription_price: number;
+  subscription_name: string;
+  currency: string;
+}
+
 export default function Settings() {
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -92,6 +99,13 @@ export default function Settings() {
     whitelist_domains: [],
     check_attachments: true,
     check_links: true
+  });
+
+  const [stripeSettings, setStripeSettings] = useState<StripeSettings>({
+    enabled: false,
+    subscription_price: 10,
+    subscription_name: "Premium Plan",
+    currency: "usd"
   });
 
   useEffect(() => {
@@ -215,6 +229,27 @@ export default function Settings() {
             check_links: quarantineConfig.check_links !== false
           });
         }
+
+        // Load Stripe settings (super admin only)
+        const { data: stripeData, error: stripeError } = await supabase
+          .from("app_settings")
+          .select("*")
+          .eq("key", "stripe_config")
+          .maybeSingle();
+
+        if (stripeError && stripeError.code !== 'PGRST116') {
+          throw stripeError;
+        }
+
+        if (stripeData?.value) {
+          const stripeConfig = stripeData.value as any;
+          setStripeSettings({
+            enabled: stripeConfig.enabled || false,
+            subscription_price: stripeConfig.subscription_price || 10,
+            subscription_name: stripeConfig.subscription_name || "Premium Plan",
+            currency: stripeConfig.currency || "usd"
+          });
+        }
       }
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -315,6 +350,30 @@ export default function Settings() {
     } catch (error) {
       console.error("Error saving quarantine settings:", error);
       toast.error("Failed to save quarantine settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveStripe = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert({
+          key: "stripe_config",
+          value: stripeSettings as any,
+          description: "Stripe subscription configuration"
+        }, {
+          onConflict: 'key'
+        });
+
+      if (error) throw error;
+
+      toast.success("Stripe settings saved successfully");
+    } catch (error) {
+      console.error("Error saving Stripe settings:", error);
+      toast.error("Failed to save Stripe settings");
     } finally {
       setSaving(false);
     }
@@ -917,6 +976,126 @@ export default function Settings() {
                 <Button onClick={handleSaveQuarantine} disabled={saving} className="gap-2">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Save Quarantine Settings
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Stripe Configuration (Super Admin Only) */}
+          {isSuperAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Stripe Configuration</CardTitle>
+                <CardDescription>
+                  Configure subscription pricing and billing settings (Super Admin Only)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="stripe-enabled"
+                    checked={stripeSettings.enabled}
+                    onCheckedChange={(checked) => setStripeSettings({
+                      ...stripeSettings,
+                      enabled: checked
+                    })}
+                  />
+                  <Label htmlFor="stripe-enabled" className="text-base font-medium">
+                    Enable Stripe Subscriptions
+                  </Label>
+                </div>
+                <p className="text-sm text-muted-foreground ml-6">
+                  When enabled, users will be required to subscribe to access premium features
+                </p>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="subscription-name">Subscription Plan Name</Label>
+                    <Input
+                      id="subscription-name"
+                      value={stripeSettings.subscription_name}
+                      onChange={(e) => setStripeSettings({
+                        ...stripeSettings,
+                        subscription_name: e.target.value
+                      })}
+                      disabled={!stripeSettings.enabled}
+                      placeholder="Premium Plan"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Display name for the subscription plan
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="subscription-price">Monthly Price</Label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-muted-foreground">$</span>
+                      <Input
+                        id="subscription-price"
+                        type="number"
+                        min="1"
+                        max="999"
+                        value={stripeSettings.subscription_price}
+                        onChange={(e) => setStripeSettings({
+                          ...stripeSettings,
+                          subscription_price: parseFloat(e.target.value) || 10
+                        })}
+                        disabled={!stripeSettings.enabled}
+                      />
+                      <span className="text-sm text-muted-foreground">/ month</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Monthly subscription price in USD
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="currency">Currency</Label>
+                  <Select
+                    value={stripeSettings.currency}
+                    onValueChange={(value) => setStripeSettings({
+                      ...stripeSettings,
+                      currency: value
+                    })}
+                    disabled={!stripeSettings.enabled}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="usd">USD - US Dollar</SelectItem>
+                      <SelectItem value="eur">EUR - Euro</SelectItem>
+                      <SelectItem value="gbp">GBP - British Pound</SelectItem>
+                      <SelectItem value="cad">CAD - Canadian Dollar</SelectItem>
+                      <SelectItem value="aud">AUD - Australian Dollar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    Currency for subscription billing
+                  </p>
+                </div>
+
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h4 className="text-sm font-medium mb-2">Preview</h4>
+                  <div className="text-sm text-muted-foreground">
+                    <p><strong>Plan:</strong> {stripeSettings.subscription_name}</p>
+                    <p><strong>Price:</strong> ${stripeSettings.subscription_price} {stripeSettings.currency.toUpperCase()} / month</p>
+                    <p><strong>Status:</strong> {stripeSettings.enabled ? 'Enabled' : 'Disabled'}</p>
+                  </div>
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Important:</strong> Make sure to configure your Stripe Secret Key in the edge function secrets before enabling subscriptions.
+                  </p>
+                </div>
+
+                <Button onClick={handleSaveStripe} disabled={saving} className="gap-2">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save Stripe Settings
                 </Button>
               </CardContent>
             </Card>
