@@ -116,17 +116,21 @@ const handler = async (req: Request): Promise<Response> => {
               continue;
             }
             
-            const lastPollTime = pollingStatus?.last_poll_at;
+            // Use last_successful_poll_at for interval checking, not last_poll_at
+            const lastSuccessfulPollTime = pollingStatus?.last_successful_poll_at;
             const intervalMinutes = pollingStatus?.polling_interval_minutes || 5;
             
-            if (lastPollTime) {
-              const timeSinceLastPoll = Date.now() - new Date(lastPollTime).getTime();
+            // If this is the first time polling or enough time has passed since last successful poll
+            if (lastSuccessfulPollTime) {
+              const timeSinceLastPoll = Date.now() - new Date(lastSuccessfulPollTime).getTime();
               const intervalMs = intervalMinutes * 60 * 1000;
               
               if (timeSinceLastPoll < intervalMs) {
                 console.log(`Skipping ${mailbox.email_address} - not due yet (${Math.round(timeSinceLastPoll/1000/60)}min ago, interval: ${intervalMinutes}min)`);
                 continue;
               }
+            } else {
+              console.log(`First time polling for ${mailbox.email_address} - proceeding with email check`);
             }
           }
         }
