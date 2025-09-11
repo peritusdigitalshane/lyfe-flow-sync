@@ -31,4 +31,4 @@ services:
 
 networks:
   web:
-    external: true  # Assumes you have a 'web' network for nginx proxy manager
+    driver: bridge
