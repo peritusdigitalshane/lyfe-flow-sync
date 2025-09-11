@@ -473,6 +473,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_status: string | null
           created_at: string | null
           email: string
           full_name: string | null
@@ -481,6 +482,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          account_status?: string | null
           created_at?: string | null
           email: string
           full_name?: string | null
@@ -489,6 +491,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          account_status?: string | null
           created_at?: string | null
           email?: string
           full_name?: string | null
@@ -667,6 +670,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_user_account: {
+        Args: { user_email: string }
+        Returns: undefined
+      }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]
