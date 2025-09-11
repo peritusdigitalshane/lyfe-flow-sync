@@ -379,11 +379,58 @@ export default function EmailCategories() {
 
       const result = response.data;
       console.log('Sync result:', result);
-      toast.success(`${result.imported} categories imported successfully`);
+      toast.success(`${result.imported} categories imported from M365`);
       loadData(); // Refresh the categories list
     } catch (error) {
       console.error('Error syncing categories:', error);
       toast.error(`Failed to sync categories: ${error.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handlePushCategories = async () => {
+    let mailboxId = selectedMailbox;
+    
+    // If in mailbox context, extract from URL
+    if (!mailboxId) {
+      const pathParts = location.pathname.split('/');
+      if (pathParts[1] === 'mailbox') {
+        mailboxId = pathParts[2];
+      }
+    }
+
+    if (!mailboxId) {
+      toast.error('Please select a mailbox to push to');
+      return;
+    }
+
+    try {
+      setSyncing(true);
+      console.log('Starting push to M365 for mailbox:', mailboxId);
+
+      const response = await supabase.functions.invoke('push-categories-to-m365', {
+        body: { mailboxId }
+      });
+
+      console.log('Push function response:', response);
+
+      if (response.error) {
+        console.error('Function error:', response.error);
+        throw new Error(response.error.message || 'Failed to push categories');
+      }
+
+      const result = response.data;
+      console.log('Push result:', result);
+      toast.success(`${result.pushed} categories pushed to M365`);
+      
+      if (result.errors && result.errors.length > 0) {
+        console.warn('Some categories failed to push:', result.errors);
+        toast.warning(`${result.errors.length} categories failed to push. Check console for details.`);
+      }
+    } catch (error) {
+      console.error('Error pushing categories:', error);
+      toast.error(`Failed to push categories: ${error.message}`);
     } finally {
       setSyncing(false);
     }
@@ -459,7 +506,7 @@ export default function EmailCategories() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Button 
+                     <Button 
                       onClick={handleSyncCategories} 
                       variant="outline" 
                       className="gap-2"
@@ -470,7 +517,20 @@ export default function EmailCategories() {
                       ) : (
                         <Download className="h-4 w-4" />
                       )}
-                      {syncing ? 'Syncing...' : 'Sync Categories'}
+                      {syncing ? 'Syncing...' : 'Sync from M365'}
+                    </Button>
+                    <Button 
+                      onClick={handlePushCategories} 
+                      variant="outline" 
+                      className="gap-2"
+                      disabled={syncing || !selectedMailbox}
+                    >
+                      {syncing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 rotate-180" />
+                      )}
+                      {syncing ? 'Pushing...' : 'Push to M365'}
                     </Button>
                   </div>
                 )}
