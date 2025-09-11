@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Shield, UserCheck, Crown, Mail, Search, AlertCircle, Plus, Trash2, X, User, LogOut, ArrowLeft } from "lucide-react";
+import { Users, Shield, UserCheck, Crown, Mail, Search, AlertCircle, Plus, Trash2, X, User, LogOut, ArrowLeft, UserX } from "lucide-react";
 import { useRoles } from "@/hooks/useRoles";
 import { useAuth } from "@/hooks/useAuth";
 import type { Database } from "@/integrations/supabase/types";
@@ -46,7 +46,7 @@ interface CreateUserForm {
 }
 
 export default function UserManagement() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, impersonateUser, stopImpersonating, isImpersonating, originalUser } = useAuth();
   const { isSuperAdmin, isAdmin } = useRoles();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -340,6 +340,21 @@ export default function UserManagement() {
     window.location.href = "/auth";
   };
 
+  const handleImpersonate = async (targetUserId: string) => {
+    try {
+      await impersonateUser(targetUserId);
+      toast.success("Now impersonating user. You can view their settings and data.");
+    } catch (error) {
+      console.error("Error impersonating user:", error);
+      toast.error("Failed to impersonate user");
+    }
+  };
+
+  const handleStopImpersonating = () => {
+    stopImpersonating();
+    toast.success("Stopped impersonating user");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -426,16 +441,32 @@ export default function UserManagement() {
                 </Link>
               </nav>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Welcome, {user?.email}</span>
+              <div className="flex items-center space-x-4">
+                {isImpersonating && (
+                  <div className="flex items-center space-x-2 bg-orange-100 dark:bg-orange-900/20 px-3 py-1 rounded-md">
+                    <UserX className="h-4 w-4 text-orange-600" />
+                    <span className="text-sm text-orange-600">Impersonating: {user?.email}</span>
+                    <Button 
+                      onClick={handleStopImpersonating}
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-orange-600 hover:text-orange-700 p-1 h-auto"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                <div className="flex items-center space-x-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Welcome, {isImpersonating ? originalUser?.email : user?.email}
+                  </span>
+                </div>
+                <Button onClick={handleSignOut} variant="ghost" size="sm" className="gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </Button>
               </div>
-              <Button onClick={handleSignOut} variant="ghost" size="sm" className="gap-2">
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </Button>
-            </div>
           </div>
         </div>
       </header>
@@ -741,6 +772,18 @@ export default function UserManagement() {
                               ))}
                             </SelectContent>
                           </Select>
+                        )}
+
+                        {isSuperAdmin && user.id !== originalUser?.id && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleImpersonate(user.id)}
+                            className="gap-2 text-orange-600 border-orange-200 hover:bg-orange-50"
+                          >
+                            <UserX className="h-3 w-3" />
+                            Impersonate
+                          </Button>
                         )}
 
                         <Dialog>
