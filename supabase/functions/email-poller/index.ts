@@ -353,6 +353,7 @@ async function refreshToken(mailbox: Mailbox, tokenData: any): Promise<any> {
   
   const params = new URLSearchParams({
     client_id: '80b5126b-2f86-4a4d-8d55-43afbd7c970e', // Your app's client ID
+    client_secret: Deno.env.get('MICROSOFT_CLIENT_SECRET') ?? '',
     scope: 'https://graph.microsoft.com/Mail.ReadWrite offline_access',
     refresh_token: tokenData.refresh_token,
     grant_type: 'refresh_token'
