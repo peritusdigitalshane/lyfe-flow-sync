@@ -407,54 +407,103 @@ serve(async (req) => {
         );
       }
 
-      // Create mailbox record
-      console.log('Creating mailbox record...');
-
+      // Handle mailbox record creation or re-authentication
       let mailbox, dbError;
-      try {
-        const result = await supabaseClient
-          .from('mailboxes')
-          .insert({
-            tenant_id: tenantId,
-            user_id: user.id,
-            email_address: emailAddress,
-            display_name: displayName,
-            status: 'pending',
-          })
-          .select()
-          .single();
+      
+      if (preset === 'existing' && body.mailboxId) {
+        // Re-authentication: find existing mailbox and set to pending
+        console.log('Re-authentication: updating existing mailbox to pending');
+        
+        try {
+          const result = await supabaseClient
+            .from('mailboxes')
+            .update({
+              status: 'pending',
+              error_message: null,
+            })
+            .eq('id', body.mailboxId)
+            .eq('tenant_id', tenantId)
+            .eq('user_id', user.id)
+            .select()
+            .single();
 
-        mailbox = result.data;
-        dbError = result.error;
-      } catch (error) {
-        console.error('Database insert error:', error);
-        return new Response(
-          JSON.stringify({ 
-            success: false,
-            error: 'Failed to create mailbox',
-            details: error.message || 'Database insert failed'
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+          mailbox = result.data;
+          dbError = result.error;
+          
+          if (!mailbox) {
+            console.error('Mailbox not found for re-authentication');
+            return new Response(
+              JSON.stringify({ 
+                success: false,
+                error: 'Mailbox not found',
+                details: 'Could not find mailbox for re-authentication'
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          console.log('Mailbox updated for re-authentication:', mailbox.id);
+        } catch (error) {
+          console.error('Database update error:', error);
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: 'Failed to update mailbox',
+              details: error.message || 'Database update failed'
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } else {
+        // New mailbox creation
+        console.log('Creating new mailbox record...');
+        
+        try {
+          const result = await supabaseClient
+            .from('mailboxes')
+            .insert({
+              tenant_id: tenantId,
+              user_id: user.id,
+              email_address: emailAddress,
+              display_name: displayName,
+              status: 'pending',
+            })
+            .select()
+            .single();
+
+          mailbox = result.data;
+          dbError = result.error;
+        } catch (error) {
+          console.error('Database insert error:', error);
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: 'Failed to create mailbox',
+              details: error.message || 'Database insert failed'
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        if (dbError) {
+          console.error('Mailbox creation failed:', dbError);
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: 'Failed to create mailbox',
+              details: dbError.message || 'Database error'
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('Mailbox created successfully:', mailbox.id);
       }
-
-      if (dbError) {
-        console.error('Mailbox creation failed:', dbError);
-        return new Response(
-          JSON.stringify({ 
-            success: false,
-            error: 'Failed to create mailbox',
-            details: dbError.message || 'Database error'
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log('Mailbox created successfully:', mailbox.id);
 
       // Log audit trail
       try {
-        await logAudit(supabaseClient, tenantId, 'mailbox_created', {
+        const action = preset === 'existing' ? 'mailbox_reauth_initiated' : 'mailbox_created';
+        await logAudit(supabaseClient, tenantId, action, {
           mailbox_id: mailbox.id,
           email_address: emailAddress,
           preset,

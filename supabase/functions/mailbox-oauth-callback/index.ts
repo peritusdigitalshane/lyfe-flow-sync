@@ -347,7 +347,7 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .ilike('email_address', userEmail) // Case-insensitive match
       .eq('status', 'pending')
-      .single();
+      .maybeSingle();
 
     if (mailboxError || !mailbox) {
       console.error('No pending mailbox found for email:', userEmail);
