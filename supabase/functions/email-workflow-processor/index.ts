@@ -194,7 +194,7 @@ serve(async (req) => {
       })
       .eq('id', email.id);
 
-    // Step 6: Log execution
+    // Step 6: Log execution and activities
     await supabase
       .from('workflow_executions')
       .insert({
@@ -205,6 +205,24 @@ serve(async (req) => {
         execution_status: 'completed',
         actions_taken: executedActions,
         execution_time_ms: Date.now() - startTime
+      });
+
+    // Log email processing activity
+    await supabase
+      .from('audit_logs')
+      .insert({
+        tenant_id: email.tenant_id,
+        mailbox_id: email.mailbox_id,
+        action: 'email_processed',
+        details: {
+          email_id: email.id,
+          subject: email.subject,
+          matched_rule: matchedRule?.name,
+          actions_executed: executedActions.length,
+          risk_score: analysis.risk_score,
+          category: analysis.category,
+          execution_time_ms: Date.now() - startTime
+        }
       });
 
     console.log(`Email workflow processing completed for ${emailId}`);
@@ -475,6 +493,21 @@ async function categorizeEmail(email: any, categoryId: string, supabase: any): P
       classification_method: 'workflow_rule',
       confidence_score: 1.0
     });
+
+  // Log categorization activity
+  await supabase
+    .from('audit_logs')
+    .insert({
+      tenant_id: email.tenant_id,
+      mailbox_id: email.mailbox_id,
+      action: 'email_categorized',
+      details: {
+        email_id: email.id,
+        subject: email.subject,
+        category_id: categoryId,
+        method: 'workflow_rule'
+      }
+    });
 }
 
 async function quarantineEmail(email: any, supabase: any): Promise<void> {
@@ -485,6 +518,21 @@ async function quarantineEmail(email: any, supabase: any): Promise<void> {
       processed_at: new Date().toISOString()
     })
     .eq('id', email.id);
+
+  // Log quarantine activity
+  await supabase
+    .from('audit_logs')
+    .insert({
+      tenant_id: email.tenant_id,
+      mailbox_id: email.mailbox_id,
+      action: 'email_quarantined',
+      details: {
+        email_id: email.id,
+        subject: email.subject,
+        sender: email.sender_email,
+        reason: 'workflow_rule_triggered'
+      }
+    });
 }
 
 async function markEmailAsRead(email: any, supabase: any): Promise<void> {

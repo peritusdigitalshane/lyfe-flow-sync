@@ -642,6 +642,11 @@ export type Database = {
         | "config_updated"
         | "workflow_synced"
         | "error_occurred"
+        | "email_received"
+        | "email_processed"
+        | "email_categorized"
+        | "email_quarantined"
+        | "email_blocked"
       mailbox_status: "pending" | "connected" | "error" | "paused"
     }
     CompositeTypes: {
@@ -779,6 +784,11 @@ export const Constants = {
         "config_updated",
         "workflow_synced",
         "error_occurred",
+        "email_received",
+        "email_processed",
+        "email_categorized",
+        "email_quarantined",
+        "email_blocked",
       ],
       mailbox_status: ["pending", "connected", "error", "paused"],
     },
