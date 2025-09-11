@@ -144,7 +144,7 @@ const handler = async (req: Request): Promise<Response> => {
 
             if (!existingEmail) {
               // Insert new email
-              const { error: insertError } = await supabase
+              const { data: insertedEmail, error: insertError } = await supabase
                 .from('emails')
                 .insert({
                   tenant_id: mailbox.tenant_id,
@@ -164,16 +164,56 @@ const handler = async (req: Request): Promise<Response> => {
                   internet_message_id: email.internetMessageId,
                   conversation_id: email.conversationId,
                   processing_status: 'pending'
-                });
+                })
+                .select('id')
+                .single();
 
               if (insertError) {
                 console.error('Error inserting email:', insertError);
                 errorCount++;
               } else {
                 processedCount++;
+                console.log(`New email inserted: ${email.subject} from ${email.sender?.emailAddress?.address}`);
+                
                 // Track the latest email time
                 if (email.receivedDateTime > (lastEmailTime || '')) {
                   lastEmailTime = email.receivedDateTime;
+                }
+
+                // Log email received activity
+                try {
+                  await supabase
+                    .from('audit_logs')
+                    .insert({
+                      tenant_id: mailbox.tenant_id,
+                      mailbox_id: mailbox.id,
+                      action: 'email_received',
+                      details: {
+                        email_id: insertedEmail.id,
+                        subject: email.subject,
+                        sender: email.sender?.emailAddress?.address,
+                        received_at: email.receivedDateTime,
+                        has_attachments: email.hasAttachments
+                      }
+                    });
+                } catch (auditError) {
+                  console.error('Error logging email received activity:', auditError);
+                }
+
+                // Trigger workflow processing for the new email
+                try {
+                  console.log(`Triggering workflow processing for email: ${insertedEmail.id}`);
+                  const workflowResponse = await supabase.functions.invoke('email-workflow-processor', {
+                    body: { emailId: insertedEmail.id }
+                  });
+                  
+                  if (workflowResponse.error) {
+                    console.error('Error processing email workflow:', workflowResponse.error);
+                  } else {
+                    console.log(`Workflow processing completed for email: ${insertedEmail.id}`);
+                  }
+                } catch (workflowError) {
+                  console.error('Error triggering workflow processor:', workflowError);
                 }
               }
             }
