@@ -45,7 +45,7 @@ export function ProtectedRoute({
 
   if (requireSuperAdmin && !isSuperAdmin) {
     hasPermission = false;
-  } else if (requireAdmin && !isAdmin) {
+  } else if (requireAdmin && !isAdmin && !isSuperAdmin) {
     hasPermission = false;
   } else if (requireModerator && !isModerator) {
     hasPermission = false;

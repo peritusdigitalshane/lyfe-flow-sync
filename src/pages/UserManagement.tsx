@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Shield, UserCheck, Crown, Mail, Search, AlertCircle, Plus, Trash2 } from "lucide-react";
+import { Users, Shield, UserCheck, Crown, Mail, Search, AlertCircle, Plus, Trash2, X } from "lucide-react";
+import { useRoles } from "@/hooks/useRoles";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -43,6 +44,7 @@ interface CreateUserForm {
 }
 
 export default function UserManagement() {
+  const { isSuperAdmin, isAdmin } = useRoles();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -73,7 +75,7 @@ export default function UserManagement() {
     try {
       setLoading(true);
       
-      // Fetch users with their roles and mailbox counts
+      // Fetch users - Super Admins see all, Admins see only their tenant
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("id, email, full_name, created_at, tenant_id")
