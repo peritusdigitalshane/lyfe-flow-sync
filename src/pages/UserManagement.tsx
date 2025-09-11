@@ -64,6 +64,8 @@ export default function UserManagement() {
     fullName: "",
     role: "user"
   });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -355,6 +357,59 @@ export default function UserManagement() {
   const handleStopImpersonating = () => {
     stopImpersonating();
     toast.success("Stopped impersonating user");
+  };
+
+  const deleteUser = async (userId: string, userEmail: string) => {
+    try {
+      setUpdatingUser(userId);
+
+      // Check if user has any associated mailboxes
+      const { count: mailboxCount, error: mailboxCheckError } = await supabase
+        .from("mailboxes")
+        .select("*", { count: 'exact', head: true })
+        .eq("user_id", userId);
+
+      if (mailboxCheckError) throw mailboxCheckError;
+
+      if (mailboxCount && mailboxCount > 0) {
+        toast.error("Cannot delete user with associated mailboxes. Please remove mailboxes first.");
+        return;
+      }
+
+      // Delete user roles first
+      const { error: rolesError } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId);
+
+      if (rolesError) throw rolesError;
+
+      // Delete user profile
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", userId);
+
+      if (profileError) throw profileError;
+
+      // Delete from auth (this requires admin privileges in Supabase)
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+      
+      if (authError) {
+        console.warn("Could not delete from auth:", authError);
+        // Continue anyway as the profile and roles are already deleted
+      }
+
+      toast.success(`User ${userEmail} deleted successfully`);
+      
+      // Refresh users list and stats
+      await Promise.all([fetchUsers(), fetchStats()]);
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast.error("Failed to delete user: " + (error.message || "Unknown error"));
+    } finally {
+      setUpdatingUser(null);
+    }
   };
 
   if (loading) {
@@ -794,14 +849,33 @@ export default function UserManagement() {
                           </Button>
                         )}
 
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedUser(user)}
+                        >
+                          Details
+                        </Button>
+
+                        {(isSuperAdmin || isAdmin) && user.id !== originalUser?.id && (
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={() => {
+                              setUserToDelete(user);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="gap-2"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Delete
+                          </Button>
+                        )}
+
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setSelectedUser(user)}
-                            >
-                              Details
+                            <Button variant="ghost" size="sm" className="px-2">
+                              View Details
                             </Button>
                           </DialogTrigger>
                           <DialogContent>
@@ -888,6 +962,75 @@ export default function UserManagement() {
             Role changes are logged for audit purposes. Exercise caution when assigning Super Admin roles.
           </AlertDescription>
         </Alert>
+
+        {/* Delete User Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete User</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this user? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            {userToDelete && (
+              <div className="space-y-4">
+                <div className="rounded-lg border p-4 bg-muted/50">
+                  <div className="font-medium">{userToDelete.full_name || 'No name'}</div>
+                  <div className="text-sm text-muted-foreground">{userToDelete.email}</div>
+                  <div className="text-xs text-muted-foreground mt-2">
+                    {userToDelete.mailbox_count} connected mailbox{userToDelete.mailbox_count !== 1 ? 'es' : ''}
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {userToDelete.roles.map((role) => (
+                      <Badge
+                        key={role}
+                        variant="secondary"
+                        className={`text-xs ${getRoleColor(role)}`}
+                      >
+                        {getRoleIcon(role)}
+                        <span className="ml-1 capitalize">
+                          {role.replace('_', ' ')}
+                        </span>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                
+                {userToDelete.mailbox_count > 0 && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      This user has {userToDelete.mailbox_count} connected mailbox{userToDelete.mailbox_count !== 1 ? 'es' : ''}. 
+                      Please remove all mailboxes before deleting the user account.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setDeleteDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={() => {
+                      deleteUser(userToDelete.id, userToDelete.email);
+                      setDeleteDialogOpen(false);
+                      setUserToDelete(null);
+                    }}
+                    disabled={userToDelete.mailbox_count > 0 || updatingUser === userToDelete.id}
+                    className="gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete User
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
