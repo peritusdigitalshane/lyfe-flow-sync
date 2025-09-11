@@ -115,6 +115,20 @@ export default function WorkflowManagement() {
     try {
       setActionLoading(mailboxId);
 
+      // First, trigger email polling to get new emails
+      console.log('Triggering email polling...');
+      const { data: pollResult, error: pollError } = await supabase.functions.invoke('email-poller', {
+        body: { maxEmails: 10, hoursBack: 24 }
+      });
+
+      if (pollError) {
+        console.error('Email polling error:', pollError);
+        toast.error('Failed to poll emails: ' + pollError.message);
+        return;
+      }
+
+      console.log('Polling result:', pollResult);
+
       // Get recent unprocessed emails for this mailbox
       const { data: emails, error: emailsError } = await supabase
         .from('emails')
@@ -126,7 +140,7 @@ export default function WorkflowManagement() {
       if (emailsError) throw emailsError;
 
       if (!emails || emails.length === 0) {
-        toast.success('No pending emails to process');
+        toast.success(`Email polling completed. Found ${pollResult?.total_processed || 0} new emails. No pending emails to process.`);
         return;
       }
 
