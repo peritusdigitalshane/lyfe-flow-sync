@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.email-workflow-processor]
 verify_jwt = false
+
+[functions.create-user]
+verify_jwt = true

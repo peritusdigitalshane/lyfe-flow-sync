@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +35,13 @@ interface UserStats {
   total_mailboxes: number;
 }
 
+interface CreateUserForm {
+  email: string;
+  password: string;
+  fullName: string;
+  role: AppRole;
+}
+
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -43,6 +51,14 @@ export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState<CreateUserForm>({
+    email: "",
+    password: "",
+    fullName: "",
+    role: "user"
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -202,6 +218,68 @@ export default function UserManagement() {
     }
   };
 
+  const createUser = async () => {
+    try {
+      setCreatingUser(true);
+
+      // Validate form
+      if (!createUserForm.email || !createUserForm.password) {
+        toast.error("Email and password are required");
+        return;
+      }
+
+      // Create user via edge function
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: createUserForm.email,
+          password: createUserForm.password,
+          fullName: createUserForm.fullName,
+          role: createUserForm.role
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (data.warning) {
+        toast.warning(data.warning);
+      } else {
+        toast.success(`User ${createUserForm.email} created successfully`);
+      }
+
+      // Reset form and close dialog
+      setCreateUserForm({
+        email: "",
+        password: "",
+        fullName: "",
+        role: "user"
+      });
+      setCreateUserDialogOpen(false);
+
+      // Refresh users list and stats
+      await Promise.all([fetchUsers(), fetchStats()]);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      toast.error("Failed to create user: " + (error.message || "Unknown error"));
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCreateUserForm(prev => ({ ...prev, password }));
+  };
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'super_admin':
@@ -271,6 +349,116 @@ export default function UserManagement() {
             Manage user accounts, roles, and mailbox assignments
           </p>
         </div>
+        <Dialog open={createUserDialogOpen} onOpenChange={setCreateUserDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              Create User
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Create New User</DialogTitle>
+              <DialogDescription>
+                Create a new user account with email and password. The user will be automatically activated.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email Address *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={createUserForm.email}
+                  onChange={(e) => setCreateUserForm(prev => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="John Doe"
+                  value={createUserForm.fullName}
+                  onChange={(e) => setCreateUserForm(prev => ({ ...prev, fullName: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Password *</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="password"
+                    type="text"
+                    placeholder="Enter password"
+                    value={createUserForm.password}
+                    onChange={(e) => setCreateUserForm(prev => ({ ...prev, password: e.target.value }))}
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={generatePassword}
+                    disabled={creatingUser}
+                  >
+                    Generate
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="role">Initial Role</Label>
+                <Select
+                  value={createUserForm.role}
+                  onValueChange={(value: AppRole) => setCreateUserForm(prev => ({ ...prev, role: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        User
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="moderator">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-4 w-4" />
+                        Moderator
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="admin">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        Admin
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="super_admin">
+                      <div className="flex items-center gap-2">
+                        <Crown className="h-4 w-4" />
+                        Super Admin
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setCreateUserDialogOpen(false)}
+                disabled={creatingUser}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={createUser}
+                disabled={creatingUser || !createUserForm.email || !createUserForm.password}
+              >
+                {creatingUser ? "Creating..." : "Create User"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Stats Overview */}
