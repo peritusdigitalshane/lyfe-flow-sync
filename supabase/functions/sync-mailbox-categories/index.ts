@@ -6,10 +6,13 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
-  console.log('Sync Categories Function: Request received', req.method);
+  console.log('=== Sync Categories Function Started ===');
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
 
