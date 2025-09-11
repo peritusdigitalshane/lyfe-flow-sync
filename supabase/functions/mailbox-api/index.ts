@@ -112,9 +112,18 @@ async function logAudit(
   req?: Request
 ) {
   try {
-    const ip = req?.headers.get('x-forwarded-for') || 
-               req?.headers.get('x-real-ip') || 
-               'unknown';
+    // Handle multiple IPs in x-forwarded-for header by taking the first one
+    const forwardedFor = req?.headers.get('x-forwarded-for');
+    const realIp = req?.headers.get('x-real-ip');
+    
+    let ip = 'unknown';
+    if (forwardedFor) {
+      // Take the first IP from the comma-separated list and trim whitespace
+      ip = forwardedFor.split(',')[0].trim();
+    } else if (realIp) {
+      ip = realIp.trim();
+    }
+    
     const userAgent = req?.headers.get('user-agent') || 'unknown';
 
     await supabase.from('audit_logs').insert({
