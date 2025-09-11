@@ -47,6 +47,7 @@ interface StripeSettings {
   subscription_price: number;
   subscription_name: string;
   currency: string;
+  secret_key: string;
 }
 
 export default function Settings() {
@@ -55,6 +56,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [showClientSecret, setShowClientSecret] = useState(false);
   const [showOpenAIKey, setShowOpenAIKey] = useState(false);
+  const [showStripeKey, setShowStripeKey] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({
@@ -105,7 +107,8 @@ export default function Settings() {
     enabled: false,
     subscription_price: 10,
     subscription_name: "Premium Plan",
-    currency: "usd"
+    currency: "usd",
+    secret_key: ""
   });
 
   useEffect(() => {
@@ -247,7 +250,8 @@ export default function Settings() {
             enabled: stripeConfig.enabled || false,
             subscription_price: stripeConfig.subscription_price || 10,
             subscription_name: stripeConfig.subscription_name || "Premium Plan",
-            currency: stripeConfig.currency || "usd"
+            currency: stripeConfig.currency || "usd",
+            secret_key: stripeConfig.secret_key || ""
           });
         }
       }
@@ -1078,6 +1082,36 @@ export default function Settings() {
                   </p>
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="stripe-secret-key">Stripe Secret Key</Label>
+                  <div className="relative">
+                    <Input
+                      id="stripe-secret-key"
+                      type={showStripeKey ? "text" : "password"}
+                      value={stripeSettings.secret_key}
+                      onChange={(e) => setStripeSettings({
+                        ...stripeSettings,
+                        secret_key: e.target.value
+                      })}
+                      disabled={!stripeSettings.enabled}
+                      placeholder="sk_live_... or sk_test_..."
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowStripeKey(!showStripeKey)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                    >
+                      {showStripeKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Your Stripe secret key for processing payments. Use test keys for development.
+                  </p>
+                </div>
+
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <h4 className="text-sm font-medium mb-2">Preview</h4>
                   <div className="text-sm text-muted-foreground">
@@ -1087,11 +1121,6 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    <strong>Important:</strong> Make sure to configure your Stripe Secret Key in the edge function secrets before enabling subscriptions.
-                  </p>
-                </div>
 
                 <Button onClick={handleSaveStripe} disabled={saving} className="gap-2">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
