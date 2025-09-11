@@ -106,10 +106,11 @@ export default function MailboxActivity() {
     if (!mailboxId) return;
 
     try {
+      // Fetch both mailbox-specific categories AND global categories (mailbox_id is null)
       const { data, error } = await supabase
         .from("email_categories")
         .select("id, name, color")
-        .eq("mailbox_id", mailboxId);
+        .or(`mailbox_id.eq.${mailboxId},mailbox_id.is.null`);
 
       if (error) {
         console.error("Error fetching categories:", error);
