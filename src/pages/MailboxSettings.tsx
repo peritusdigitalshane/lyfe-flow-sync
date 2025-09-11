@@ -41,6 +41,7 @@ export default function MailboxSettings() {
   const [saving, setSaving] = useState(false);
   const [reAuthenticating, setReAuthenticating] = useState(false);
   const [globalQuarantineEnabled, setGlobalQuarantineEnabled] = useState(false);
+  const [pollingStatus, setPollingStatus] = useState<any>(null);
 
   // Config form state
   const [monitoredFolders, setMonitoredFolders] = useState<string[]>(['Inbox']);
@@ -81,13 +82,27 @@ export default function MailboxSettings() {
       if (mailboxError) throw mailboxError;
       setMailbox(mailboxData);
 
-      // Load current config
+      // Load polling status
+      const { data: pollingData } = await supabase
+        .from('email_polling_status')
+        .select('*')
+        .eq('mailbox_id', mailboxId)
+        .maybeSingle();
+
+      setPollingStatus(pollingData);
+
+      // Load current config (use maybeSingle since config might not exist yet)
       const { data: configData, error: configError } = await supabase
         .from('mailbox_configs')
         .select('*')
         .eq('mailbox_id', mailboxId)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
+
+      if (configError) {
+        console.error('Error loading config:', configError);
+        // Don't throw here - we can continue without existing config
+      }
 
       if (configData) {
         setConfig(configData);
@@ -99,6 +114,15 @@ export default function MailboxSettings() {
         setAutoResponseEnabled(cfg?.auto_response_enabled ?? false);
         setSyncFrequency(cfg?.sync_frequency || 5);
         setCustomRules(JSON.stringify(cfg?.rules || [], null, 2));
+      } else {
+        // Set defaults when no config exists
+        setConfig(null);
+        setMonitoredFolders(['Inbox']);
+        setCategoryEnabled(true);
+        setQuarantineEnabled(globalQuarantineEnabled); // Respect global setting
+        setAutoResponseEnabled(false);
+        setSyncFrequency(5);
+        setCustomRules('[]');
       }
     } catch (error) {
       console.error('Error loading mailbox settings:', error);
@@ -116,22 +140,38 @@ export default function MailboxSettings() {
 
       let rules = [];
       try {
-        rules = customRules ? JSON.parse(customRules) : [];
+        if (customRules.trim()) {
+          rules = JSON.parse(customRules);
+          // Validate that it's an array
+          if (!Array.isArray(rules)) {
+            toast.error('Custom rules must be a JSON array');
+            return;
+          }
+        }
       } catch (e) {
         toast.error('Invalid JSON in custom rules');
         return;
       }
 
       const newConfig = {
-        monitored_folders: monitoredFolders,
+        monitored_folders: monitoredFolders.filter(folder => folder.trim() !== ''),
         category_enabled: categoryEnabled,
-        quarantine_enabled: quarantineEnabled,
+        quarantine_enabled: quarantineEnabled && globalQuarantineEnabled, // Only enable if global is enabled
         auto_response_enabled: autoResponseEnabled,
         sync_frequency: syncFrequency,
         rules
       };
 
-      // Deactivate current config
+      // Get user's tenant_id
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user!.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      // Deactivate current config if it exists
       if (config) {
         await supabase
           .from('mailbox_configs')
@@ -144,13 +184,28 @@ export default function MailboxSettings() {
         .from('mailbox_configs')
         .insert({
           mailbox_id: mailbox.id,
-          tenant_id: (await supabase.from('profiles').select('tenant_id').eq('id', user!.id).single()).data!.tenant_id,
+          tenant_id: profileData.tenant_id,
           version: (config?.version || 0) + 1,
           config: newConfig,
           is_active: true
         });
 
       if (insertError) throw insertError;
+
+      // Update the email polling status with new sync frequency
+      if (mailbox) {
+        await supabase
+          .from('email_polling_status')
+          .upsert({
+            tenant_id: profileData.tenant_id,
+            mailbox_id: mailbox.id,
+            polling_interval_minutes: syncFrequency,
+            is_polling_active: true
+          }, { 
+            onConflict: 'tenant_id,mailbox_id',
+            ignoreDuplicates: false 
+          });
+      }
 
       toast.success('Mailbox settings saved successfully');
       await loadMailboxAndConfig(); // Reload to get updated config
@@ -173,7 +228,11 @@ export default function MailboxSettings() {
   };
 
   const removeFolder = (index: number) => {
-    setMonitoredFolders(monitoredFolders.filter((_, i) => i !== index));
+    if (monitoredFolders.length > 1) {
+      setMonitoredFolders(monitoredFolders.filter((_, i) => i !== index));
+    } else {
+      toast.error('At least one folder must be monitored');
+    }
   };
 
   const handleReAuthenticate = async () => {
@@ -348,14 +407,14 @@ export default function MailboxSettings() {
                       onChange={(e) => updateFolder(index, e.target.value)}
                       placeholder="Folder name (e.g., Inbox, Sent)"
                     />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => removeFolder(index)}
-                      disabled={monitoredFolders.length === 1}
-                    >
-                      Remove
-                    </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removeFolder(index)}
+                  disabled={monitoredFolders.length === 1}
+                >
+                  Remove
+                </Button>
                   </div>
                 ))}
                 <Button variant="outline" size="sm" onClick={addFolder}>
@@ -425,11 +484,14 @@ export default function MailboxSettings() {
               Configure how often to check for new emails
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div>
               <Label>Sync Frequency (minutes)</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                How often to check for new emails. Current setting: Every {syncFrequency} minute{syncFrequency !== 1 ? 's' : ''}
+              </p>
               <Select value={syncFrequency.toString()} onValueChange={(value) => setSyncFrequency(parseInt(value))}>
-                <SelectTrigger className="w-full mt-2">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -441,6 +503,44 @@ export default function MailboxSettings() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Polling Status Information */}
+            {pollingStatus && (
+              <div className="mt-4 p-4 bg-muted rounded-lg">
+                <Label className="text-sm font-medium">Polling Status</Label>
+                <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Status:</span>
+                    <span className={`ml-2 ${pollingStatus.is_polling_active ? 'text-green-600' : 'text-red-600'}`}>
+                      {pollingStatus.is_polling_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Interval:</span>
+                    <span className="ml-2">{pollingStatus.polling_interval_minutes || 5} minutes</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Last Poll:</span>
+                    <span className="ml-2">
+                      {pollingStatus.last_poll_at 
+                        ? new Date(pollingStatus.last_poll_at).toLocaleString()
+                        : 'Never'
+                      }
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Emails Processed:</span>
+                    <span className="ml-2">{pollingStatus.total_emails_processed || 0}</span>
+                  </div>
+                  {pollingStatus.last_error_message && (
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">Last Error:</span>
+                      <span className="ml-2 text-red-600 text-xs">{pollingStatus.last_error_message}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -456,7 +556,7 @@ export default function MailboxSettings() {
             <Textarea
               value={customRules}
               onChange={(e) => setCustomRules(e.target.value)}
-              placeholder="Enter custom rules as JSON array..."
+              placeholder='Enter custom rules as JSON array, e.g.:\n[\n  {\n    "name": "Block suspicious domains",\n    "type": "sender_domain",\n    "value": "suspicious-site.com",\n    "action": "quarantine"\n  }\n]'
               className="min-h-[200px] font-mono"
             />
           </CardContent>
