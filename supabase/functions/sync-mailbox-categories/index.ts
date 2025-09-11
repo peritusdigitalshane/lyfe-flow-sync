@@ -17,9 +17,26 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('=== Starting function execution ===');
+    
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    console.log('Environment variables check:', {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasServiceKey: !!supabaseServiceKey,
+      urlLength: supabaseUrl?.length || 0
+    });
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     console.log('Supabase client initialized');
