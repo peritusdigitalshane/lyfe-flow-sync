@@ -212,7 +212,7 @@ serve(async (req) => {
         code: code,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
-        scope: 'openid profile email Mail.ReadWrite offline_access',
+        scope: 'openid profile email Mail.ReadWrite MailboxSettings.ReadWrite offline_access',
       }),
     });
 
