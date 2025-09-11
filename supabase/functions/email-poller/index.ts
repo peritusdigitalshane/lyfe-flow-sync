@@ -281,6 +281,18 @@ const handler = async (req: Request): Promise<Response> => {
           console.error('Error updating final polling status:', finalUpsertError);
         }
 
+        // Update the mailbox last_sync_at timestamp for dashboard display
+        const { error: mailboxUpdateError } = await supabase
+          .from('mailboxes')
+          .update({ 
+            last_sync_at: currentTime 
+          })
+          .eq('id', mailbox.id);
+
+        if (mailboxUpdateError) {
+          console.error('Error updating mailbox last_sync_at:', mailboxUpdateError);
+        }
+
         totalProcessed += processedCount;
         results.push({
           mailbox: mailbox.email_address,
