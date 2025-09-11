@@ -31,6 +31,8 @@ Deno.serve(async (req) => {
         receivedData: requestBody 
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+    
   } catch (error) {
     console.error('=== ERROR IN FUNCTION ===');
     console.error('Error type:', error.constructor.name);
