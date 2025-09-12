@@ -22,6 +22,8 @@ import AIClassification from "./pages/AIClassification";
 import AdminDiagnostics from "./pages/AdminDiagnostics";
 import UserManagement from "./pages/UserManagement";
 import QuarantineTest from "./pages/QuarantineTest";
+import SuperAdminGuide from "./pages/SuperAdminGuide";
+import UserGuide from "./pages/UserGuide";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -114,6 +116,21 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            <Route 
+              path="/admin/guide" 
+              element={
+                <ProtectedRoute requireSuperAdmin>
+                  <AccountStatusCheck>
+                    <SuperAdminGuide />
+                  </AccountStatusCheck>
+                </ProtectedRoute>
+              } 
+            />
+            <Route path="/user-guide" element={
+              <AccountStatusCheck>
+                <UserGuide />
+              </AccountStatusCheck>
+            } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

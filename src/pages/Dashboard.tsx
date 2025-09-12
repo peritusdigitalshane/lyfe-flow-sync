@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Activity, Settings, Play, Pause, Trash2, Plus, User, LogOut, Loader2 } from "lucide-react";
+import { Activity, Settings, Play, Pause, Trash2, Plus, User, LogOut, Loader2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -170,6 +170,9 @@ export default function Dashboard() {
                 </Link>
                 <Link to="/workflow-rules" className="text-muted-foreground hover:text-foreground">
                   Rules
+                </Link>
+                <Link to="/user-guide" className="text-muted-foreground hover:text-foreground">
+                  User Guide
                 </Link>
                 <Link to="/settings" className="text-muted-foreground hover:text-foreground">
                   Settings

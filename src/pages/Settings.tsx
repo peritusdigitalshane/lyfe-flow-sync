@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Eye, EyeOff, User, LogOut, Save, TestTube, Loader2 } from "lucide-react";
+import { Eye, EyeOff, User, LogOut, Save, TestTube, Loader2, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Textarea } from "@/components/ui/textarea";
 
