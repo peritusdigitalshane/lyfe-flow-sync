@@ -23,6 +23,7 @@ import AdminDiagnostics from "./pages/AdminDiagnostics";
 import UserManagement from "./pages/UserManagement";
 import QuarantineTest from "./pages/QuarantineTest";
 import SuperAdminGuide from "./pages/SuperAdminGuide";
+import SuperAdminSettings from "./pages/SuperAdminSettings";
 import UserGuide from "./pages/UserGuide";
 import ThreatIntelligence from "./pages/ThreatIntelligence";
 import ThreatMonitor from "./pages/ThreatMonitor";
@@ -114,6 +115,16 @@ const App = () => (
                 <ProtectedRoute requireAdmin>
                   <AccountStatusCheck>
                     <QuarantineTest />
+                  </AccountStatusCheck>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/settings" 
+              element={
+                <ProtectedRoute requireSuperAdmin>
+                  <AccountStatusCheck>
+                    <SuperAdminSettings />
                   </AccountStatusCheck>
                 </ProtectedRoute>
               } 

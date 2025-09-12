@@ -44,6 +44,7 @@ export const Navigation = () => {
     { path: '/admin/users', label: 'User Management', icon: Users },
     { path: '/admin/diagnostics', label: 'System Diagnostics', icon: Activity },
     { path: '/threat-intelligence', label: 'Threat Intelligence', icon: Shield },
+    { path: '/admin/settings', label: 'Super Admin Settings', icon: Settings },
     { path: '/super-admin-guide', label: 'Admin Guide', icon: FileText },
   ];
 
