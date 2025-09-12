@@ -793,6 +793,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      trigger_feed_health_monitor: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       app_role:
