@@ -38,20 +38,20 @@ serve(async (req) => {
       );
     }
 
+    // Initialize Supabase client for settings lookup
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     // Get OpenAI API key from environment or app settings
     let openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     
     if (!openAIApiKey) {
-      // Try to get from Supabase app settings as fallback
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      
       const { data: openaiConfig, error: configError } = await supabase
         .from('app_settings')
         .select('value')
         .eq('key', 'openai_config')
-        .single();
+        .maybeSingle();
 
       if (configError || !openaiConfig?.value?.api_key) {
         return new Response(
@@ -61,6 +61,36 @@ serve(async (req) => {
       }
       
       openAIApiKey = openaiConfig.value.api_key;
+    }
+
+    // Get custom AI prompts if configured, otherwise use default
+    let conditionEvaluatorPrompt = `You are an email classification system. Your task is to evaluate whether an email meets a specific condition.
+
+CONDITION TO EVALUATE: "{condition}"
+
+EMAIL TO ANALYZE:
+{email_content}
+
+Based on the email content above, does this email meet the specified condition?
+
+Respond with ONLY a JSON object in this exact format:
+{
+  "meets_condition": true/false,
+  "confidence": 0.0-1.0,
+  "reasoning": "Brief explanation of why the condition is met or not met"
+}
+
+Be precise and logical in your evaluation. Consider the semantic meaning of the condition, not just literal keyword matches.`;
+
+    const { data: aiPromptsConfig, error: promptsError } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'ai_prompts')
+      .maybeSingle();
+
+    if (!promptsError && aiPromptsConfig?.value?.condition_evaluator_prompt) {
+      conditionEvaluatorPrompt = aiPromptsConfig.value.condition_evaluator_prompt;
+      console.log('Using custom condition evaluator prompt');
     }
 
     // Prepare email content for analysis
@@ -73,24 +103,10 @@ Preview: ${email.body_preview || 'No preview available'}
 ${email.body_content ? `Content: ${email.body_content.substring(0, 2000)}...` : ''}
     `.trim();
 
-    // Create a focused prompt for condition evaluation
-    const prompt = `You are an email classification system. Your task is to evaluate whether an email meets a specific condition.
-
-CONDITION TO EVALUATE: "${condition}"
-
-EMAIL TO ANALYZE:
-${emailContent}
-
-Based on the email content above, does this email meet the specified condition?
-
-Respond with ONLY a JSON object in this exact format:
-{
-  "meets_condition": true/false,
-  "confidence": 0.0-1.0,
-  "reasoning": "Brief explanation of why the condition is met or not met"
-}
-
-Be precise and logical in your evaluation. Consider the semantic meaning of the condition, not just literal keyword matches.`;
+    // Replace placeholders in the prompt
+    const prompt = conditionEvaluatorPrompt
+      .replace('{condition}', condition)
+      .replace('{email_content}', emailContent);
 
     console.log('Evaluating AI condition:', condition);
     console.log('For email:', email.subject);

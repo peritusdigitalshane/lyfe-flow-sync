@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Eye, EyeOff, User, LogOut, Save, TestTube, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Textarea } from "@/components/ui/textarea";
 
 interface EmailSettings {
   polling_interval_minutes: number;
@@ -48,6 +49,12 @@ interface StripeSettings {
   subscription_name: string;
   currency: string;
   secret_key: string;
+}
+
+interface AIPromptSettings {
+  condition_evaluator_prompt: string;
+  threat_analysis_prompt: string;
+  classification_prompt: string;
 }
 
 export default function Settings() {
@@ -109,6 +116,75 @@ export default function Settings() {
     subscription_name: "Premium Plan",
     currency: "usd",
     secret_key: ""
+  });
+
+  const [aiPromptSettings, setAiPromptSettings] = useState<AIPromptSettings>({
+    condition_evaluator_prompt: `You are an email classification system. Your task is to evaluate whether an email meets a specific condition.
+
+CONDITION TO EVALUATE: "{condition}"
+
+EMAIL TO ANALYZE:
+{email_content}
+
+Based on the email content above, does this email meet the specified condition?
+
+Respond with ONLY a JSON object in this exact format:
+{
+  "meets_condition": true/false,
+  "confidence": 0.0-1.0,
+  "reasoning": "Brief explanation of why the condition is met or not met"
+}
+
+Be precise and logical in your evaluation. Consider the semantic meaning of the condition, not just literal keyword matches.`,
+    threat_analysis_prompt: `You are a cybersecurity expert analyzing emails for threats. Analyze this email and provide a detailed threat assessment.
+
+Email Details:
+Subject: {subject}
+Sender: {sender_email}
+Content: {content}
+Has Attachments: {has_attachments}
+
+Analyze for:
+1. Phishing attempts
+2. Social engineering tactics
+3. Malware indicators
+4. Suspicious URLs or attachments
+5. Business email compromise (BEC)
+6. Urgency tactics and pressure techniques
+7. Impersonation attempts
+
+Provide your response as JSON with:
+{
+  "risk_score": number (0-100),
+  "threat_level": "low" | "medium" | "high" | "critical",
+  "threat_types": ["phishing", "malware", "bec", "social_engineering"],
+  "confidence": number (0-1),
+  "reasoning": "detailed explanation",
+  "suspicious_indicators": ["list of specific indicators found"],
+  "recommended_action": "allow" | "flag" | "quarantine"
+}`,
+    classification_prompt: `You are an AI email classifier. Analyze the following email and categorize it based on the provided categories.
+
+Email Content:
+Subject: {subject}
+Sender: {sender}
+Body: {content}
+
+Available Categories:
+{categories}
+
+Please classify this email into the most appropriate category. Consider:
+- Content relevance
+- Sender information
+- Subject line
+- Overall context
+
+Respond with JSON format:
+{
+  "category": "category_name",
+  "confidence": 0.0-1.0,
+  "reasoning": "explanation for the classification"
+}`
   });
 
   useEffect(() => {
@@ -254,6 +330,26 @@ export default function Settings() {
             secret_key: stripeConfig.secret_key || ""
           });
         }
+
+        // Load AI prompt settings (super admin only)
+        const { data: aiPromptData, error: aiPromptError } = await supabase
+          .from("app_settings")
+          .select("*")
+          .eq("key", "ai_prompts")
+          .maybeSingle();
+
+        if (aiPromptError && aiPromptError.code !== 'PGRST116') {
+          throw aiPromptError;
+        }
+
+        if (aiPromptData?.value) {
+          const aiPromptConfig = aiPromptData.value as any;
+          setAiPromptSettings({
+            condition_evaluator_prompt: aiPromptConfig.condition_evaluator_prompt || aiPromptSettings.condition_evaluator_prompt,
+            threat_analysis_prompt: aiPromptConfig.threat_analysis_prompt || aiPromptSettings.threat_analysis_prompt,
+            classification_prompt: aiPromptConfig.classification_prompt || aiPromptSettings.classification_prompt
+          });
+        }
       }
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -378,6 +474,30 @@ export default function Settings() {
     } catch (error) {
       console.error("Error saving Stripe settings:", error);
       toast.error("Failed to save Stripe settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAIPrompts = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert({
+          key: "ai_prompts",
+          value: aiPromptSettings as any,
+          description: "AI prompt templates for email analysis and classification"
+        }, {
+          onConflict: 'key'
+        });
+
+      if (error) throw error;
+
+      toast.success("AI prompt settings saved successfully");
+    } catch (error) {
+      console.error("Error saving AI prompt settings:", error);
+      toast.error("Failed to save AI prompt settings");
     } finally {
       setSaving(false);
     }
@@ -1125,6 +1245,95 @@ export default function Settings() {
                 <Button onClick={handleSaveStripe} disabled={saving} className="gap-2">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Save Stripe Settings
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* AI Prompts Configuration (Super Admin Only) */}
+          {isSuperAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Prompts Configuration</CardTitle>
+                <CardDescription>
+                  Customize AI prompts used throughout the system for email analysis, classification, and threat detection (Super Admin Only)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="condition-evaluator-prompt">Condition Evaluator Prompt</Label>
+                    <Textarea
+                      id="condition-evaluator-prompt"
+                      value={aiPromptSettings.condition_evaluator_prompt}
+                      onChange={(e) => setAiPromptSettings({
+                        ...aiPromptSettings,
+                        condition_evaluator_prompt: e.target.value
+                      })}
+                      rows={8}
+                      className="font-mono text-sm"
+                      placeholder="Enter the AI prompt for evaluating email conditions..."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      This prompt is used when AI evaluates custom conditions in workflow rules. Use <code>{'{condition}'}</code> and <code>{'{email_content}'}</code> as placeholders.
+                    </p>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <Label htmlFor="threat-analysis-prompt">Threat Analysis Prompt</Label>
+                    <Textarea
+                      id="threat-analysis-prompt"
+                      value={aiPromptSettings.threat_analysis_prompt}
+                      onChange={(e) => setAiPromptSettings({
+                        ...aiPromptSettings,
+                        threat_analysis_prompt: e.target.value
+                      })}
+                      rows={12}
+                      className="font-mono text-sm"
+                      placeholder="Enter the AI prompt for threat analysis..."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      This prompt is used for cybersecurity threat analysis of emails. Use placeholders like <code>{'{subject}'}</code>, <code>{'{sender_email}'}</code>, <code>{'{content}'}</code>, and <code>{'{has_attachments}'}</code>.
+                    </p>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <Label htmlFor="classification-prompt">Email Classification Prompt</Label>
+                    <Textarea
+                      id="classification-prompt"
+                      value={aiPromptSettings.classification_prompt}
+                      onChange={(e) => setAiPromptSettings({
+                        ...aiPromptSettings,
+                        classification_prompt: e.target.value
+                      })}
+                      rows={10}
+                      className="font-mono text-sm"
+                      placeholder="Enter the AI prompt for email classification..."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      This prompt is used for AI-powered email classification. Use placeholders like <code>{'{subject}'}</code>, <code>{'{sender}'}</code>, <code>{'{content}'}</code>, and <code>{'{categories}'}</code>.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h4 className="text-sm font-medium mb-2">💡 Prompt Tips</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• Use clear, specific instructions for consistent AI responses</li>
+                    <li>• Include JSON response format requirements when needed</li>
+                    <li>• Test prompts thoroughly after making changes</li>
+                    <li>• Use placeholders in curly braces for dynamic content</li>
+                    <li>• Keep prompts focused and avoid ambiguous language</li>
+                  </ul>
+                </div>
+
+                <Button onClick={handleSaveAIPrompts} disabled={saving} className="gap-2">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save AI Prompt Settings
                 </Button>
               </CardContent>
             </Card>

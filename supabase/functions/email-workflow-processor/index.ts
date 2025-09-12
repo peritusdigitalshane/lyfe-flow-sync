@@ -641,14 +641,14 @@ async function performAIThreatAnalysis(email: any, settings: any, supabase: any)
     const apiKey = openaiConfig.value.api_key;
     const model = openaiConfig.value.model || 'gpt-4.1-2025-04-14';
 
-    // Prepare the threat analysis prompt
-    const threatAnalysisPrompt = `You are a cybersecurity expert analyzing emails for threats. Analyze this email and provide a detailed threat assessment.
+    // Get custom AI prompts if configured
+    let threatAnalysisPrompt = `You are a cybersecurity expert analyzing emails for threats. Analyze this email and provide a detailed threat assessment.
 
 Email Details:
-Subject: ${email.subject}
-Sender: ${email.sender_email}
-Content: ${email.body_content || email.body_preview || 'No content available'}
-Has Attachments: ${email.has_attachments ? 'Yes' : 'No'}
+Subject: {subject}
+Sender: {sender_email}
+Content: {content}
+Has Attachments: {has_attachments}
 
 Analyze for:
 1. Phishing attempts
@@ -670,6 +670,24 @@ Provide your response as JSON with:
   "recommended_action": "allow" | "flag" | "quarantine"
 }`;
 
+    const { data: aiPromptsConfig, error: promptsError } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'ai_prompts')
+      .maybeSingle();
+
+    if (!promptsError && aiPromptsConfig?.value?.threat_analysis_prompt) {
+      threatAnalysisPrompt = aiPromptsConfig.value.threat_analysis_prompt;
+      console.log('Using custom threat analysis prompt');
+    }
+
+    // Replace placeholders in the prompt
+    const finalPrompt = threatAnalysisPrompt
+      .replace('{subject}', email.subject)
+      .replace('{sender_email}', email.sender_email)
+      .replace('{content}', email.body_content || email.body_preview || 'No content available')
+      .replace('{has_attachments}', email.has_attachments ? 'Yes' : 'No');
+
     // Call OpenAI API for threat analysis
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -681,7 +699,7 @@ Provide your response as JSON with:
         model: model,
         messages: [
           { role: 'system', content: 'You are a cybersecurity expert. Respond only with valid JSON.' },
-          { role: 'user', content: threatAnalysisPrompt }
+          { role: 'user', content: finalPrompt }
         ],
         max_completion_tokens: 1000,
       }),
