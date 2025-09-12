@@ -134,10 +134,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    window.location.href = "/auth";
-  };
 
   if (loading) {
     return (
@@ -152,56 +148,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-primary rounded-lg shadow-glow-primary"></div>
-                <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                  Lyfe Email Management
-                </h1>
-              </div>
-              <nav className="hidden md:flex items-center space-x-6">
-                <Link to="/dashboard" className="text-foreground font-medium">
-                  Dashboard
-                </Link>
-                <Link to="/email-categories" className="text-muted-foreground hover:text-foreground">
-                  Categories
-                </Link>
-                <Link to="/workflows" className="text-muted-foreground hover:text-foreground">
-                  Workflows
-                </Link>
-                <Link to="/workflow-rules" className="text-muted-foreground hover:text-foreground">
-                  Rules
-                </Link>
-                <Link to="/threat-intelligence" className="text-muted-foreground hover:text-foreground">
-                  Threat Intelligence
-                </Link>
-                <Link to="/settings" className="text-muted-foreground hover:text-foreground">
-                  Settings
-                </Link>
-                {isSuperAdmin && (
-                  <Link to="/admin/users" className="text-muted-foreground hover:text-foreground">
-                    User Management
-                  </Link>
-                )}
-              </nav>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Welcome, {user.email}</span>
-              </div>
-              <Button onClick={handleSignOut} variant="ghost" size="sm" className="gap-2">
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Navigation />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
