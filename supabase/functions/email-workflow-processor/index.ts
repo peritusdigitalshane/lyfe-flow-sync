@@ -30,7 +30,7 @@ interface WorkflowCondition {
 }
 
 interface WorkflowAction {
-  type: 'categorize' | 'quarantine' | 'move_to_folder' | 'mark_as_read' | 'send_notification' | 'delete' | 'forward';
+  type: 'categorize' | 'categorise' | 'quarantine' | 'move_to_folder' | 'mark_as_read' | 'send_notification' | 'delete' | 'forward';
   parameters: Record<string, any>;
 }
 
@@ -268,7 +268,7 @@ serve(async (req) => {
     let matchedRule: WorkflowRule | null = null;
 
     for (const rule of rules || []) {
-      if (evaluateRule(rule, email, analysis)) {
+      if (await evaluateRule(rule, email, analysis, supabase)) {
         actionsToExecute.push(...rule.actions);
         matchedRule = rule;
         console.log(`Rule matched: ${rule.name}`);
@@ -397,19 +397,19 @@ function analyzeEmail(email: any): EmailAnalysis {
   };
 }
 
-async function evaluateRule(rule: WorkflowRule, email: any, analysis: EmailAnalysis): Promise<boolean> {
+async function evaluateRule(rule: WorkflowRule, email: any, analysis: EmailAnalysis, supabase: any): Promise<boolean> {
   for (const condition of rule.conditions) {
-    if (!(await evaluateCondition(condition, email, analysis))) {
+    if (!(await evaluateCondition(condition, email, analysis, supabase))) {
       return false; // All conditions must match
     }
   }
   return true;
 }
 
-async function evaluateCondition(condition: WorkflowCondition, email: any, analysis: EmailAnalysis): Promise<boolean> {
+async function evaluateCondition(condition: WorkflowCondition, email: any, analysis: EmailAnalysis, supabase: any): Promise<boolean> {
   // Handle AI-based conditions
   if (condition.field === 'ai_analysis' && condition.operator === 'ai_condition') {
-    return await evaluateAICondition(condition.value as string, email);
+    return await evaluateAICondition(condition.value as string, email, supabase);
   }
 
   let fieldValue: any;
@@ -485,7 +485,7 @@ async function evaluateCondition(condition: WorkflowCondition, email: any, analy
 }
 
 // New function to evaluate AI-based conditions
-async function evaluateAICondition(condition: string, email: any): Promise<boolean> {
+async function evaluateAICondition(condition: string, email: any, supabase: any): Promise<boolean> {
   try {
     console.log(`Evaluating AI condition: "${condition}" for email: ${email.subject}`);
     
@@ -529,6 +529,7 @@ async function evaluateAICondition(condition: string, email: any): Promise<boole
 async function executeAction(action: WorkflowAction, email: any, supabase: any): Promise<void> {
   switch (action.type) {
     case 'categorize':
+    case 'categorise': // Handle British spelling
       await categorizeEmail(email, action.parameters.category_id, supabase);
       break;
       
@@ -550,7 +551,10 @@ async function executeAction(action: WorkflowAction, email: any, supabase: any):
 }
 
 async function categorizeEmail(email: any, categoryId: string, supabase: any): Promise<void> {
-  await supabase
+  console.log(`Categorizing email ${email.id} with category ${categoryId}`);
+  
+  // Insert or update the email classification
+  const { data, error } = await supabase
     .from('email_classifications')
     .upsert({
       tenant_id: email.tenant_id,
@@ -560,6 +564,13 @@ async function categorizeEmail(email: any, categoryId: string, supabase: any): P
       classification_method: 'workflow_rule',
       confidence_score: 1.0
     });
+
+  if (error) {
+    console.error('Error categorizing email:', error);
+    throw error;
+  }
+
+  console.log('Email categorized successfully:', data);
 
   // Log categorization activity
   await supabase
