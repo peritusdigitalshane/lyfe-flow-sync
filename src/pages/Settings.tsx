@@ -163,14 +163,6 @@ export default function Settings() {
                 Configure your email automation and system preferences
               </p>
             </div>
-            <div className="flex gap-3">
-              <Link to="/email-categories">
-                <Button variant="outline" className="gap-2">
-                  <User className="h-4 w-4" />
-                  Manage Categories
-                </Button>
-              </Link>
-            </div>
           </div>
 
           {/* Documentation & Guides */}
@@ -193,6 +185,29 @@ export default function Settings() {
                     <span className="text-xs text-muted-foreground text-center">
                       Complete guide to using email automation features
                     </span>
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Email Categories Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Categories</CardTitle>
+              <CardDescription>
+                Manage your email categories and classification settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Configure and manage email categories for automatic classification and organization.
+                </p>
+                <Link to="/email-categories">
+                  <Button className="gap-2">
+                    <User className="h-4 w-4" />
+                    Manage Categories
                   </Button>
                 </Link>
               </div>
