@@ -19,8 +19,10 @@ interface Mailbox {
   last_sync_at?: string;
 }
 
+import { Navigation } from "@/components/Navigation";
+
 export default function Dashboard() {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isSuperAdmin } = useRoles();
   const { toast } = useToast();
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);

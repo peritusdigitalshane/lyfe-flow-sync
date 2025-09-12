@@ -28,6 +28,8 @@ interface EmailThreatSummary {
   latest_threat: string;
 }
 
+import { Navigation } from "@/components/Navigation";
+
 const ThreatMonitor = () => {
   const [threatResults, setThreatResults] = useState<ThreatResult[]>([]);
   const [emailSummaries, setEmailSummaries] = useState<EmailThreatSummary[]>([]);
@@ -157,15 +159,20 @@ const ThreatMonitor = () => {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div>Loading threat monitoring data...</div>
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <main className="container mx-auto p-6">
+          <div>Loading threat monitoring data...</div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="space-y-6">
+    <div className="min-h-screen bg-background">
+      <Navigation />
+      <main className="container mx-auto p-6">
+        <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Threat Monitor</h1>
@@ -303,7 +310,8 @@ const ThreatMonitor = () => {
             )}
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

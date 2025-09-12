@@ -25,8 +25,10 @@ interface Mailbox {
   display_name: string;
 }
 
+import { Navigation } from "@/components/Navigation";
+
 export default function WorkflowRules() {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isSuperAdmin } = useRoles();
   const { toast } = useToast();
   const [rules, setRules] = useState<WorkflowRule[]>([]);

@@ -45,6 +45,8 @@ interface CreateUserForm {
   role: AppRole;
 }
 
+import { Navigation } from "@/components/Navigation";
+
 export default function UserManagement() {
   const { user, signOut, impersonateUser, stopImpersonating, isImpersonating, originalUser } = useAuth();
   const { isSuperAdmin, isAdmin } = useRoles();

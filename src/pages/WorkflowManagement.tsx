@@ -43,8 +43,10 @@ interface Mailbox {
   status: 'pending' | 'connected' | 'error' | 'paused';
 }
 
+import { Navigation } from "@/components/Navigation";
+
 export default function WorkflowManagement() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { isSuperAdmin } = useRoles();
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [rules, setRules] = useState<WorkflowRule[]>([]);
