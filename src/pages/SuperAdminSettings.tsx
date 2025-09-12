@@ -53,6 +53,12 @@ interface AIPromptSettings {
   classification_prompt: string;
 }
 
+interface ThreatFeedScheduleSettings {
+  enabled: boolean;
+  schedule: string;
+  custom_schedule: string;
+}
+
 export default function SuperAdminSettings() {
   const { user } = useAuth();
   const { isSuperAdmin } = useRoles();
@@ -177,6 +183,12 @@ Respond with JSON format:
 }`
   });
 
+  const [threatFeedSettings, setThreatFeedSettings] = useState<ThreatFeedScheduleSettings>({
+    enabled: true,
+    schedule: "0 * * * *", // Every hour by default
+    custom_schedule: ""
+  });
+
   useEffect(() => {
     if (!user || !isSuperAdmin) {
       window.location.href = "/dashboard";
@@ -294,6 +306,34 @@ Respond with JSON format:
           condition_evaluator_prompt: aiPromptConfig.condition_evaluator_prompt || aiPromptSettings.condition_evaluator_prompt,
           threat_analysis_prompt: aiPromptConfig.threat_analysis_prompt || aiPromptSettings.threat_analysis_prompt,
           classification_prompt: aiPromptConfig.classification_prompt || aiPromptSettings.classification_prompt
+        });
+      }
+
+      // Load threat feed schedule settings
+      const { data: threatFeedData, error: threatFeedError } = await supabase
+        .from("app_settings")
+        .select("*")
+        .eq("key", "threat_feed_update_schedule")
+        .maybeSingle();
+
+      if (threatFeedError && threatFeedError.code !== 'PGRST116') {
+        throw threatFeedError;
+      }
+
+      if (threatFeedData?.value) {
+        let scheduleValue = "0 * * * *"; // default hourly
+        
+        if (typeof threatFeedData.value === 'string') {
+          scheduleValue = threatFeedData.value;
+        } else if (typeof threatFeedData.value === 'object' && threatFeedData.value !== null) {
+          const config = threatFeedData.value as any;
+          scheduleValue = config.schedule || config.custom_schedule || "0 * * * *";
+        }
+        
+        setThreatFeedSettings({
+          enabled: true,
+          schedule: scheduleValue,
+          custom_schedule: ""
         });
       }
     } catch (error) {
@@ -414,6 +454,43 @@ Respond with JSON format:
     } catch (error) {
       console.error("Error saving AI prompt settings:", error);
       toast.error("Failed to save AI prompt settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveThreatFeedSchedule = async () => {
+    setSaving(true);
+    try {
+      const scheduleValue = threatFeedSettings.schedule === "custom" ? threatFeedSettings.custom_schedule : threatFeedSettings.schedule;
+      
+      // Update the app_settings
+      const { error: settingsError } = await supabase
+        .from("app_settings")
+        .upsert({
+          key: "threat_feed_update_schedule",
+          value: scheduleValue,
+          description: "Cron schedule for automatic threat feed updates"
+        }, {
+          onConflict: 'key'
+        });
+
+      if (settingsError) throw settingsError;
+
+      // Update the cron job via edge function
+      const { error: cronError } = await supabase.functions.invoke('update-cron-schedule', {
+        body: {
+          schedule: scheduleValue,
+          enabled: threatFeedSettings.enabled
+        }
+      });
+
+      if (cronError) throw cronError;
+      
+      toast.success("Threat feed schedule updated successfully");
+    } catch (error) {
+      console.error("Error saving threat feed schedule:", error);
+      toast.error("Failed to save threat feed schedule");
     } finally {
       setSaving(false);
     }
@@ -946,6 +1023,77 @@ Respond with JSON format:
               <Button onClick={handleSaveStripe} disabled={saving} className="gap-2">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Save Stripe Settings
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Threat Feed Schedule Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Threat Feed Auto-Update Schedule</CardTitle>
+              <CardDescription>
+                Configure automatic updates for threat intelligence feeds
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center space-x-4">
+                <Switch
+                  id="threat-feed-enabled"
+                  checked={threatFeedSettings.enabled}
+                  onCheckedChange={(checked) => setThreatFeedSettings({
+                    ...threatFeedSettings,
+                    enabled: checked as boolean
+                  })}
+                />
+                <Label htmlFor="threat-feed-enabled">Enable Automatic Updates</Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="schedule-preset">Update Schedule</Label>
+                <Select 
+                  value={threatFeedSettings.schedule} 
+                  onValueChange={(value) => setThreatFeedSettings({
+                    ...threatFeedSettings,
+                    schedule: value
+                  })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select update schedule" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="*/15 * * * *">Every 15 minutes</SelectItem>
+                    <SelectItem value="*/30 * * * *">Every 30 minutes</SelectItem>
+                    <SelectItem value="0 * * * *">Every hour (recommended)</SelectItem>
+                    <SelectItem value="0 */6 * * *">Every 6 hours</SelectItem>
+                    <SelectItem value="0 */12 * * *">Every 12 hours</SelectItem>
+                    <SelectItem value="0 0 * * *">Daily at midnight</SelectItem>
+                    <SelectItem value="custom">Custom cron expression</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {threatFeedSettings.schedule === "custom" && (
+                <div className="space-y-2">
+                  <Label htmlFor="custom-schedule">Custom Cron Expression</Label>
+                  <Input
+                    id="custom-schedule"
+                    type="text"
+                    value={threatFeedSettings.custom_schedule}
+                    onChange={(e) => setThreatFeedSettings({
+                      ...threatFeedSettings,
+                      custom_schedule: e.target.value
+                    })}
+                    placeholder="0 * * * * (hourly)"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Use standard cron format: minute hour day month dayofweek
+                  </p>
+                </div>
+              )}
+
+              <Button onClick={handleSaveThreatFeedSchedule} disabled={saving} className="gap-2">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save Schedule Settings
               </Button>
             </CardContent>
           </Card>
