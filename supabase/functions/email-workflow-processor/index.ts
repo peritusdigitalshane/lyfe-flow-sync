@@ -515,8 +515,8 @@ async function evaluateAICondition(condition: string, email: any, supabase: any)
       console.log(`AI evaluation result: ${result.result.meets_condition} (confidence: ${result.result.confidence})`);
       console.log(`Reasoning: ${result.result.reasoning}`);
       
-      // Consider the condition met if confidence is above 0.7 and condition is true
-      return result.result.meets_condition && result.result.confidence > 0.7;
+      // Use higher confidence threshold to reduce false positives
+      return result.result.meets_condition && result.result.confidence > 0.85;
     }
 
     return false;

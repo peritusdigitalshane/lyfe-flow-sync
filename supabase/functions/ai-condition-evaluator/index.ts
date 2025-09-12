@@ -71,16 +71,24 @@ CONDITION TO EVALUATE: "{condition}"
 EMAIL TO ANALYZE:
 {email_content}
 
+IMPORTANT GUIDELINES:
+- Be EXTREMELY conservative in your evaluation
+- Only return true if you are absolutely certain the condition is met
+- Consider the exact meaning of the condition, not just general topic similarity
+- If there's any ambiguity or uncertainty, return false with low confidence
+- Look for specific, concrete evidence that directly matches the condition
+- Avoid false positives - it's better to miss a match than create incorrect ones
+
 Based on the email content above, does this email meet the specified condition?
 
 Respond with ONLY a JSON object in this exact format:
 {
   "meets_condition": true/false,
   "confidence": 0.0-1.0,
-  "reasoning": "Brief explanation of why the condition is met or not met"
+  "reasoning": "Brief explanation of why the condition is met or not met, including specific evidence"
 }
 
-Be precise and logical in your evaluation. Consider the semantic meaning of the condition, not just literal keyword matches.`;
+Be precise, conservative, and require strong evidence before returning true.`;
 
     const { data: aiPromptsConfig, error: promptsError } = await supabase
       .from('app_settings')
@@ -118,7 +126,7 @@ ${email.body_content ? `Content: ${email.body_content.substring(0, 2000)}...` : 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-2025-04-14',
         messages: [
           { 
             role: 'system', 
