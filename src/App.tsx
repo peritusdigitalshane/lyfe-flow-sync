@@ -25,6 +25,7 @@ import QuarantineTest from "./pages/QuarantineTest";
 import SuperAdminGuide from "./pages/SuperAdminGuide";
 import UserGuide from "./pages/UserGuide";
 import ThreatIntelligence from "./pages/ThreatIntelligence";
+import ThreatMonitor from "./pages/ThreatMonitor";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -135,6 +136,11 @@ const App = () => (
             <Route path="/threat-intelligence" element={
               <AccountStatusCheck>
                 <ThreatIntelligence />
+              </AccountStatusCheck>
+            } />
+            <Route path="/threat-monitor" element={
+              <AccountStatusCheck>
+                <ThreatMonitor />
               </AccountStatusCheck>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

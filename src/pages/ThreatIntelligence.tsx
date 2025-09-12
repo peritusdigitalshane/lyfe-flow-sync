@@ -313,134 +313,140 @@ export default function ThreatIntelligence() {
                 Manage threat intelligence feeds to enhance email security with real-time threat data
               </p>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={handleAddFeed} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Custom Feed
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingFeed ? 'Edit Threat Feed' : 'Add Custom Threat Feed'}
-                  </DialogTitle>
-                  <DialogDescription>
-                    Configure a custom threat intelligence feed to enhance email security
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => window.location.href = '/threat-monitor'}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                View Threat Monitor
+              </Button>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={handleAddFeed} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Custom Feed
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingFeed ? 'Edit Threat Feed' : 'Add Custom Threat Feed'}
+                    </DialogTitle>
+                    <DialogDescription>
+                      Configure a custom threat intelligence feed to enhance email security
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="feed-name">Feed Name</Label>
+                        <Input
+                          id="feed-name"
+                          value={feedForm.name}
+                          onChange={(e) => setFeedForm({...feedForm, name: e.target.value})}
+                          placeholder="e.g., Custom Malware Domains"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="feed-type">Feed Type</Label>
+                        <Select
+                          value={feedForm.feed_type}
+                          onValueChange={(value) => setFeedForm({...feedForm, feed_type: value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FEED_TYPES.map(type => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="feed-name">Feed Name</Label>
+                      <Label htmlFor="feed-url">Feed URL</Label>
                       <Input
-                        id="feed-name"
-                        value={feedForm.name}
-                        onChange={(e) => setFeedForm({...feedForm, name: e.target.value})}
-                        placeholder="e.g., Custom Malware Domains"
+                        id="feed-url"
+                        value={feedForm.feed_url}
+                        onChange={(e) => setFeedForm({...feedForm, feed_url: e.target.value})}
+                        placeholder="https://example.com/threat-feed.txt"
                       />
                     </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="feed-type">Feed Type</Label>
-                      <Select
-                        value={feedForm.feed_type}
-                        onValueChange={(value) => setFeedForm({...feedForm, feed_type: value})}
+                      <Label htmlFor="api-endpoint">API Endpoint (optional)</Label>
+                      <Input
+                        id="api-endpoint"
+                        value={feedForm.api_endpoint}
+                        onChange={(e) => setFeedForm({...feedForm, api_endpoint: e.target.value})}
+                        placeholder="https://api.example.com/threats"
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="api-key-required"
+                        checked={feedForm.api_key_required}
+                        onCheckedChange={(checked) => setFeedForm({...feedForm, api_key_required: checked})}
+                      />
+                      <Label htmlFor="api-key-required">Requires API Key</Label>
+                    </div>
+
+                    {feedForm.api_key_required && (
+                      <div className="space-y-2">
+                        <Label htmlFor="api-key">API Key</Label>
+                        <Input
+                          id="api-key"
+                          type="password"
+                          value={feedForm.api_key}
+                          onChange={(e) => setFeedForm({...feedForm, api_key: e.target.value})}
+                          placeholder="Enter API key"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="update-frequency">Update Frequency (hours)</Label>
+                      <Input
+                        id="update-frequency"
+                        type="number"
+                        min="1"
+                        max="168"
+                        value={feedForm.update_frequency_hours}
+                        onChange={(e) => setFeedForm({...feedForm, update_frequency_hours: parseInt(e.target.value) || 24})}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        value={feedForm.description}
+                        onChange={(e) => setFeedForm({...feedForm, description: e.target.value})}
+                        placeholder="Describe what this threat feed provides..."
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsDialogOpen(false)}
+                        disabled={saving}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {FEED_TYPES.map(type => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleSaveFeed} disabled={saving}>
+                        {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        {editingFeed ? 'Update Feed' : 'Add Feed'}
+                      </Button>
                     </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="feed-url">Feed URL</Label>
-                    <Input
-                      id="feed-url"
-                      value={feedForm.feed_url}
-                      onChange={(e) => setFeedForm({...feedForm, feed_url: e.target.value})}
-                      placeholder="https://example.com/threat-feed.txt"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="api-endpoint">API Endpoint (optional)</Label>
-                    <Input
-                      id="api-endpoint"
-                      value={feedForm.api_endpoint}
-                      onChange={(e) => setFeedForm({...feedForm, api_endpoint: e.target.value})}
-                      placeholder="https://api.example.com/threats"
-                    />
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="api-key-required"
-                      checked={feedForm.api_key_required}
-                      onCheckedChange={(checked) => setFeedForm({...feedForm, api_key_required: checked})}
-                    />
-                    <Label htmlFor="api-key-required">Requires API Key</Label>
-                  </div>
-
-                  {feedForm.api_key_required && (
-                    <div className="space-y-2">
-                      <Label htmlFor="api-key">API Key</Label>
-                      <Input
-                        id="api-key"
-                        type="password"
-                        value={feedForm.api_key}
-                        onChange={(e) => setFeedForm({...feedForm, api_key: e.target.value})}
-                        placeholder="Enter API key"
-                      />
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="update-frequency">Update Frequency (hours)</Label>
-                    <Input
-                      id="update-frequency"
-                      type="number"
-                      min="1"
-                      max="168"
-                      value={feedForm.update_frequency_hours}
-                      onChange={(e) => setFeedForm({...feedForm, update_frequency_hours: parseInt(e.target.value) || 24})}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={feedForm.description}
-                      onChange={(e) => setFeedForm({...feedForm, description: e.target.value})}
-                      placeholder="Describe what this threat feed provides..."
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="flex justify-end space-x-2 pt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsDialogOpen(false)}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSaveFeed} disabled={saving}>
-                      {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      {editingFeed ? 'Update Feed' : 'Add Feed'}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
 
           {/* Summary Stats */}
