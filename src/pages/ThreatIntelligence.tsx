@@ -204,6 +204,43 @@ export default function ThreatIntelligence() {
     }
   };
 
+  const handleRefreshFeeds = async () => {
+    try {
+      setSaving(true);
+      console.log('Triggering feed health monitor...');
+      
+      const supabaseUrl = 'https://ceasktzguzibehknbgsx.supabase.co';
+      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNlYXNrdHpndXppYmVoa25iZ3N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxMjg2OTAsImV4cCI6MjA3MDcwNDY5MH0.wUUytPNjVDFc0uGlhxnSmp0fw_VIdGPK2kHGft9lfso';
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/feed-health-monitor`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Feed health monitor result:', result);
+        
+        toast.success(`Feed update completed! ${result.summary?.healthy_feeds || 0}/${result.summary?.total_feeds || 0} feeds healthy`);
+        
+        // Refresh the feeds list to show updated data
+        await fetchFeeds();
+      } else {
+        const error = await response.text();
+        console.error('Feed health monitor error:', error);
+        toast.error('Failed to update feeds. Check console for details.');
+      }
+    } catch (error) {
+      console.error('Error triggering feed health monitor:', error);
+      toast.error('Failed to trigger feed update');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDeleteFeed = async (feedId: string) => {
     try {
       const { error } = await supabase
@@ -272,6 +309,16 @@ export default function ThreatIntelligence() {
               </p>
             </div>
             <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefreshFeeds}
+                disabled={saving}
+                className="gap-2"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Update All Feeds
+              </Button>
               <Button variant="outline" size="sm" onClick={() => window.location.href = '/threat-monitor'}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 View Threat Monitor
