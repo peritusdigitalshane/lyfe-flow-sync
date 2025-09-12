@@ -223,58 +223,34 @@ async function checkFeedForThreats(feed: any, indicators: any, supabase: any) {
   const results: Array<{indicator: string, score: number, details: any}> = [];
 
   try {
-    // For demonstration, we'll implement basic checks for a few feed types
-    // In production, you'd want more sophisticated checking based on feed format
+    console.log(`Checking feed: ${feed.name} with ${indicators.domains.length + indicators.urls.length + indicators.ips.length} indicators`);
     
     if (feed.feed_type === 'domain_blocklist') {
-      // Check domains against known malicious domains
       for (const domain of indicators.domains) {
-        if (await isDomainMalicious(domain, feed)) {
-          results.push({
-            indicator: domain,
-            score: 85,
-            details: { feed_type: 'domain_blocklist', domain }
-          });
-        }
+        const result = await checkDomainThreat(domain, feed);
+        if (result) results.push(result);
       }
     }
 
-    if (feed.feed_type === 'url_blocklist') {
-      // Check URLs against known malicious URLs
+    if (feed.feed_type === 'url_blocklist' || feed.feed_type === 'phishing_check') {
       for (const url of indicators.urls) {
-        if (await isUrlMalicious(url, feed)) {
-          results.push({
-            indicator: url,
-            score: 90,
-            details: { feed_type: 'url_blocklist', url }
-          });
-        }
+        const result = await checkUrlThreat(url, feed);
+        if (result) results.push(result);
       }
     }
 
     if (feed.feed_type === 'ip_blocklist') {
-      // Check IPs against known malicious IPs
       for (const ip of indicators.ips) {
-        if (await isIpMalicious(ip, feed)) {
-          results.push({
-            indicator: ip,
-            score: 80,
-            details: { feed_type: 'ip_blocklist', ip }
-          });
-        }
+        const result = await checkIpThreat(ip, feed);
+        if (result) results.push(result);
       }
     }
 
-    if (feed.feed_type === 'phishing_check') {
-      // Enhanced phishing detection
-      for (const url of indicators.urls) {
-        if (await isPhishingUrl(url, feed)) {
-          results.push({
-            indicator: url,
-            score: 95,
-            details: { feed_type: 'phishing_check', url, reason: 'Known phishing URL' }
-          });
-        }
+    // Add domain reputation checking for sender domains
+    if (feed.feed_type === 'domain_reputation') {
+      for (const domain of indicators.domains) {
+        const result = await checkDomainReputation(domain, feed);
+        if (result) results.push(result);
       }
     }
 
@@ -285,54 +261,223 @@ async function checkFeedForThreats(feed: any, indicators: any, supabase: any) {
   return results;
 }
 
-async function isDomainMalicious(domain: string, feed: any): Promise<boolean> {
-  // This is a simplified check - in production you'd fetch and cache the actual feed data
-  // For demonstration, we'll check against some known patterns
-  const suspiciousDomains = [
-    'phishing-example.com',
-    'malware-test.net',
-    'suspicious-domain.org'
-  ];
+// Cache for threat feed data to avoid excessive API calls
+const threatFeedCache = new Map<string, { data: Set<string>, timestamp: number }>();
+const CACHE_TTL = 3600000; // 1 hour
+
+async function fetchFeedData(feed: any): Promise<Set<string>> {
+  const cacheKey = `${feed.id}_${feed.name}`;
+  const cached = threatFeedCache.get(cacheKey);
   
-  return suspiciousDomains.some(suspicious => 
-    domain.includes(suspicious) || suspicious.includes(domain)
-  );
+  // Return cached data if still valid
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    return cached.data;
+  }
+
+  const threatSet = new Set<string>();
+
+  try {
+    if (feed.feed_url) {
+      console.log(`Fetching fresh data from feed: ${feed.name}`);
+      const response = await fetch(feed.feed_url, {
+        headers: feed.api_key ? { 'Authorization': `Bearer ${feed.api_key}` } : {}
+      });
+
+      if (response.ok) {
+        const text = await response.text();
+        
+        // Parse different feed formats
+        if (feed.name.toLowerCase().includes('malware domain list') || 
+            feed.name.toLowerCase().includes('phishtank') ||
+            feed.feed_type === 'domain_blocklist') {
+          parseDomainFeed(text, threatSet);
+        } else if (feed.feed_type === 'url_blocklist' || feed.feed_type === 'phishing_check') {
+          parseUrlFeed(text, threatSet);
+        } else if (feed.feed_type === 'ip_blocklist') {
+          parseIpFeed(text, threatSet);
+        }
+
+        // Cache the results
+        threatFeedCache.set(cacheKey, { data: threatSet, timestamp: Date.now() });
+        console.log(`Cached ${threatSet.size} indicators from ${feed.name}`);
+      }
+    }
+  } catch (error) {
+    console.error(`Error fetching feed data for ${feed.name}:`, error);
+    // Return cached data even if expired, better than nothing
+    if (cached) return cached.data;
+  }
+
+  return threatSet;
 }
 
-async function isUrlMalicious(url: string, feed: any): Promise<boolean> {
-  // Simplified URL check
-  const suspiciousPatterns = [
-    '/phishing/',
-    '/malware/',
-    '/suspicious/',
-    'bit.ly/suspicious',
-    'tinyurl.com/malware'
-  ];
-  
-  return suspiciousPatterns.some(pattern => url.includes(pattern));
+function parseDomainFeed(text: string, threatSet: Set<string>) {
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const cleaned = line.trim().toLowerCase();
+    if (cleaned && !cleaned.startsWith('#') && !cleaned.startsWith('//')) {
+      // Extract domain from various formats
+      const domainMatch = cleaned.match(/([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+)/);
+      if (domainMatch) {
+        threatSet.add(domainMatch[1]);
+      }
+    }
+  }
 }
 
-async function isIpMalicious(ip: string, feed: any): Promise<boolean> {
-  // Simplified IP check - you'd normally check against actual blocklists
-  const knownMaliciousIPs = [
-    '192.0.2.1', // RFC 5737 test IP
-    '198.51.100.1',
-    '203.0.113.1'
-  ];
-  
-  return knownMaliciousIPs.includes(ip);
+function parseUrlFeed(text: string, threatSet: Set<string>) {
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const cleaned = line.trim();
+    if (cleaned && !cleaned.startsWith('#') && (cleaned.startsWith('http://') || cleaned.startsWith('https://'))) {
+      threatSet.add(cleaned.toLowerCase());
+    }
+  }
 }
 
-async function isPhishingUrl(url: string, feed: any): Promise<boolean> {
-  // Enhanced phishing detection logic
-  const phishingIndicators = [
-    'secure-update',
-    'account-verify',
-    'suspended-account',
-    'urgent-action',
-    'click-here-now'
-  ];
+function parseIpFeed(text: string, threatSet: Set<string>) {
+  const lines = text.split('\n');
+  const ipRegex = /\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/;
   
+  for (const line of lines) {
+    const cleaned = line.trim();
+    if (cleaned && !cleaned.startsWith('#')) {
+      const ipMatch = cleaned.match(ipRegex);
+      if (ipMatch && !isPrivateIP(ipMatch[0])) {
+        threatSet.add(ipMatch[0]);
+      }
+    }
+  }
+}
+
+async function checkDomainThreat(domain: string, feed: any) {
+  const feedData = await fetchFeedData(feed);
+  
+  // Check exact match
+  if (feedData.has(domain)) {
+    return {
+      indicator: domain,
+      score: 90,
+      details: { 
+        feed_type: feed.feed_type, 
+        domain,
+        match_type: 'exact',
+        feed_source: feed.name
+      }
+    };
+  }
+
+  // Check subdomain matches for known bad parent domains
+  for (const badDomain of feedData) {
+    if (domain.endsWith('.' + badDomain)) {
+      return {
+        indicator: domain,
+        score: 75,
+        details: { 
+          feed_type: feed.feed_type, 
+          domain,
+          parent_domain: badDomain,
+          match_type: 'subdomain',
+          feed_source: feed.name
+        }
+      };
+    }
+  }
+
+  return null;
+}
+
+async function checkUrlThreat(url: string, feed: any) {
+  const feedData = await fetchFeedData(feed);
   const urlLower = url.toLowerCase();
-  return phishingIndicators.some(indicator => urlLower.includes(indicator));
+  
+  // Check exact URL match
+  if (feedData.has(urlLower)) {
+    return {
+      indicator: url,
+      score: 95,
+      details: { 
+        feed_type: feed.feed_type, 
+        url,
+        match_type: 'exact',
+        feed_source: feed.name
+      }
+    };
+  }
+
+  // Check if URL contains known malicious patterns
+  for (const badUrl of feedData) {
+    if (urlLower.includes(badUrl) || badUrl.includes(urlLower)) {
+      return {
+        indicator: url,
+        score: 85,
+        details: { 
+          feed_type: feed.feed_type, 
+          url,
+          matched_pattern: badUrl,
+          match_type: 'pattern',
+          feed_source: feed.name
+        }
+      };
+    }
+  }
+
+  return null;
+}
+
+async function checkIpThreat(ip: string, feed: any) {
+  const feedData = await fetchFeedData(feed);
+  
+  if (feedData.has(ip)) {
+    return {
+      indicator: ip,
+      score: 85,
+      details: { 
+        feed_type: feed.feed_type, 
+        ip,
+        match_type: 'exact',
+        feed_source: feed.name
+      }
+    };
+  }
+
+  return null;
+}
+
+async function checkDomainReputation(domain: string, feed: any) {
+  // Use VirusTotal-like API checking for domain reputation
+  if (feed.api_endpoint && feed.api_key) {
+    try {
+      const response = await fetch(`${feed.api_endpoint}/domains/${domain}`, {
+        headers: { 
+          'x-apikey': feed.api_key,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const malicious = data.data?.attributes?.last_analysis_stats?.malicious || 0;
+        const suspicious = data.data?.attributes?.last_analysis_stats?.suspicious || 0;
+        
+        if (malicious > 2 || suspicious > 5) {
+          return {
+            indicator: domain,
+            score: Math.min(50 + (malicious * 10) + (suspicious * 5), 100),
+            details: { 
+              feed_type: feed.feed_type, 
+              domain,
+              malicious_votes: malicious,
+              suspicious_votes: suspicious,
+              feed_source: feed.name
+            }
+          };
+        }
+      }
+    } catch (error) {
+      console.error(`Error checking domain reputation for ${domain}:`, error);
+    }
+  }
+
+  return null;
 }
