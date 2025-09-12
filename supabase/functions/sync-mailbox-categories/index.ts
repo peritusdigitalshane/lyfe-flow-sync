@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
       .map((cat: any) => ({
         name: cat.displayName,
         description: `Imported from ${mailbox.email_address}`,
-        color: mapPresetToHex(cat.color || 'preset0'),
+        color: mapPresetToHex(cat.color) || '#3b82f6',
         priority: 50,
         is_active: true,
         user_id: user.id,
