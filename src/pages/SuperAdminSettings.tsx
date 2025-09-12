@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoles } from "@/hooks/useRoles";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
@@ -61,7 +62,8 @@ interface ThreatFeedScheduleSettings {
 
 export default function SuperAdminSettings() {
   const { user } = useAuth();
-  const { isSuperAdmin } = useRoles();
+  const { isSuperAdmin, loading: rolesLoading } = useRoles();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showClientSecret, setShowClientSecret] = useState(false);
@@ -190,12 +192,18 @@ Respond with JSON format:
   });
 
   useEffect(() => {
+    // Wait for roles to load before checking permissions
+    if (rolesLoading) return;
+    
     if (!user || !isSuperAdmin) {
-      window.location.href = "/dashboard";
+      console.log("Redirecting to dashboard - user:", !!user, "isSuperAdmin:", isSuperAdmin);
+      navigate("/dashboard", { replace: true });
       return;
     }
+    
+    console.log("User is super admin, fetching settings");
     fetchSettings();
-  }, [user, isSuperAdmin]);
+  }, [user, isSuperAdmin, rolesLoading, navigate]);
 
   const fetchSettings = async () => {
     try {
@@ -525,6 +533,22 @@ Respond with JSON format:
       setSaving(false);
     }
   };
+
+  if (rolesLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center min-h-96">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+              <p className="mt-2 text-muted-foreground">Loading permissions...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (!user || !isSuperAdmin) {
     return null;
