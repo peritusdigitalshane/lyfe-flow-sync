@@ -12,6 +12,7 @@ interface UseRolesReturn {
   isSuperAdmin: boolean;
   isAdmin: boolean;
   isModerator: boolean;
+  isSecurityAnalyst: boolean;
   refreshRoles: () => Promise<void>;
 }
 
@@ -62,6 +63,7 @@ export function useRoles(): UseRolesReturn {
   const isSuperAdmin = hasRole('super_admin');
   const isAdmin = hasRole('admin') || isSuperAdmin;
   const isModerator = hasRole('moderator') || isAdmin;
+  const isSecurityAnalyst = hasRole('security_analyst') || isAdmin;
 
   return {
     roles,
@@ -70,6 +72,7 @@ export function useRoles(): UseRolesReturn {
     isSuperAdmin,
     isAdmin,
     isModerator,
+    isSecurityAnalyst,
     refreshRoles: fetchRoles,
   };
 }

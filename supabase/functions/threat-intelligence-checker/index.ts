@@ -54,6 +54,54 @@ serve(async (req) => {
 
     console.log(`Starting threat intelligence check for email: ${email_id}`);
 
+    // First, check if the tenant has users with threat intelligence access
+    const { data: email, error: emailError } = await supabase
+      .from('emails')
+      .select('mailbox_id')
+      .eq('id', email_id)
+      .single();
+
+    if (emailError) {
+      console.error('Error fetching email:', emailError);
+      throw emailError;
+    }
+
+    const { data: mailbox, error: mailboxError } = await supabase
+      .from('mailboxes')
+      .select('user_id')
+      .eq('id', email.mailbox_id)
+      .single();
+
+    if (mailboxError) {
+      console.error('Error fetching mailbox:', mailboxError);
+      throw mailboxError;
+    }
+
+    // Check if the user has threat intelligence access using the helper function
+    const { data: hasAccess, error: accessError } = await supabase
+      .rpc('has_threat_intelligence_access', { _user_id: mailbox.user_id });
+
+    if (accessError) {
+      console.error('Error checking threat intelligence access:', accessError);
+      throw accessError;
+    }
+
+    if (!hasAccess) {
+      console.log(`User ${mailbox.user_id} does not have threat intelligence access. Skipping threat check.`);
+      return new Response(JSON.stringify({
+        threats_detected: 0,
+        max_threat_score: 0,
+        threat_details: [],
+        should_quarantine: false,
+        message: "User does not have threat intelligence access"
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log(`User has threat intelligence access. Proceeding with threat check.`);
+
     // Get active threat intelligence feeds for this tenant
     const { data: feeds, error: feedsError } = await supabase
       .from('threat_intelligence_feeds')

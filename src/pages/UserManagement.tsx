@@ -34,6 +34,7 @@ interface UserStats {
   super_admins: number;
   admins: number;
   moderators: number;
+  security_analysts: number;
   regular_users: number;
   total_mailboxes: number;
 }
@@ -154,13 +155,15 @@ export default function UserManagement() {
       const super_admins = roleStats?.filter(r => r.role === 'super_admin').length || 0;
       const admins = roleStats?.filter(r => r.role === 'admin').length || 0;
       const moderators = roleStats?.filter(r => r.role === 'moderator').length || 0;
-      const regular_users = (totalUsers || 0) - super_admins - admins - moderators;
+      const security_analysts = roleStats?.filter(r => r.role === 'security_analyst').length || 0;
+      const regular_users = (totalUsers || 0) - super_admins - admins - moderators - security_analysts;
 
       setStats({
         total_users: totalUsers || 0,
         super_admins,
         admins,
         moderators,
+        security_analysts,
         regular_users,
         total_mailboxes: totalMailboxes || 0
       });
@@ -297,6 +300,8 @@ export default function UserManagement() {
         return <Shield className="h-3 w-3" />;
       case 'moderator':
         return <UserCheck className="h-3 w-3" />;
+      case 'security_analyst':
+        return <AlertCircle className="h-3 w-3" />;
       case 'user':
         return <Users className="h-3 w-3" />;
       default:
@@ -312,6 +317,8 @@ export default function UserManagement() {
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
       case 'moderator':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'security_analyst':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
       case 'user':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       default:
@@ -631,10 +638,10 @@ export default function UserManagement() {
                         Moderator
                       </div>
                     </SelectItem>
-                    <SelectItem value="admin">
+                    <SelectItem value="security_analyst">
                       <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
-                        Admin
+                        <AlertCircle className="h-4 w-4" />
+                        Security Analyst
                       </div>
                     </SelectItem>
                     <SelectItem value="super_admin">
@@ -668,7 +675,7 @@ export default function UserManagement() {
 
       {/* Stats Overview */}
       {stats && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
           <StatCard
             title="Total Users"
             value={stats.total_users}
@@ -692,6 +699,12 @@ export default function UserManagement() {
             value={stats.moderators}
             description="Moderation rights"
             icon={<UserCheck className="h-4 w-4" />}
+          />
+          <StatCard
+            title="Security Analysts"
+            value={stats.security_analysts}
+            description="Threat intelligence access"
+            icon={<AlertCircle className="h-4 w-4" />}
           />
           <StatCard
             title="Total Mailboxes"
@@ -733,6 +746,7 @@ export default function UserManagement() {
                 <SelectItem value="super_admin">Super Admin</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="moderator">Moderator</SelectItem>
+                <SelectItem value="security_analyst">Security Analyst</SelectItem>
                 <SelectItem value="user">User</SelectItem>
               </SelectContent>
             </Select>
@@ -810,7 +824,7 @@ export default function UserManagement() {
                             <SelectValue placeholder="Add role" />
                           </SelectTrigger>
                           <SelectContent>
-                            {(['user', 'moderator', 'admin', 'super_admin'] as AppRole[]).filter(
+                            {(['user', 'moderator', 'security_analyst', 'admin', 'super_admin'] as AppRole[]).filter(
                               role => !user.roles.includes(role)
                             ).map((role) => (
                               <SelectItem key={role} value={role}>

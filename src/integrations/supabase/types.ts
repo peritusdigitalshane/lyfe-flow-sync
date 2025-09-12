@@ -789,6 +789,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_threat_intelligence_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:
