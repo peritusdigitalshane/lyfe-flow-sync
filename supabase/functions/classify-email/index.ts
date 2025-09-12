@@ -100,6 +100,7 @@ const handler = async (req: Request): Promise<Response> => {
       rule_id: string;
       confidence: number;
       method: string;
+      priority: number;
     } | null = null;
 
     for (const rule of rules || []) {
@@ -111,12 +112,14 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       const match = checkRuleMatch(email, rule);
-      if (match && (!bestMatch || rule.priority > bestMatch.confidence)) {
+      if (match && (!bestMatch || rule.priority > bestMatch.priority)) {
+        console.log(`Rule matched: ${rule.name} (priority: ${rule.priority}) for email: ${email.subject}`);
         bestMatch = {
           category_id: rule.category_id,
           rule_id: rule.id,
           confidence: rule.priority / 100, // Convert priority to confidence score
-          method: 'rule'
+          method: 'rule',
+          priority: rule.priority
         };
       }
     }
