@@ -37,13 +37,13 @@ export const Navigation = () => {
     { path: '/email-categories', label: 'Categories', icon: FolderOpen },
     { path: '/workflows', label: 'Workflows', icon: Workflow },
     { path: '/workflow-rules', label: 'Rules', icon: GitBranch },
-    { path: '/threat-intelligence', label: 'Threat Intelligence', icon: Shield },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
   const superAdminItems = [
     { path: '/admin/users', label: 'User Management', icon: Users },
     { path: '/admin/diagnostics', label: 'System Diagnostics', icon: Activity },
+    { path: '/threat-intelligence', label: 'Threat Intelligence', icon: Shield },
     { path: '/super-admin-guide', label: 'Admin Guide', icon: FileText },
   ];
 
