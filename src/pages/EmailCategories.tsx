@@ -494,18 +494,18 @@ export default function EmailCategories() {
               <div className="flex flex-col sm:flex-row gap-2">
                 {showSyncOption && (
                   <div className="flex gap-2">
-                    <Select value={selectedMailbox} onValueChange={setSelectedMailbox}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Select mailbox to sync" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mailboxes.map((mailbox) => (
-                          <SelectItem key={mailbox.id} value={mailbox.id}>
-                            {mailbox.display_name || mailbox.email_address}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                     <Select value={selectedMailbox} onValueChange={setSelectedMailbox}>
+                       <SelectTrigger className="w-48 bg-background">
+                         <SelectValue placeholder="Select mailbox to sync" />
+                       </SelectTrigger>
+                       <SelectContent className="bg-background border z-50">
+                         {mailboxes.map((mailbox) => (
+                           <SelectItem key={mailbox.id} value={mailbox.id} className="bg-background hover:bg-accent">
+                             {mailbox.display_name || mailbox.email_address}
+                           </SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
                      <Button 
                       onClick={handleSyncCategories} 
                       variant="outline" 
@@ -790,41 +790,41 @@ export default function EmailCategories() {
                 placeholder="e.g., Marketing Emails, Boss Communications"
               />
             </div>
-            <div>
-              <Label htmlFor="category">Category</Label>
-              <Select value={ruleForm.category_id} onValueChange={(value) => setRuleForm({ ...ruleForm, category_id: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: category.color }}
-                        />
-                        {category.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="rule-type">Rule Type</Label>
-              <Select value={ruleForm.rule_type} onValueChange={(value: ClassificationRule['rule_type']) => setRuleForm({ ...ruleForm, rule_type: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sender">Sender Email</SelectItem>
-                  <SelectItem value="domain">Domain</SelectItem>
-                  <SelectItem value="subject">Subject Contains</SelectItem>
-                  <SelectItem value="content">Content Contains</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+             <div>
+               <Label htmlFor="category">Category</Label>
+               <Select value={ruleForm.category_id} onValueChange={(value) => setRuleForm({ ...ruleForm, category_id: value })}>
+                 <SelectTrigger className="bg-background">
+                   <SelectValue placeholder="Select category" />
+                 </SelectTrigger>
+                 <SelectContent className="bg-background border z-50 max-h-64 overflow-y-auto">
+                   {categories.map((category) => (
+                     <SelectItem key={category.id} value={category.id} className="bg-background hover:bg-accent">
+                       <div className="flex items-center gap-2">
+                         <div
+                           className="w-3 h-3 rounded-full"
+                           style={{ backgroundColor: category.color }}
+                         />
+                         {category.name}
+                       </div>
+                     </SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
+             </div>
+             <div>
+               <Label htmlFor="rule-type">Rule Type</Label>
+               <Select value={ruleForm.rule_type} onValueChange={(value: ClassificationRule['rule_type']) => setRuleForm({ ...ruleForm, rule_type: value })}>
+                 <SelectTrigger className="bg-background">
+                   <SelectValue />
+                 </SelectTrigger>
+                 <SelectContent className="bg-background border z-50">
+                   <SelectItem value="sender" className="bg-background hover:bg-accent">Sender Email</SelectItem>
+                   <SelectItem value="domain" className="bg-background hover:bg-accent">Domain</SelectItem>
+                   <SelectItem value="subject" className="bg-background hover:bg-accent">Subject Contains</SelectItem>
+                   <SelectItem value="content" className="bg-background hover:bg-accent">Content Contains</SelectItem>
+                 </SelectContent>
+               </Select>
+             </div>
             <div>
               <Label htmlFor="rule-value">Rule Value</Label>
               <Input
