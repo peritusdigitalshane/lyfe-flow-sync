@@ -228,9 +228,42 @@ Deno.serve(async (req) => {
       try {
         console.log(`Pushing category: ${category.name}`);
         
+        // Microsoft Graph expects preset color values, not hex codes
+        const mapColorToPreset = (hexColor: string): string => {
+          const colorMap: { [key: string]: string } = {
+            '#3b82f6': 'preset0', // blue
+            '#ef4444': 'preset1', // red
+            '#f59e0b': 'preset2', // amber
+            '#10b981': 'preset3', // emerald
+            '#8b5cf6': 'preset4', // violet
+            '#f97316': 'preset5', // orange
+            '#06b6d4': 'preset6', // cyan
+            '#84cc16': 'preset7', // lime
+            '#ec4899': 'preset8', // pink
+            '#6b7280': 'preset9', // gray
+            '#14b8a6': 'preset10', // teal
+            '#f43f5e': 'preset11', // rose
+            '#a855f7': 'preset12', // purple
+            '#22c55e': 'preset13', // green
+            '#eab308': 'preset14', // yellow
+            '#dc2626': 'preset15', // red-600
+            '#0ea5e9': 'preset16', // sky
+            '#7c3aed': 'preset17', // violet-600
+            '#059669': 'preset18', // emerald-600
+            '#d97706': 'preset19', // amber-600
+            '#be185d': 'preset20', // pink-700
+            '#4338ca': 'preset21', // indigo-600
+            '#0d9488': 'preset22', // teal-600
+            '#9333ea': 'preset23', // purple-600
+            '#65a30d': 'preset24'  // lime-600
+          };
+          
+          return colorMap[hexColor] || 'preset0'; // default to blue
+        };
+
         const categoryData = {
           displayName: category.name,
-          color: category.color || '#3b82f6'
+          color: mapColorToPreset(category.color || '#3b82f6')
         };
 
         const createResponse = await fetch('https://graph.microsoft.com/v1.0/me/outlook/masterCategories', {
