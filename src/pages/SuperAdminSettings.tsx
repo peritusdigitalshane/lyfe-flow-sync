@@ -78,7 +78,7 @@ export default function SuperAdminSettings() {
 
   const [openaiSettings, setOpenaiSettings] = useState<OpenAISettings>({
     api_key: "",
-    model: "gpt-4.1-2025-04-14",
+    model: "gpt-5-2025-08-07",
     max_tokens: 1000,
     temperature: 0.2
   });
@@ -767,16 +767,20 @@ Respond with JSON format:
                     <SelectTrigger>
                       <SelectValue placeholder="Select OpenAI model" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gpt-4.1-2025-04-14">GPT-4.1 (Recommended)</SelectItem>
-                      <SelectItem value="o3-2025-04-16">O3 (Reasoning)</SelectItem>
+                    <SelectContent className="bg-background border border-border shadow-lg z-50">
+                      <SelectItem value="gpt-5-2025-08-07">GPT-5 (Flagship - Best Performance)</SelectItem>
+                      <SelectItem value="gpt-5-mini-2025-08-07">GPT-5 Mini (Fast & Cost-Efficient)</SelectItem>
+                      <SelectItem value="gpt-5-nano-2025-08-07">GPT-5 Nano (Fastest & Cheapest)</SelectItem>
+                      <SelectItem value="gpt-4.1-2025-04-14">GPT-4.1 (Reliable)</SelectItem>
+                      <SelectItem value="o3-2025-04-16">O3 (Powerful Reasoning)</SelectItem>
                       <SelectItem value="o4-mini-2025-04-16">O4 Mini (Fast Reasoning)</SelectItem>
-                      <SelectItem value="gpt-4.1-mini-2025-04-14">GPT-4.1 Mini</SelectItem>
-                      <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                      <SelectItem value="gpt-4.1-mini-2025-04-14">GPT-4.1 Mini (With Vision)</SelectItem>
+                      <SelectItem value="gpt-4o">GPT-4o (Legacy - With Vision)</SelectItem>
+                      <SelectItem value="gpt-4o-mini">GPT-4o Mini (Legacy - Fast & Cheap)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-sm text-muted-foreground">
-                    GPT-4.1 is recommended for most use cases
+                    GPT-5 is the flagship model for best performance. GPT-4.1 for reliable results. O3/O4 for complex reasoning tasks.
                   </p>
                 </div>
 

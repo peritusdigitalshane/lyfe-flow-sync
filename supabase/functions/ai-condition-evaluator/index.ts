@@ -43,8 +43,9 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get OpenAI API key from environment or app settings
+    // Get OpenAI API key and model from environment or app settings
     let openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    let selectedModel = 'gpt-5-2025-08-07'; // Default fallback
     
     if (!openAIApiKey) {
       const { data: openaiConfig, error: configError } = await supabase
@@ -61,6 +62,7 @@ serve(async (req) => {
       }
       
       openAIApiKey = openaiConfig.value.api_key;
+      selectedModel = openaiConfig.value.model || selectedModel;
     }
 
     // Get custom AI prompts if configured, otherwise use default
@@ -116,8 +118,31 @@ ${email.body_content ? `Content: ${email.body_content.substring(0, 2000)}...` : 
       .replace('{condition}', condition)
       .replace('{email_content}', emailContent);
 
+    console.log('Using OpenAI model:', selectedModel);
     console.log('Evaluating AI condition:', condition);
     console.log('For email:', email.subject);
+
+    // Prepare request body based on model capabilities
+    const requestBody: any = {
+      model: selectedModel,
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are a precise email analysis system that evaluates conditions against email content. Always respond with valid JSON only.' 
+        },
+        { role: 'user', content: prompt }
+      ]
+    };
+
+    // Handle model-specific parameters
+    if (selectedModel.startsWith('gpt-5') || selectedModel.startsWith('o3') || selectedModel.startsWith('o4')) {
+      // Newer models use max_completion_tokens and don't support temperature
+      requestBody.max_completion_tokens = 200;
+    } else {
+      // Legacy models use max_tokens and support temperature
+      requestBody.max_tokens = 200;
+      requestBody.temperature = 0.1; // Low temperature for consistent results
+    }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -125,18 +150,7 @@ ${email.body_content ? `Content: ${email.body_content.substring(0, 2000)}...` : 
         'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are a precise email analysis system that evaluates conditions against email content. Always respond with valid JSON only.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.1, // Low temperature for consistent results
-        max_tokens: 200,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
