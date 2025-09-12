@@ -327,6 +327,9 @@ export default function WorkflowRules() {
                 <Link to="/workflow-rules" className="text-foreground font-medium">
                   Rules
                 </Link>
+                <Link to="/threat-intelligence" className="text-muted-foreground hover:text-foreground">
+                  Threat Intelligence
+                </Link>
                 <Link to="/settings" className="text-muted-foreground hover:text-foreground">
                   Settings
                 </Link>

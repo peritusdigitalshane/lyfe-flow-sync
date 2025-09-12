@@ -537,6 +537,110 @@ export type Database = {
         }
         Relationships: []
       }
+      threat_intelligence_feeds: {
+        Row: {
+          api_endpoint: string | null
+          api_key: string | null
+          api_key_required: boolean | null
+          created_at: string
+          description: string | null
+          feed_type: string
+          feed_url: string | null
+          id: string
+          is_active: boolean | null
+          is_preconfigured: boolean | null
+          last_updated_at: string | null
+          name: string
+          success_rate: number | null
+          tenant_id: string | null
+          total_entries: number | null
+          update_frequency_hours: number | null
+          updated_at: string
+        }
+        Insert: {
+          api_endpoint?: string | null
+          api_key?: string | null
+          api_key_required?: boolean | null
+          created_at?: string
+          description?: string | null
+          feed_type: string
+          feed_url?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_preconfigured?: boolean | null
+          last_updated_at?: string | null
+          name: string
+          success_rate?: number | null
+          tenant_id?: string | null
+          total_entries?: number | null
+          update_frequency_hours?: number | null
+          updated_at?: string
+        }
+        Update: {
+          api_endpoint?: string | null
+          api_key?: string | null
+          api_key_required?: boolean | null
+          created_at?: string
+          description?: string | null
+          feed_type?: string
+          feed_url?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_preconfigured?: boolean | null
+          last_updated_at?: string | null
+          name?: string
+          success_rate?: number | null
+          tenant_id?: string | null
+          total_entries?: number | null
+          update_frequency_hours?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      threat_intelligence_results: {
+        Row: {
+          created_at: string
+          details: Json | null
+          email_id: string
+          feed_id: string
+          id: string
+          tenant_id: string
+          threat_indicator: string
+          threat_score: number
+          threat_type: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          email_id: string
+          feed_id: string
+          id?: string
+          tenant_id: string
+          threat_indicator: string
+          threat_score: number
+          threat_type: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          email_id?: string
+          feed_id?: string
+          id?: string
+          tenant_id?: string
+          threat_indicator?: string
+          threat_score?: number
+          threat_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "threat_intelligence_results_feed_id_fkey"
+            columns: ["feed_id"]
+            isOneToOne: false
+            referencedRelation: "threat_intelligence_feeds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

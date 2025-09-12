@@ -496,6 +496,9 @@ export default function UserManagement() {
                 <Link to="/workflow-rules" className="text-muted-foreground hover:text-foreground">
                   Rules
                 </Link>
+                <Link to="/threat-intelligence" className="text-muted-foreground hover:text-foreground">
+                  Threat Intelligence
+                </Link>
                 <Link to="/settings" className="text-muted-foreground hover:text-foreground">
                   Settings
                 </Link>

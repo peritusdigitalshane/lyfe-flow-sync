@@ -580,6 +580,9 @@ Respond with JSON format:
                 <Link to="/workflow-rules" className="text-muted-foreground hover:text-foreground">
                   Rules
                 </Link>
+                <Link to="/threat-intelligence" className="text-muted-foreground hover:text-foreground">
+                  Threat Intelligence
+                </Link>
                 <Link to="/settings" className="text-foreground font-medium">
                   Settings
                 </Link>

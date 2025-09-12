@@ -113,7 +113,69 @@ serve(async (req) => {
       console.log('AI quarantine enabled:', quarantineSettings.ai_enabled);
     }
 
-    // Step 2: Pre-quarantine checks (before AI analysis)
+    // Step 2: Enhanced threat intelligence check
+    if (shouldCheckQuarantine || quarantineSettings.threat_intelligence_enabled) {
+      try {
+        console.log('Running threat intelligence check...');
+        const threatIntelResponse = await supabase.functions.invoke('threat-intelligence-checker', {
+          body: {
+            email_id: email.id,
+            email_content: {
+              subject: email.subject,
+              sender_email: email.sender_email,
+              body_content: email.body_content,
+              body_preview: email.body_preview
+            },
+            tenant_id: email.tenant_id
+          }
+        });
+
+        if (!threatIntelResponse.error && threatIntelResponse.data?.success) {
+          const threatResult = threatIntelResponse.data.result;
+          console.log(`Threat intelligence check completed. Threats: ${threatResult.threats_detected}, Max Score: ${threatResult.max_threat_score}`);
+          
+          // Add threat intelligence results to analysis
+          if (threatResult.threats_detected > 0) {
+            analysis.risk_score = Math.max(analysis.risk_score, threatResult.max_threat_score);
+            analysis.analysis_details.suspicious_patterns.push(...threatResult.threat_details.map(t => t.threat_indicator));
+            analysis.analysis_details.risk_factors.push({
+              factor: 'threat_intelligence',
+              score: threatResult.max_threat_score,
+              description: `${threatResult.threats_detected} threats detected from intelligence feeds`
+            });
+
+            // Auto-quarantine if threat intelligence indicates high risk
+            if (threatResult.should_quarantine) {
+              console.log('Threat intelligence triggered quarantine');
+              await quarantineEmail(email, supabase, `Threat intelligence: ${threatResult.threats_detected} threats detected (score: ${threatResult.max_threat_score})`);
+              
+              await logWorkflowExecution(email, null, [{ 
+                type: 'quarantine', 
+                parameters: { 
+                  reason: 'Threat intelligence detection',
+                  threat_details: threatResult.threat_details
+                } 
+              }], startTime, supabase);
+              
+              return createResponse(true, emailId, analysis, [{ 
+                type: 'quarantine', 
+                parameters: { 
+                  reason: 'Threat intelligence detection',
+                  threats: threatResult.threats_detected
+                } 
+              }], null, startTime);
+            }
+          }
+        } else {
+          console.log('Threat intelligence check failed or returned no results');
+        }
+      } catch (error) {
+        console.error('Error in threat intelligence check:', error);
+        // Continue processing even if threat intel fails
+      }
+    }
+
+    // Step 3: Pre-quarantine checks (before AI analysis)
     if (shouldCheckQuarantine) {
       const preQuarantineResult = await checkPreQuarantineRules(email, quarantineSettings);
       if (preQuarantineResult.shouldQuarantine) {
@@ -126,7 +188,7 @@ serve(async (req) => {
       }
     }
 
-    // Step 3: AI Analysis
+    // Step 4: AI Analysis
     let analysis: EmailAnalysis;
     try {
       if (shouldCheckQuarantine && quarantineSettings.ai_enabled) {
@@ -186,7 +248,7 @@ serve(async (req) => {
     
     console.log('Email analysis completed:', analysis);
 
-    // Step 4: Get applicable workflow rules
+    // Step 5: Get applicable workflow rules
     const { data: rules, error: rulesError } = await supabase
       .from('workflow_rules')
       .select('*')
@@ -201,7 +263,7 @@ serve(async (req) => {
 
     console.log(`Found ${rules?.length || 0} workflow rules to evaluate`);
 
-    // Step 5: Evaluate rules and determine actions
+    // Step 6: Evaluate rules and determine actions
     const actionsToExecute: WorkflowAction[] = [];
     let matchedRule: WorkflowRule | null = null;
 
@@ -214,7 +276,7 @@ serve(async (req) => {
       }
     }
 
-    // Step 6: Execute actions
+    // Step 7: Execute actions
     const executedActions: WorkflowAction[] = [];
     
     for (const action of actionsToExecute) {
@@ -228,7 +290,7 @@ serve(async (req) => {
       }
     }
 
-    // Step 7: Update email status and log execution
+    // Step 8: Update email status and log execution
     await supabase
       .from('emails')
       .update({
