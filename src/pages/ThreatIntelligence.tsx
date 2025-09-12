@@ -126,8 +126,8 @@ export default function ThreatIntelligence() {
   };
 
   const handleEditFeed = (feed: ThreatFeed) => {
-    if (feed.is_preconfigured) {
-      toast.error('Cannot edit pre-configured feeds');
+    if (feed.is_preconfigured && !isSuperAdmin) {
+      toast.error('Only super admins can edit pre-configured feeds');
       return;
     }
     
@@ -149,10 +149,13 @@ export default function ThreatIntelligence() {
     try {
       setSaving(true);
 
-      const feedData = {
-        ...feedForm,
-        tenant_id: (await supabase.from('profiles').select('tenant_id').eq('id', user!.id).single()).data?.tenant_id
-      };
+      // For preconfigured feeds, we don't include tenant_id as they are global
+      const feedData = editingFeed?.is_preconfigured 
+        ? { ...feedForm }
+        : {
+            ...feedForm,
+            tenant_id: (await supabase.from('profiles').select('tenant_id').eq('id', user!.id).single()).data?.tenant_id
+          };
 
       let error;
       if (editingFeed) {
@@ -163,7 +166,11 @@ export default function ThreatIntelligence() {
       } else {
         ({ error } = await supabase
           .from('threat_intelligence_feeds')
-          .insert([feedData]));
+          .insert([{
+            ...feedData,
+            is_preconfigured: false, // New feeds are not preconfigured
+            tenant_id: (await supabase.from('profiles').select('tenant_id').eq('id', user!.id).single()).data?.tenant_id
+          }]));
       }
 
       if (error) throw error;
