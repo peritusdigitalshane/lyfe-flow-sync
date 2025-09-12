@@ -430,6 +430,9 @@ export default function UserManagement() {
                   <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
                     Dashboard
                   </Link>
+                  <Link to="/email-categories" className="text-muted-foreground hover:text-foreground">
+                    Categories
+                  </Link>
                   <Link to="/workflows" className="text-muted-foreground hover:text-foreground">
                     Workflows
                   </Link>
@@ -483,6 +486,9 @@ export default function UserManagement() {
               <nav className="hidden md:flex items-center space-x-6">
                 <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
                   Dashboard
+                </Link>
+                <Link to="/email-categories" className="text-muted-foreground hover:text-foreground">
+                  Categories
                 </Link>
                 <Link to="/workflows" className="text-muted-foreground hover:text-foreground">
                   Workflows

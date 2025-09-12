@@ -165,14 +165,14 @@ export default function Dashboard() {
                 <Link to="/dashboard" className="text-foreground font-medium">
                   Dashboard
                 </Link>
+                <Link to="/email-categories" className="text-muted-foreground hover:text-foreground">
+                  Categories
+                </Link>
                 <Link to="/workflows" className="text-muted-foreground hover:text-foreground">
                   Workflows
                 </Link>
                 <Link to="/workflow-rules" className="text-muted-foreground hover:text-foreground">
                   Rules
-                </Link>
-                <Link to="/user-guide" className="text-muted-foreground hover:text-foreground">
-                  User Guide
                 </Link>
                 <Link to="/settings" className="text-muted-foreground hover:text-foreground">
                   Settings

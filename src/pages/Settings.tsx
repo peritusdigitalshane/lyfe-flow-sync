@@ -583,6 +583,11 @@ Respond with JSON format:
                 <Link to="/settings" className="text-foreground font-medium">
                   Settings
                 </Link>
+                {isSuperAdmin && (
+                  <Link to="/admin/users" className="text-muted-foreground hover:text-foreground">
+                    User Management
+                  </Link>
+                )}
               </nav>
             </div>
             <div className="flex items-center space-x-4">
@@ -626,6 +631,43 @@ Respond with JSON format:
               </Link>
             </div>
           </div>
+
+          {/* Documentation & Guides */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Documentation & Guides
+              </CardTitle>
+              <CardDescription>
+                Access comprehensive guides and documentation for the platform
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Link to="/user-guide">
+                  <Button variant="outline" className="w-full h-auto p-4 flex flex-col gap-2">
+                    <BookOpen className="h-6 w-6 text-blue-500" />
+                    <span className="font-medium">User Guide</span>
+                    <span className="text-xs text-muted-foreground text-center">
+                      Complete guide to using email automation features
+                    </span>
+                  </Button>
+                </Link>
+                {isSuperAdmin && (
+                  <Link to="/admin/guide">
+                    <Button variant="outline" className="w-full h-auto p-4 flex flex-col gap-2">
+                      <BookOpen className="h-6 w-6 text-red-500" />
+                      <span className="font-medium">Super Admin Guide</span>
+                      <span className="text-xs text-muted-foreground text-center">
+                        Advanced system configuration and management
+                      </span>
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Email Processing Settings */}
           <Card>

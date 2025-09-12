@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useRoles } from '@/hooks/useRoles';
 import { supabase } from '@/integrations/supabase/client';
 import { emailWorkflowEngine } from '@/services/emailWorkflowEngine';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ interface Mailbox {
 
 export default function WorkflowManagement() {
   const { user, signOut } = useAuth();
+  const { isSuperAdmin } = useRoles();
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [rules, setRules] = useState<WorkflowRule[]>([]);
   const [executions, setExecutions] = useState<WorkflowExecution[]>([]);
@@ -243,6 +245,9 @@ export default function WorkflowManagement() {
                 <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
                   Dashboard
                 </Link>
+                <Link to="/email-categories" className="text-muted-foreground hover:text-foreground">
+                  Categories
+                </Link>
                 <Link to="/workflows" className="text-foreground font-medium">
                   Workflows
                 </Link>
@@ -252,6 +257,11 @@ export default function WorkflowManagement() {
                 <Link to="/settings" className="text-muted-foreground hover:text-foreground">
                   Settings
                 </Link>
+                {isSuperAdmin && (
+                  <Link to="/admin/users" className="text-muted-foreground hover:text-foreground">
+                    User Management
+                  </Link>
+                )}
               </nav>
             </div>
             <div className="flex items-center space-x-4">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoles } from "@/hooks/useRoles";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ interface Mailbox {
 
 export default function WorkflowRules() {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { isSuperAdmin } = useRoles();
   const { toast } = useToast();
   const [rules, setRules] = useState<WorkflowRule[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -316,6 +318,9 @@ export default function WorkflowRules() {
                 <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
                   Dashboard
                 </Link>
+                <Link to="/email-categories" className="text-muted-foreground hover:text-foreground">
+                  Categories
+                </Link>
                 <Link to="/workflows" className="text-muted-foreground hover:text-foreground">
                   Workflows
                 </Link>
@@ -325,6 +330,11 @@ export default function WorkflowRules() {
                 <Link to="/settings" className="text-muted-foreground hover:text-foreground">
                   Settings
                 </Link>
+                {isSuperAdmin && (
+                  <Link to="/admin/users" className="text-muted-foreground hover:text-foreground">
+                    User Management
+                  </Link>
+                )}
               </nav>
             </div>
             <div className="flex items-center space-x-4">
