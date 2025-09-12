@@ -233,13 +233,46 @@ Deno.serve(async (req) => {
     const existingNames = new Set(existingCategories?.map(c => c.name.toLowerCase()) || []);
     console.log('Existing categories:', existingNames.size);
 
+    // Map Microsoft preset colors to hex values
+    const mapPresetToHex = (presetColor: string): string => {
+      const colorMap: { [key: string]: string } = {
+        'preset0': '#3b82f6',   // blue
+        'preset1': '#ef4444',   // red
+        'preset2': '#f59e0b',   // amber
+        'preset3': '#10b981',   // emerald
+        'preset4': '#8b5cf6',   // violet
+        'preset5': '#f97316',   // orange
+        'preset6': '#06b6d4',   // cyan
+        'preset7': '#84cc16',   // lime
+        'preset8': '#ec4899',   // pink
+        'preset9': '#6b7280',   // gray
+        'preset10': '#14b8a6',  // teal
+        'preset11': '#f43f5e',  // rose
+        'preset12': '#a855f7',  // purple
+        'preset13': '#22c55e',  // green
+        'preset14': '#eab308',  // yellow
+        'preset15': '#dc2626',  // red-600
+        'preset16': '#0ea5e9',  // sky
+        'preset17': '#7c3aed',  // violet-600
+        'preset18': '#059669',  // emerald-600
+        'preset19': '#d97706',  // amber-600
+        'preset20': '#be185d',  // pink-700
+        'preset21': '#4338ca',  // indigo-600
+        'preset22': '#0d9488',  // teal-600
+        'preset23': '#9333ea',  // purple-600
+        'preset24': '#65a30d'   // lime-600
+      };
+      
+      return colorMap[presetColor] || '#3b82f6'; // default to blue
+    };
+
     // Prepare new categories to import
     const newCategories = categories
       .filter((cat: any) => !existingNames.has(cat.displayName.toLowerCase()))
       .map((cat: any) => ({
         name: cat.displayName,
         description: `Imported from ${mailbox.email_address}`,
-        color: cat.color || '#3b82f6',
+        color: mapPresetToHex(cat.color || 'preset0'),
         priority: 50,
         is_active: true,
         user_id: user.id,
