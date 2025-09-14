@@ -243,14 +243,23 @@ const handler = async (req: Request): Promise<Response> => {
                 // Trigger workflow processing for the new email
                 try {
                   console.log(`Triggering workflow processing for email: ${insertedEmail.id}`);
-                  const workflowResponse = await supabase.functions.invoke('email-workflow-processor', {
-                    body: { emailId: insertedEmail.id }
+                  
+                  // Use direct function invocation with proper error handling
+                  const workflowResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/email-workflow-processor`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ emailId: insertedEmail.id })
                   });
                   
-                  if (workflowResponse.error) {
-                    console.error('Error processing email workflow:', workflowResponse.error);
+                  if (!workflowResponse.ok) {
+                    const errorText = await workflowResponse.text();
+                    console.error(`Workflow processing failed (${workflowResponse.status}):`, errorText);
                   } else {
-                    console.log(`Workflow processing completed for email: ${insertedEmail.id}`);
+                    const result = await workflowResponse.json();
+                    console.log(`Workflow processing completed for email: ${insertedEmail.id}`, result);
                   }
                 } catch (workflowError) {
                   console.error('Error triggering workflow processor:', workflowError);
