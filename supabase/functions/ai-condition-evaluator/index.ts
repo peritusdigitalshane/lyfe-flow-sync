@@ -45,7 +45,10 @@ serve(async (req) => {
 
     // Get OpenAI API key and model from environment or app settings
     let openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    let selectedModel = 'gpt-4o-mini'; // Default fallback to valid model
+    let selectedModel = 'gpt-4o-mini'; // Default fallback to reliable model
+    
+    // List of reliable models in order of preference
+    const fallbackModels = ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'];
     
     if (!openAIApiKey) {
       const { data: openaiConfig, error: configError } = await supabase
@@ -62,7 +65,14 @@ serve(async (req) => {
       }
       
       openAIApiKey = openaiConfig.value.api_key;
-      selectedModel = openaiConfig.value.model || selectedModel;
+      const configuredModel = openaiConfig.value.model;
+      
+      // Validate configured model against known working models
+      if (configuredModel && fallbackModels.includes(configuredModel)) {
+        selectedModel = configuredModel;
+      } else if (configuredModel) {
+        console.warn(`Configured model ${configuredModel} may not be available, using fallback ${selectedModel}`);
+      }
     }
 
     // Get custom AI prompts if configured, otherwise use default
@@ -144,21 +154,56 @@ ${email.body_content ? `Content: ${email.body_content.substring(0, 2000)}...` : 
       requestBody.temperature = 0.1; // Low temperature for consistent results
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // Try with primary model, fallback to others if needed
+    let response;
+    let lastError;
+    
+    for (const modelToTry of [selectedModel, ...fallbackModels.filter(m => m !== selectedModel)]) {
+      try {
+        const bodyWithModel = { ...requestBody, model: modelToTry };
+        
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(bodyWithModel),
+        });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', errorText);
+        if (response.ok) {
+          console.log(`Successfully used model: ${modelToTry}`);
+          break;
+        }
+        
+        const errorData = await response.text();
+        lastError = errorData;
+        console.warn(`Model ${modelToTry} failed: ${errorData}`);
+        
+        // Don't retry if it's an auth error
+        if (response.status === 401 || response.status === 403) {
+          console.error('Authentication error, not retrying other models');
+          break;
+        }
+        
+      } catch (fetchError) {
+        lastError = fetchError.message;
+        console.warn(`Network error with model ${modelToTry}: ${fetchError.message}`);
+      }
+    }
+
+    if (!response || !response.ok) {
+      console.error('All models failed. Last error:', lastError);
       return new Response(
-        JSON.stringify({ error: 'Failed to evaluate condition with AI' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'AI condition evaluation unavailable',
+          fallback_result: {
+            meets_condition: false,
+            confidence: 0.0,
+            reasoning: 'AI evaluation failed, defaulting to false for safety'
+          }
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

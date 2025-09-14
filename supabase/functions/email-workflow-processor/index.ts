@@ -536,6 +536,10 @@ async function evaluateAICondition(condition: string, email: any, supabase: any)
       
       // Use higher confidence threshold to reduce false positives
       return result.result.meets_condition && result.result.confidence > 0.85;
+    } else if (result?.fallback_result) {
+      // Handle fallback case when AI is unavailable
+      console.log(`AI evaluation fallback: ${result.fallback_result.meets_condition} (${result.fallback_result.reasoning})`);
+      return result.fallback_result.meets_condition;
     }
 
     return false;
