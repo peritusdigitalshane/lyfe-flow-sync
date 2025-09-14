@@ -96,6 +96,9 @@ serve(async (req) => {
 
     console.log('Starting enhanced email workflow processing...');
 
+    // Initialize analysis early to prevent scope issues
+    let analysis: EmailAnalysis = analyzeEmail(email);
+
     // Step 1: Check global quarantine settings
     const { data: quarantineConfig, error: quarantineError } = await supabase
       .from('app_settings')
@@ -182,11 +185,13 @@ serve(async (req) => {
       } catch (error) {
         console.warn('Threat intelligence check failed (timeout or error), continuing with basic analysis:', error.message);
         // Continue processing - don't let threat intelligence failures block email processing
-        analysis.analysis_details.risk_factors.push({
-          factor: 'threat_intelligence_error',
-          score: 0,
-          description: 'Threat intelligence check failed, processed with basic analysis only'
-        });
+        if (analysis && analysis.analysis_details) {
+          analysis.analysis_details.risk_factors.push({
+            factor: 'threat_intelligence_error',
+            score: 0,
+            description: 'Threat intelligence check failed, processed with basic analysis only'
+          });
+        }
       }
     }
 
@@ -203,8 +208,7 @@ serve(async (req) => {
       }
     }
 
-    // Step 4: AI Analysis
-    let analysis: EmailAnalysis;
+    // Step 4: Enhanced AI Analysis (update the initial analysis)
     try {
       if (shouldCheckQuarantine && quarantineSettings.ai_enabled) {
         // Enhanced AI analysis for quarantine

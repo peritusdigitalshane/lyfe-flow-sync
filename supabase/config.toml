@@ -47,3 +47,6 @@ verify_jwt = true
 
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.clear-email-queue]
+verify_jwt = false
