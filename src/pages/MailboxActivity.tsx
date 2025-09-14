@@ -157,12 +157,18 @@ export default function MailboxActivity() {
         return <CheckCircle2 className="h-4 w-4 text-status-success" />;
       case "workflow_deactivated":
         return <Clock className="h-4 w-4 text-status-warning" />;
+      case "workflow_executed":
+        return <Activity className="h-4 w-4 text-primary" />;
       case "email_received":
         return <CheckCircle2 className="h-4 w-4 text-blue-600" />;
       case "email_categorized":
         return <Activity className="h-4 w-4 text-purple-600" />;
+      case "email_quarantined":
+        return <AlertCircle className="h-4 w-4 text-red-600" />;
       case "email_processed":
         return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+      case "notification_sent":
+        return <CheckCircle2 className="h-4 w-4 text-blue-600" />;
       default:
         return <Activity className="h-4 w-4 text-muted-foreground" />;
     }
@@ -314,11 +320,43 @@ export default function MailboxActivity() {
                       </div>
                       {log.details && (
                         <div className="text-sm text-muted-foreground mb-2">
+                          {/* Special handling for workflow execution */}
+                          {log.action === 'workflow_executed' && log.details && (
+                            <div className="space-y-2">
+                              <div><strong>Rule:</strong> {log.details.matched_rule || 'No rule matched'}</div>
+                              <div><strong>Status:</strong> {log.details.status}</div>
+                              <div><strong>Actions taken:</strong> {log.details.actions_count || 0}</div>
+                              {log.details.actions_executed && log.details.actions_executed.length > 0 && (
+                                <div>
+                                  <strong>Actions:</strong>
+                                  <ul className="ml-4 mt-1 space-y-1">
+                                    {log.details.actions_executed.map((action: any, idx: number) => (
+                                      <li key={idx} className="text-xs">
+                                        • {action.type}
+                                        {action.parameters?.category_id && (
+                                          <span> → {getCategoryName(action.parameters.category_id)}</span>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
                           {/* Special handling for email categorization */}
                           {log.action === 'email_categorized' && log.details.category_id && (
                             <div className="mb-2">
                               <span className="text-sm font-medium">Category assigned: </span>
                               {getCategoryBadge(log.details.category_id)}
+                            </div>
+                          )}
+                          
+                          {/* Special handling for email quarantine */}
+                          {log.action === 'email_quarantined' && log.details && (
+                            <div className="mb-2">
+                              <span className="text-sm font-medium">Quarantined: </span>
+                              <span className="text-red-600">{log.details.reason || 'Security policy'}</span>
                             </div>
                           )}
                           

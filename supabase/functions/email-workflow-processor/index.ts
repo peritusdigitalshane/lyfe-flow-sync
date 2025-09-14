@@ -827,23 +827,28 @@ async function logWorkflowExecution(email: any, rule: any, actions: any[], start
       email_id: email.id,
       mailbox_id: email.mailbox_id,
       rule_id: rule?.id,
-      execution_status: 'completed',
+      execution_status: actions.length > 0 ? 'completed' : 'no_actions',
       actions_taken: actions,
       execution_time_ms: Date.now() - startTime
     });
 
+  // Log detailed workflow execution
   await supabase
     .from('audit_logs')
     .insert({
       tenant_id: email.tenant_id,
       mailbox_id: email.mailbox_id,
-      action: 'email_processed',
+      action: 'workflow_executed',
       details: {
         email_id: email.id,
         subject: email.subject,
-        matched_rule: rule?.name,
-        actions_executed: actions.length,
-        execution_time_ms: Date.now() - startTime
+        sender: email.sender_email,
+        matched_rule: rule?.name || 'No rule matched',
+        rule_id: rule?.id,
+        actions_executed: actions.map(a => ({ type: a.type, parameters: a.parameters })),
+        actions_count: actions.length,
+        execution_time_ms: Date.now() - startTime,
+        status: actions.length > 0 ? 'actions_executed' : 'no_actions_taken'
       }
     });
 }
