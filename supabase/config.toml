@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.system-health-check]
 verify_jwt = false
+
+[functions.delete-user]
+verify_jwt = true
