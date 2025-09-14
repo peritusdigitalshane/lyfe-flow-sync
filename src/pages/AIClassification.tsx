@@ -5,11 +5,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Brain, ArrowLeft } from 'lucide-react';
+import { Loader2, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { Navigation } from '@/components/Navigation';
 
 interface ClassificationResult {
   category: string;
@@ -116,26 +117,18 @@ export default function AIClassification() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Link to="/settings">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Settings
-          </Button>
-        </Link>
-      </div>
-
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Brain className="h-6 w-6" />
-          AI Email Classification Testing
-        </h1>
-        <p className="text-muted-foreground">
-          Test the AI-powered email classification system using OpenAI
-        </p>
-      </div>
+    <>
+      <Navigation />
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Brain className="h-6 w-6" />
+            AI Email Classification Testing
+          </h1>
+          <p className="text-muted-foreground">
+            Test the AI-powered email classification system using OpenAI
+          </p>
+        </div>
 
       <div className="grid gap-6">
         {/* Input Form */}
@@ -291,6 +284,7 @@ export default function AIClassification() {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

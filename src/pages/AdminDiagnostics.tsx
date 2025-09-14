@@ -6,8 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, RefreshCw, CheckCircle, XCircle, AlertCircle, Play, Database, Mail, Users, Settings, Workflow, Globe } from "lucide-react";
-import { Link } from "react-router-dom";
+import { RefreshCw, CheckCircle, XCircle, AlertCircle, Play, Settings, Database } from "lucide-react";
+import { Navigation } from "@/components/Navigation";
 
 interface TestResult {
   name: string;
@@ -404,19 +404,13 @@ export default function AdminDiagnostics() {
   }, []);
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/settings">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Settings
-          </Link>
-        </Button>
+    <>
+      <Navigation />
+      <div className="container mx-auto p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold">System Diagnostics</h1>
           <p className="text-muted-foreground">Comprehensive testing and troubleshooting tools</p>
         </div>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Test Controls */}
@@ -568,6 +562,7 @@ export default function AdminDiagnostics() {
           </ScrollArea>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }
