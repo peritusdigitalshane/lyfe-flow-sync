@@ -79,10 +79,13 @@ export default function SuperAdminSettings() {
 
   const [openaiSettings, setOpenaiSettings] = useState<OpenAISettings>({
     api_key: "",
-    model: "gpt-5-2025-08-07",
+    model: "gpt-5-mini-2025-08-07",
     max_tokens: 1000,
     temperature: 0.2
   });
+
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [testingConnection, setTestingConnection] = useState(false);
 
   const [quarantineSettings, setQuarantineSettings] = useState<QuarantineSettings>({
     enabled: false,
@@ -245,7 +248,7 @@ Respond with JSON format:
         const openaiConfig = openaiData.value as any;
         setOpenaiSettings({
           api_key: openaiConfig.api_key || "",
-          model: openaiConfig.model || "gpt-4.1-2025-04-14",
+          model: openaiConfig.model || "gpt-5-mini-2025-08-07",
           max_tokens: openaiConfig.max_tokens || 1000,
           temperature: openaiConfig.temperature || 0.2
         });
@@ -566,7 +569,7 @@ Respond with JSON format:
       return;
     }
 
-    setSaving(true);
+    setTestingConnection(true);
     try {
       const response = await fetch('https://api.openai.com/v1/models', {
         headers: {
@@ -576,17 +579,23 @@ Respond with JSON format:
       });
 
       if (response.ok) {
-        toast.success("✅ OpenAI connection successful!");
+        const data = await response.json();
+        const modelIds = data.data.map((model: any) => model.id).sort();
+        setAvailableModels(modelIds);
+        toast.success(`✅ Connection successful! Found ${modelIds.length} available models.`);
       } else if (response.status === 401) {
         toast.error("❌ Invalid API key. Please check your OpenAI API key.");
+        setAvailableModels([]);
       } else {
         toast.error("❌ Failed to connect to OpenAI. Please try again.");
+        setAvailableModels([]);
       }
     } catch (error) {
       console.error('OpenAI connection test failed:', error);
       toast.error("❌ Connection failed. Please check your internet connection.");
+      setAvailableModels([]);
     } finally {
-      setSaving(false);
+      setTestingConnection(false);
     }
   };
 
@@ -813,31 +822,50 @@ Respond with JSON format:
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="openai-model">Model</Label>
-                  <Select 
-                    value={openaiSettings.model} 
-                    onValueChange={(value) => setOpenaiSettings({
-                      ...openaiSettings,
-                      model: value
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select OpenAI model" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border border-border shadow-lg z-50">
-                      <SelectItem value="gpt-5-2025-08-07">GPT-5 (Flagship - Best Performance)</SelectItem>
-                      <SelectItem value="gpt-5-mini-2025-08-07">GPT-5 Mini (Fast & Cost-Efficient)</SelectItem>
-                      <SelectItem value="gpt-5-nano-2025-08-07">GPT-5 Nano (Fastest & Cheapest)</SelectItem>
-                      <SelectItem value="gpt-4.1-2025-04-14">GPT-4.1 (Reliable)</SelectItem>
-                      <SelectItem value="o3-2025-04-16">O3 (Powerful Reasoning)</SelectItem>
-                      <SelectItem value="o4-mini-2025-04-16">O4 Mini (Fast Reasoning)</SelectItem>
-                      <SelectItem value="gpt-4.1-mini-2025-04-14">GPT-4.1 Mini (With Vision)</SelectItem>
-                      <SelectItem value="gpt-4o">GPT-4o (Legacy - With Vision)</SelectItem>
-                      <SelectItem value="gpt-4o-mini">GPT-4o Mini (Legacy - Fast & Cheap)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm text-muted-foreground">
-                    GPT-5 is the flagship model for best performance. GPT-4.1 for reliable results. O3/O4 for complex reasoning tasks.
-                  </p>
+                  <div className="space-y-2">
+                    <Select 
+                      value={openaiSettings.model} 
+                      onValueChange={(value) => setOpenaiSettings({
+                        ...openaiSettings,
+                        model: value
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select OpenAI model" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border border-border shadow-lg z-50">
+                        {availableModels.length > 0 ? (
+                          availableModels.map((model) => (
+                            <SelectItem key={model} value={model}>
+                              {model}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          // Fallback models if API hasn't been tested yet
+                          <>
+                            <SelectItem value="gpt-5-2025-08-07">GPT-5 (Flagship - Best Performance)</SelectItem>
+                            <SelectItem value="gpt-5-mini-2025-08-07">GPT-5 Mini (Fast & Cost-Efficient)</SelectItem>
+                            <SelectItem value="gpt-5-nano-2025-08-07">GPT-5 Nano (Fastest & Cheapest)</SelectItem>
+                            <SelectItem value="gpt-4.1-2025-04-14">GPT-4.1 (Reliable)</SelectItem>
+                            <SelectItem value="o3-2025-04-16">O3 (Powerful Reasoning)</SelectItem>
+                            <SelectItem value="o4-mini-2025-04-16">O4 Mini (Fast Reasoning)</SelectItem>
+                            <SelectItem value="gpt-4.1-mini-2025-04-14">GPT-4.1 Mini (With Vision)</SelectItem>
+                            <SelectItem value="gpt-4o">GPT-4o (Legacy - With Vision)</SelectItem>
+                            <SelectItem value="gpt-4o-mini">GPT-4o Mini (Legacy - Fast & Cheap)</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {availableModels.length > 0 ? (
+                      <p className="text-sm text-muted-foreground text-green-600">
+                        ✅ Showing {availableModels.length} models available with your API key
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        💡 Test your API key to see available models
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -886,9 +914,9 @@ Respond with JSON format:
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Save OpenAI Settings
                 </Button>
-                <Button onClick={testOpenAIConnection} disabled={saving} variant="outline" className="gap-2">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
-                  Test Connection
+                <Button onClick={testOpenAIConnection} disabled={testingConnection || saving} variant="outline" className="gap-2">
+                  {testingConnection ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
+                  {testingConnection ? "Testing..." : "Test Connection & Fetch Models"}
                 </Button>
               </div>
             </CardContent>
