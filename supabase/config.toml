@@ -3,6 +3,9 @@ project_id = "ceasktzguzibehknbgsx"
 [functions.auto-email-scheduler]
 verify_jwt = false
 
+[functions.auto-process-pending-emails]
+verify_jwt = false
+
 [functions.mailbox-api]
 verify_jwt = false
 

@@ -334,33 +334,55 @@ async function fetchFeedData(feed: any): Promise<Set<string>> {
   try {
     if (feed.feed_url) {
       console.log(`Fetching fresh data from feed: ${feed.name}`);
-      const response = await fetch(feed.feed_url, {
-        headers: feed.api_key ? { 'Authorization': `Bearer ${feed.api_key}` } : {}
-      });
+      
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      try {
+        const response = await fetch(feed.feed_url, {
+          headers: feed.api_key ? { 'Authorization': `Bearer ${feed.api_key}` } : {},
+          signal: controller.signal
+        });
 
-      if (response.ok) {
-        const text = await response.text();
-        
-        // Parse different feed formats
-        if (feed.name.toLowerCase().includes('malware domain list') || 
-            feed.name.toLowerCase().includes('phishtank') ||
-            feed.feed_type === 'domain_blocklist') {
-          parseDomainFeed(text, threatSet);
-        } else if (feed.feed_type === 'url_blocklist' || feed.feed_type === 'phishing_check') {
-          parseUrlFeed(text, threatSet);
-        } else if (feed.feed_type === 'ip_blocklist') {
-          parseIpFeed(text, threatSet);
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const text = await response.text();
+          
+          // Parse different feed formats
+          if (feed.name.toLowerCase().includes('malware domain list') || 
+              feed.name.toLowerCase().includes('phishtank') ||
+              feed.feed_type === 'domain_blocklist') {
+            parseDomainFeed(text, threatSet);
+          } else if (feed.feed_type === 'url_blocklist' || feed.feed_type === 'phishing_check') {
+            parseUrlFeed(text, threatSet);
+          } else if (feed.feed_type === 'ip_blocklist') {
+            parseIpFeed(text, threatSet);
+          }
+
+          // Cache the results
+          threatFeedCache.set(cacheKey, { data: threatSet, timestamp: Date.now() });
+          console.log(`Cached ${threatSet.size} indicators from ${feed.name}`);
+        } else {
+          console.warn(`Feed ${feed.name} returned status ${response.status}`);
         }
-
-        // Cache the results
-        threatFeedCache.set(cacheKey, { data: threatSet, timestamp: Date.now() });
-        console.log(`Cached ${threatSet.size} indicators from ${feed.name}`);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        throw fetchError;
       }
     }
   } catch (error) {
-    console.error(`Error fetching feed data for ${feed.name}:`, error);
+    console.error(`Error fetching feed data for ${feed.name}:`, error.message || error);
+    
     // Return cached data even if expired, better than nothing
-    if (cached) return cached.data;
+    if (cached) {
+      console.log(`Using expired cache for ${feed.name} due to fetch error`);
+      return cached.data;
+    }
+    
+    // Cache empty result for 5 minutes to avoid repeated failures
+    threatFeedCache.set(cacheKey, { data: threatSet, timestamp: Date.now() });
   }
 
   return threatSet;

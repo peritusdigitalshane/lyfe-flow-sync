@@ -113,11 +113,13 @@ serve(async (req) => {
       console.log('AI quarantine enabled:', quarantineSettings.ai_enabled);
     }
 
-    // Step 2: Enhanced threat intelligence check
+    // Step 2: Enhanced threat intelligence check (with timeout and error handling)
     if (shouldCheckQuarantine || quarantineSettings.threat_intelligence_enabled) {
       try {
         console.log('Running threat intelligence check...');
-        const threatIntelResponse = await supabase.functions.invoke('threat-intelligence-checker', {
+        
+        // Add timeout for threat intelligence check to prevent blocking
+        const threatIntelPromise = supabase.functions.invoke('threat-intelligence-checker', {
           body: {
             email_id: email.id,
             email_content: {
@@ -130,6 +132,14 @@ serve(async (req) => {
           }
         });
 
+        // Race the threat intelligence check against a timeout
+        const threatIntelResponse = await Promise.race([
+          threatIntelPromise,
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Threat intelligence timeout')), 30000) // 30 second timeout
+          )
+        ]) as any;
+
         if (!threatIntelResponse.error && threatIntelResponse.data?.success) {
           const threatResult = threatIntelResponse.data.result;
           console.log(`Threat intelligence check completed. Threats: ${threatResult.threats_detected}, Max Score: ${threatResult.max_threat_score}`);
@@ -137,7 +147,7 @@ serve(async (req) => {
           // Add threat intelligence results to analysis
           if (threatResult.threats_detected > 0) {
             analysis.risk_score = Math.max(analysis.risk_score, threatResult.max_threat_score);
-            analysis.analysis_details.suspicious_patterns.push(...threatResult.threat_details.map(t => t.threat_indicator));
+            analysis.analysis_details.suspicious_patterns.push(...(threatResult.threat_details?.map(t => t.threat_indicator) || []));
             analysis.analysis_details.risk_factors.push({
               factor: 'threat_intelligence',
               score: threatResult.max_threat_score,
@@ -167,11 +177,16 @@ serve(async (req) => {
             }
           }
         } else {
-          console.log('Threat intelligence check failed or returned no results');
+          console.warn('Threat intelligence check failed, continuing with basic analysis:', threatIntelResponse?.error || 'No results');
         }
       } catch (error) {
-        console.error('Error in threat intelligence check:', error);
-        // Continue processing even if threat intel fails
+        console.warn('Threat intelligence check failed (timeout or error), continuing with basic analysis:', error.message);
+        // Continue processing - don't let threat intelligence failures block email processing
+        analysis.analysis_details.risk_factors.push({
+          factor: 'threat_intelligence_error',
+          score: 0,
+          description: 'Threat intelligence check failed, processed with basic analysis only'
+        });
       }
     }
 
