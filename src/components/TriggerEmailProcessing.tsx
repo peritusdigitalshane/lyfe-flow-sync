@@ -27,8 +27,8 @@ const TriggerEmailProcessing: React.FC<{ mailboxId?: string }> = ({ mailboxId })
     setResults(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('trigger-email-processing', {
-        body: { mailboxId }
+      const { data, error } = await supabase.functions.invoke('process-email-backlog', {
+        body: {}
       });
 
       if (error) {
@@ -36,7 +36,7 @@ const TriggerEmailProcessing: React.FC<{ mailboxId?: string }> = ({ mailboxId })
       }
 
       setResults(data);
-      toast.success(`Processed ${data.processedCount} emails`);
+      toast.success(`Processed ${data.processedCount || 0} emails`);
     } catch (error) {
       console.error('Error triggering email processing:', error);
       toast.error('Failed to trigger email processing');
