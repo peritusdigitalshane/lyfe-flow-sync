@@ -33,7 +33,63 @@ serve(async (req) => {
       }
     );
 
-    // Parse request body
+    // Get the current user (the admin creating the new user)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing Authorization header' }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    const { data: { user: currentUser }, error: currentUserError } = await supabaseAdmin.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+
+    if (currentUserError || !currentUser) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Check current user's roles to determine what roles they can assign
+    const { data: currentUserRoles, error: rolesError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', currentUser.id);
+
+    if (rolesError) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to verify permissions' }),
+        { 
+          status: 403, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    const userRoles = currentUserRoles?.map(r => r.role) || [];
+    const isSuperAdmin = userRoles.includes('super_admin');
+    const isAdmin = userRoles.includes('admin') || isSuperAdmin;
+
+    if (!isAdmin) {
+      return new Response(
+        JSON.stringify({ error: 'Insufficient permissions to create users' }),
+        { 
+          status: 403, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Parse request body AFTER authentication
     const { email, password, fullName, role }: CreateUserRequest = await req.json();
 
     if (!email || !password) {
@@ -85,8 +141,26 @@ serve(async (req) => {
     // Wait a moment for the trigger to execute
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // If a role is specified, assign it
+    // If a role is specified, check permissions and assign it
     if (role && role !== 'user') {
+      // Only super admins can assign elevated roles
+      if (!isSuperAdmin) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Only Super Admins can assign elevated roles. Regular admins can only create users with "user" role.'
+          }),
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Prevent creation of multiple super admins unless explicitly intended
+      if (role === 'super_admin') {
+        console.log(`WARNING: Creating new Super Admin user: ${email}`);
+      }
+      
       console.log(`Assigning role ${role} to user ${authUser.user.id}`);
       
       const { error: roleError } = await supabaseAdmin
@@ -94,13 +168,13 @@ serve(async (req) => {
         .insert({
           user_id: authUser.user.id,
           role: role,
-          created_by: authUser.user.id // The new user is created by admin, but we'll use the user's own ID
+          created_by: currentUser.id // Use the actual admin who created the user
         });
 
       if (roleError) {
         console.error('Role assignment error:', roleError);
         // Don't fail the entire operation if role assignment fails
-        // The user is still created successfully
+        // The user is still created successfully with default 'user' role
         return new Response(
           JSON.stringify({ 
             success: true,
