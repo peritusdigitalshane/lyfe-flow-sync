@@ -469,29 +469,55 @@ Respond with JSON format:
   };
 
   const handleClearEmailQueue = async () => {
+    if (!confirm('Are you sure you want to clear the GLOBAL email processing queue across ALL users and mailboxes? This action cannot be undone.')) {
+      return;
+    }
+
     setClearingQueue(true);
     try {
-      console.log('Initiating global email queue clearance...');
+      console.log('Attempting to invoke clear-email-queue function...');
       
-      const { data, error } = await supabase.functions.invoke('clear-email-queue', {
-        body: {}
+      // Add a timeout to the function call
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Function call timed out after 30 seconds')), 30000)
+      );
+      
+      const functionPromise = supabase.functions.invoke('clear-email-queue', {
+        body: { 
+          timestamp: new Date().toISOString(),
+          source: 'super_admin_ui' 
+        }
       });
-
+      
+      const { data, error } = await Promise.race([functionPromise, timeoutPromise]) as any;
+      
       if (error) {
         console.error('Function invoke error:', error);
+        
+        // More specific error handling
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('Failed to send a request')) {
+          throw new Error('Edge function is not available. The function may need to be deployed or there may be a network issue.');
+        }
+        
         throw new Error(`Function error: ${error.message}`);
       }
 
       console.log('Queue clearance response:', data);
       
       if (data?.success) {
-        toast.success(`🚀 Global queue cleared successfully! Processed ${data.processed || 0} emails`);
+        toast.success(`🚀 Global queue cleared successfully! Processed ${data.processed || 0} emails with ${data.errors || 0} errors.`);
       } else {
         throw new Error(data?.error || 'Unknown error occurred');
       }
     } catch (error) {
       console.error('Error clearing global email queue:', error);
-      toast.error(`Failed to clear global email queue: ${error.message}`);
+      
+      let errorMessage = 'Failed to clear email queue';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(`Failed to clear global email queue: ${errorMessage}`);
     } finally {
       setClearingQueue(false);
     }
