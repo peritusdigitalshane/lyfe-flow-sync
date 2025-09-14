@@ -18,15 +18,15 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('Starting manual email queue clearance...');
+    console.log('Starting GLOBAL email queue clearance (ALL USERS/MAILBOXES)...');
 
-    // Get count of pending emails
+    // Get count of ALL pending emails across all mailboxes and users
     const { data: pendingEmails, error: emailError } = await supabase
       .from('emails')
-      .select('id, subject, created_at')
+      .select('id, subject, created_at, mailbox_id')
       .eq('processing_status', 'pending')
       .order('created_at', { ascending: true })
-      .limit(50); // Process in batches
+      .limit(100); // Process larger batches for global clearing
 
     if (emailError) {
       console.error('Error fetching pending emails:', emailError);
@@ -46,7 +46,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Found ${pendingEmails.length} pending emails to process`);
+    console.log(`Found ${pendingEmails.length} pending emails across ALL mailboxes to process`);
 
     let processedCount = 0;
     let errorCount = 0;

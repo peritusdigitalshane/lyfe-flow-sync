@@ -23,36 +23,9 @@ interface ProcessingResponse {
 
 const TriggerEmailProcessing: React.FC<{ mailboxId?: string }> = ({ mailboxId }) => {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isClearingQueue, setIsClearingQueue] = useState(false);
   const [results, setResults] = useState<ProcessingResponse | null>(null);
   const [emailId, setEmailId] = useState('');
   const [specificMailboxId, setSpecificMailboxId] = useState('');
-
-  const clearProcessingQueue = async () => {
-    setIsClearingQueue(true);
-    setResults(null);
-
-    try {
-      const { data, error } = await supabase.functions.invoke('clear-email-queue', {
-        body: {}
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      setResults({
-        processedCount: data.processed || 0,
-        results: data.results || []
-      });
-      toast.success(`🚀 Cleared processing queue! Processed ${data.processed || 0} stuck emails`);
-    } catch (error) {
-      console.error('Error clearing email queue:', error);
-      toast.error('Failed to clear processing queue');
-    } finally {
-      setIsClearingQueue(false);
-    }
-  };
 
   const triggerBulkProcessing = async () => {
     setIsProcessing(true);
@@ -132,35 +105,11 @@ const TriggerEmailProcessing: React.FC<{ mailboxId?: string }> = ({ mailboxId })
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Tabs defaultValue="clear" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="clear" className="text-red-600 font-semibold">🚨 Clear Queue</TabsTrigger>
+        <Tabs defaultValue="bulk" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="bulk">Bulk Processing</TabsTrigger>
             <TabsTrigger value="specific">Specific Email</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="clear" className="space-y-4">
-            <div className="bg-red-50 border border-red-200 rounded-md p-4 space-y-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h4 className="font-semibold text-red-900">Emergency Queue Clearance</h4>
-                  <p className="text-sm text-red-700 mt-1">
-                    This will force-process ALL stuck emails in the pending queue. Use this to fix the processing backlog.
-                  </p>
-                </div>
-              </div>
-              <Button 
-                onClick={clearProcessingQueue} 
-                disabled={isClearingQueue || isProcessing}
-                className="w-full bg-red-600 hover:bg-red-700"
-                size="lg"
-              >
-                {isClearingQueue && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isClearingQueue ? 'Clearing Queue...' : '🚨 Clear Processing Queue (Force Process All)'}
-              </Button>
-            </div>
-          </TabsContent>
           
           <TabsContent value="bulk" className="space-y-4">
             <Button 

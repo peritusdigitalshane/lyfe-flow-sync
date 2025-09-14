@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Eye, EyeOff, Save, TestTube, Loader2, BookOpen, Settings } from "lucide-react";
+import { Eye, EyeOff, Save, TestTube, Loader2, BookOpen, Settings, AlertTriangle, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -66,6 +66,7 @@ export default function SuperAdminSettings() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [clearingQueue, setClearingQueue] = useState(false);
   const [showClientSecret, setShowClientSecret] = useState(false);
   const [showOpenAIKey, setShowOpenAIKey] = useState(false);
   const [showStripeKey, setShowStripeKey] = useState(false);
@@ -464,6 +465,24 @@ Respond with JSON format:
       toast.error("Failed to save AI prompt settings");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleClearEmailQueue = async () => {
+    setClearingQueue(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('clear-email-queue', {
+        body: {}
+      });
+
+      if (error) throw error;
+
+      toast.success(`🚀 Global queue cleared! Processed ${data.processed || 0} stuck emails across all mailboxes`);
+    } catch (error) {
+      console.error('Error clearing global email queue:', error);
+      toast.error('Failed to clear global email queue');
+    } finally {
+      setClearingQueue(false);
     }
   };
 
@@ -1123,6 +1142,54 @@ Respond with JSON format:
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Save Schedule Settings
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Email Queue Management */}
+          <Card className="border-red-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-red-700">
+                <AlertTriangle className="h-5 w-5" />
+                Global Email Queue Management
+              </CardTitle>
+              <CardDescription>
+                Super Admin tools to manage email processing across all users and mailboxes
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Trash2 className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-red-900">Clear Global Processing Queue</h4>
+                    <p className="text-sm text-red-700 mt-1">
+                      This will force-process ALL stuck emails in the pending queue across ALL users and mailboxes. 
+                      Use this to resolve system-wide processing backlogs.
+                    </p>
+                    <p className="text-xs text-red-600 mt-2 font-medium">
+                      ⚠️ This action affects all users in the system
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleClearEmailQueue}
+                  disabled={clearingQueue || saving}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white"
+                  size="lg"
+                >
+                  {clearingQueue ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Clearing Global Queue...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      🚨 Clear Global Email Queue
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
