@@ -45,10 +45,16 @@ serve(async (req) => {
 
     // Get OpenAI API key and model from environment or app settings
     let openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    let selectedModel = 'gpt-4o-mini'; // Default fallback to reliable model
+    let selectedModel = 'gpt-5-mini-2025-08-07'; // Default to GPT-5 Mini
     
-    // List of reliable models in order of preference
-    const fallbackModels = ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'];
+    // List of reliable models in order of preference (GPT-5 models first)
+    const fallbackModels = [
+      'gpt-5-mini-2025-08-07',
+      'gpt-5-2025-08-07', 
+      'gpt-4.1-2025-04-14',
+      'gpt-4o-mini',
+      'gpt-4o'
+    ];
     
     if (!openAIApiKey) {
       const { data: openaiConfig, error: configError } = await supabase
