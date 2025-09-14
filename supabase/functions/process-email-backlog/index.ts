@@ -18,8 +18,25 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // First get processed email IDs
+    const { data: processedEmails, error: processedError } = await supabase
+      .from('workflow_executions')
+      .select('email_id')
+      .not('email_id', 'is', null);
+
+    if (processedError) {
+      console.error('Error fetching processed emails:', processedError);
+      return new Response(JSON.stringify({ error: processedError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const processedEmailIds = processedEmails?.map(e => e.email_id) || [];
+    console.log(`Found ${processedEmailIds.length} already processed emails`);
+
     // Find emails without workflow executions
-    const { data: unprocessedEmails, error: fetchError } = await supabase
+    let query = supabase
       .from('emails')
       .select(`
         id, 
@@ -28,12 +45,15 @@ serve(async (req) => {
         received_at,
         mailbox_id
       `)
-      .not('id', 'in', `(
-        SELECT email_id FROM workflow_executions 
-        WHERE email_id IS NOT NULL
-      )`)
       .order('received_at', { ascending: false })
       .limit(100);
+
+    // Only add the not filter if there are processed emails to exclude
+    if (processedEmailIds.length > 0) {
+      query = query.not('id', 'in', processedEmailIds);
+    }
+
+    const { data: unprocessedEmails, error: fetchError } = await query;
 
     if (fetchError) {
       console.error('Error fetching unprocessed emails:', fetchError);
@@ -90,7 +110,7 @@ serve(async (req) => {
 
     const summary = {
       totalFound: unprocessedEmails?.length || 0,
-      processed,
+      processedCount: processed,
       errors,
       message: `Processed ${processed} emails, ${errors} errors`
     };
