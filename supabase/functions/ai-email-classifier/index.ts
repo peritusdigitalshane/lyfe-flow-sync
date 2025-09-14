@@ -64,6 +64,12 @@ serve(async (req) => {
     }
 
     const openaiApiKey = settingsData.value.api_key;
+    let model = settingsData.value.model || 'gpt-4o-mini';
+    
+    // Fix model name compatibility - remove date suffixes
+    if (model.includes('-2025-')) {
+      model = model.split('-2025-')[0];
+    }
 
     const { emailData }: { emailData: EmailData } = await req.json();
 
@@ -158,13 +164,17 @@ Be precise and only use the exact category names provided.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.3,
-        max_tokens: 300,
+        ...(model.startsWith('gpt-4.1') || model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4') 
+            ? { max_completion_tokens: 300 } 
+            : { max_tokens: 300 }),
+        ...(model.startsWith('gpt-4.1') || model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4') 
+            ? {} 
+            : { temperature: 0.3 }),
       }),
     });
 

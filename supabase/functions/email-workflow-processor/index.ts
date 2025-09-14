@@ -735,7 +735,12 @@ async function performAIThreatAnalysis(email: any, settings: any, supabase: any)
     }
 
     const apiKey = openaiConfig.value.api_key;
-    const model = openaiConfig.value.model || 'gpt-4.1-2025-04-14';
+    let model = openaiConfig.value.model || 'gpt-4o-mini';
+    
+    // Fix model name compatibility - remove date suffixes  
+    if (model.includes('-2025-')) {
+      model = model.split('-2025-')[0];
+    }
 
     // Get custom AI prompts if configured
     let threatAnalysisPrompt = `You are a cybersecurity expert analyzing emails for threats. Analyze this email and provide a detailed threat assessment.
@@ -797,7 +802,12 @@ Provide your response as JSON with:
           { role: 'system', content: 'You are a cybersecurity expert. Respond only with valid JSON.' },
           { role: 'user', content: finalPrompt }
         ],
-        max_completion_tokens: 1000,
+        ...(model.startsWith('gpt-4.1') || model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4') 
+            ? { max_completion_tokens: 1000 } 
+            : { max_tokens: 1000 }),
+        ...(model.startsWith('gpt-4.1') || model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4') 
+            ? {} 
+            : { temperature: 0.3 }),
       }),
     });
 
