@@ -636,13 +636,6 @@ export type Database = {
             foreignKeyName: "threat_intelligence_results_feed_id_fkey"
             columns: ["feed_id"]
             isOneToOne: false
-            referencedRelation: "threat_feeds_safe"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "threat_intelligence_results_feed_id_fkey"
-            columns: ["feed_id"]
-            isOneToOne: false
             referencedRelation: "threat_intelligence_feeds"
             referencedColumns: ["id"]
           },
@@ -778,71 +771,16 @@ export type Database = {
       }
     }
     Views: {
-      threat_feeds_safe: {
-        Row: {
-          api_endpoint: string | null
-          api_key: string | null
-          api_key_required: boolean | null
-          created_at: string | null
-          description: string | null
-          feed_type: string | null
-          feed_url: string | null
-          id: string | null
-          is_active: boolean | null
-          is_preconfigured: boolean | null
-          last_updated_at: string | null
-          name: string | null
-          success_rate: number | null
-          tenant_id: string | null
-          total_entries: number | null
-          update_frequency_hours: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          api_endpoint?: string | null
-          api_key?: never
-          api_key_required?: boolean | null
-          created_at?: string | null
-          description?: string | null
-          feed_type?: string | null
-          feed_url?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          is_preconfigured?: boolean | null
-          last_updated_at?: string | null
-          name?: string | null
-          success_rate?: number | null
-          tenant_id?: string | null
-          total_entries?: number | null
-          update_frequency_hours?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          api_endpoint?: string | null
-          api_key?: never
-          api_key_required?: boolean | null
-          created_at?: string | null
-          description?: string | null
-          feed_type?: string | null
-          feed_url?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          is_preconfigured?: boolean | null
-          last_updated_at?: string | null
-          name?: string | null
-          success_rate?: number | null
-          tenant_id?: string | null
-          total_entries?: number | null
-          update_frequency_hours?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       activate_user_account: {
         Args: { user_email: string }
         Returns: undefined
+      }
+      can_see_threat_feed_api_key: {
+        Args: { feed_is_preconfigured: boolean; feed_tenant_id: string }
+        Returns: boolean
       }
       get_user_roles: {
         Args: { _user_id: string }
