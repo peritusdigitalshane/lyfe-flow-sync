@@ -24,6 +24,12 @@ verify_jwt = false
 [functions.email-workflow-processor]
 verify_jwt = false
 
+[functions.process-email-backlog]
+verify_jwt = false
+
+[functions.trigger-email-processing]
+verify_jwt = false
+
 [functions.create-user]
 verify_jwt = true
 

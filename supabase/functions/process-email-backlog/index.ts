@@ -18,7 +18,28 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // First get processed email IDs
+    // Find all emails first
+    const { data: allEmails, error: emailError } = await supabase
+      .from('emails')
+      .select(`
+        id, 
+        subject, 
+        sender_email, 
+        received_at,
+        mailbox_id
+      `)
+      .order('received_at', { ascending: false })
+      .limit(100);
+
+    if (emailError) {
+      console.error('Error fetching emails:', emailError);
+      return new Response(JSON.stringify({ error: emailError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get processed email IDs
     const { data: processedEmails, error: processedError } = await supabase
       .from('workflow_executions')
       .select('email_id')
@@ -32,28 +53,12 @@ serve(async (req) => {
       });
     }
 
-    const processedEmailIds = processedEmails?.map(e => e.email_id) || [];
-    console.log(`Found ${processedEmailIds.length} already processed emails`);
+    const processedEmailIds = new Set(processedEmails?.map(e => e.email_id) || []);
+    console.log(`Found ${processedEmailIds.size} already processed emails`);
 
-    // Find emails without workflow executions
-    let query = supabase
-      .from('emails')
-      .select(`
-        id, 
-        subject, 
-        sender_email, 
-        received_at,
-        mailbox_id
-      `)
-      .order('received_at', { ascending: false })
-      .limit(100);
-
-    // Only add the not filter if there are processed emails to exclude
-    if (processedEmailIds.length > 0) {
-      query = query.not('id', 'in', processedEmailIds);
-    }
-
-    const { data: unprocessedEmails, error: fetchError } = await query;
+    // Filter out processed emails
+    const unprocessedEmails = allEmails?.filter(email => !processedEmailIds.has(email.id)) || [];
+    const fetchError = null;
 
     if (fetchError) {
       console.error('Error fetching unprocessed emails:', fetchError);
