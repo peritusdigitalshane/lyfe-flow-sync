@@ -196,10 +196,15 @@ const ThreatMonitor = () => {
 
   const releaseFromQuarantine = async (emailId: string) => {
     try {
-      const { error } = await supabase
+      console.log('Attempting to release email from quarantine:', emailId);
+      
+      const { data, error } = await supabase
         .from('emails')
         .update({ processing_status: 'processed' })
-        .eq('id', emailId);
+        .eq('id', emailId)
+        .select();
+
+      console.log('Release result:', { data, error });
 
       if (error) throw error;
 
@@ -207,7 +212,7 @@ const ThreatMonitor = () => {
       fetchThreatData(); // Refresh data
     } catch (error) {
       console.error('Error releasing email from quarantine:', error);
-      toast.error('Failed to release email from quarantine');
+      toast.error(`Failed to release email from quarantine: ${error.message}`);
     }
   };
 
@@ -421,7 +426,10 @@ const ThreatMonitor = () => {
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          onClick={() => releaseFromQuarantine(summary.email_id)}
+                          onClick={() => {
+                            console.log('Release button clicked for email:', summary.email_id);
+                            releaseFromQuarantine(summary.email_id);
+                          }}
                           className="text-green-600 border-green-600 hover:bg-green-50"
                         >
                           <Unlock className="h-4 w-4 mr-1" />
