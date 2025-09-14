@@ -39,7 +39,7 @@ serve(async (req) => {
       });
     }
 
-    // Get processed email IDs
+    // Get processed email IDs using RPC or simpler query
     const { data: processedEmails, error: processedError } = await supabase
       .from('workflow_executions')
       .select('email_id')
@@ -54,9 +54,9 @@ serve(async (req) => {
     }
 
     const processedEmailIds = new Set(processedEmails?.map(e => e.email_id) || []);
-    console.log(`Found ${processedEmailIds.size} already processed emails`);
+    console.log(`Found ${processedEmailIds.size} already processed emails out of ${allEmails?.length || 0} total emails`);
 
-    // Filter out processed emails
+    // Filter out processed emails in JavaScript instead of SQL
     const unprocessedEmails = allEmails?.filter(email => !processedEmailIds.has(email.id)) || [];
     const fetchError = null;
 
