@@ -12,6 +12,7 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== UPDATED FUNCTION VERSION 2.0 STARTING ===');
     console.log('Starting email backlog processing...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
