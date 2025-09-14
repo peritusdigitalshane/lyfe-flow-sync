@@ -70,6 +70,8 @@ export default function ThreatIntelligence() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFeed, setEditingFeed] = useState<ThreatFeed | null>(null);
   const [showApiKey, setShowApiKey] = useState<Record<string, boolean>>({});
+  const [healthStatus, setHealthStatus] = useState<any>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   const [feedForm, setFeedForm] = useState({
     name: '',
@@ -85,6 +87,12 @@ export default function ThreatIntelligence() {
   useEffect(() => {
     if (!user) return;
     fetchFeeds();
+    checkFeedHealth(); // Check health on load
+    
+    // Set up interval to check health every 5 minutes
+    const healthInterval = setInterval(checkFeedHealth, 5 * 60 * 1000);
+    
+    return () => clearInterval(healthInterval);
   }, [user]);
 
   const fetchFeeds = async () => {
@@ -103,6 +111,42 @@ export default function ThreatIntelligence() {
       toast.error('Failed to load threat intelligence feeds');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkFeedHealth = async () => {
+    try {
+      setHealthLoading(true);
+      const supabaseUrl = 'https://ceasktzguzibehknbgsx.supabase.co';
+      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNlYXNrdHpndXppYmVoa25iZ3N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxMjg2OTAsImV4cCI6MjA3MDcwNDY5MH0.wUUytPNjVDFc0uGlhxnSmp0fw_VIdGPK2kHGft9lfso';
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/feed-health-monitor`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setHealthStatus(result);
+        
+        // Show alert if many feeds are failing
+        if (result.summary && result.summary.total_feeds > 0) {
+          const healthyPercentage = (result.summary.healthy_feeds / result.summary.total_feeds) * 100;
+          
+          if (healthyPercentage < 50) {
+            toast.error(`⚠️ Critical: Only ${result.summary.healthy_feeds}/${result.summary.total_feeds} threat intelligence feeds are healthy!`);
+          } else if (healthyPercentage < 75) {
+            toast.error(`⚠️ Warning: ${result.summary.healthy_feeds}/${result.summary.total_feeds} threat intelligence feeds are healthy.`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking feed health:', error);
+    } finally {
+      setHealthLoading(false);
     }
   };
 
@@ -223,6 +267,7 @@ export default function ThreatIntelligence() {
       if (response.ok) {
         const result = await response.json();
         console.log('Feed health monitor result:', result);
+        setHealthStatus(result);
         
         toast.success(`Feed update completed! ${result.summary?.healthy_feeds || 0}/${result.summary?.total_feeds || 0} feeds healthy`);
         
@@ -453,6 +498,95 @@ export default function ThreatIntelligence() {
               </Dialog>
             </div>
           </div>
+
+          {/* Health Status Dashboard */}
+          {healthStatus && (
+            <Card className={`border ${healthStatus.summary && healthStatus.summary.healthy_feeds < healthStatus.summary.total_feeds * 0.5 ? 'border-red-500 bg-red-50' : healthStatus.summary && healthStatus.summary.healthy_feeds < healthStatus.summary.total_feeds * 0.75 ? 'border-yellow-500 bg-yellow-50' : 'border-green-500 bg-green-50'}`}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  {healthStatus.summary && healthStatus.summary.healthy_feeds < healthStatus.summary.total_feeds * 0.5 ? (
+                    <>
+                      <AlertTriangle className="h-5 w-5 text-red-500" />
+                      <span className="text-red-700">Critical: Threat Intelligence Feed Issues</span>
+                    </>
+                  ) : healthStatus.summary && healthStatus.summary.healthy_feeds < healthStatus.summary.total_feeds * 0.75 ? (
+                    <>
+                      <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                      <span className="text-yellow-700">Warning: Some Feed Issues Detected</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <span className="text-green-700">Threat Intelligence Feeds Healthy</span>
+                    </>
+                  )}
+                  {healthLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                </CardTitle>
+                <CardDescription>
+                  Last checked: {healthStatus.timestamp ? new Date(healthStatus.timestamp).toLocaleString() : 'Never'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {healthStatus.summary?.healthy_feeds || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Healthy Feeds</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-600">
+                      {healthStatus.summary ? (healthStatus.summary.total_feeds - healthStatus.summary.healthy_feeds) : 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Failed Feeds</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">
+                      {healthStatus.summary?.total_feeds || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Total Feeds</div>
+                  </div>
+                </div>
+                
+                {healthStatus.failed_feeds && healthStatus.failed_feeds.length > 0 && (
+                  <div className="mt-4 p-4 bg-red-100 rounded-lg">
+                    <h4 className="font-semibold text-red-800 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Failed Feeds ({healthStatus.failed_feeds.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {healthStatus.failed_feeds.map((failedFeed: any, index: number) => (
+                        <div key={index} className="text-sm text-red-700 flex items-center justify-between">
+                          <span className="font-medium">{failedFeed.name}</span>
+                          <span className="text-xs text-red-600">
+                            {failedFeed.error ? (
+                              failedFeed.error.includes('timeout') ? 'Timeout' :
+                              failedFeed.error.includes('DNS') ? 'DNS Error' :
+                              failedFeed.error.includes('connect') ? 'Connection Failed' :
+                              'Error'
+                            ) : 'No data'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="mt-4 flex justify-end">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={checkFeedHealth}
+                    disabled={healthLoading}
+                    className="gap-2"
+                  >
+                    {healthLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Check Now
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Summary Stats */}
           <div className="grid gap-4 md:grid-cols-4">
