@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, AlertTriangle, Clock, Target, Eye, Mail } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Shield, AlertTriangle, Clock, Target, Eye, Mail, Unlock, User, Calendar, ExternalLink } from "lucide-react";
 
 interface ThreatResult {
   id: string;
@@ -26,6 +28,16 @@ interface EmailThreatSummary {
   quarantined: boolean;
   threat_details: ThreatResult[];
   latest_threat: string;
+  email_details?: {
+    subject: string;
+    sender_email: string;
+    sender_name?: string;
+    received_at: string;
+    processing_status: string;
+    mailbox_id: string;
+    mailbox_email?: string;
+    mailbox_name?: string;
+  };
 }
 
 import { Navigation } from "@/components/Navigation";
@@ -88,7 +100,7 @@ const ThreatMonitor = () => {
 
       setThreatResults(threatsWithFeedNames);
 
-      // Group by email and calculate summaries
+      // Group by email and calculate summaries with email details
       const emailGroups = threatsWithFeedNames.reduce((acc, threat) => {
         if (!acc[threat.email_id]) {
           acc[threat.email_id] = [];
@@ -97,13 +109,48 @@ const ThreatMonitor = () => {
         return acc;
       }, {} as Record<string, ThreatResult[]>);
 
+      // Fetch email details for each email with threats
+      const emailIds = Object.keys(emailGroups);
+      const { data: emailDetails, error: emailError } = await supabase
+        .from('emails')
+        .select(`
+          id,
+          subject,
+          sender_email,
+          sender_name,
+          received_at,
+          processing_status,
+          mailbox_id,
+          mailboxes(email_address, display_name)
+        `)
+        .in('id', emailIds);
+
+      if (emailError) {
+        console.error('Error fetching email details:', emailError);
+      }
+
+      const emailDetailsMap = (emailDetails || []).reduce((acc, email) => {
+        acc[email.id] = {
+          subject: email.subject,
+          sender_email: email.sender_email,
+          sender_name: email.sender_name,
+          received_at: email.received_at,
+          processing_status: email.processing_status,
+          mailbox_id: email.mailbox_id,
+          mailbox_email: email.mailboxes?.email_address,
+          mailbox_name: email.mailboxes?.display_name
+        };
+        return acc;
+      }, {} as Record<string, any>);
+
       const summaries = Object.entries(emailGroups).map(([emailId, threats]) => ({
         email_id: emailId,
         total_threats: threats.length,
         max_threat_score: Math.max(...threats.map(t => t.threat_score)),
-        quarantined: Math.max(...threats.map(t => t.threat_score)) >= 70,
+        quarantined: emailDetailsMap[emailId]?.processing_status === 'quarantined',
         threat_details: threats,
-        latest_threat: threats[0]?.created_at || ''
+        latest_threat: threats[0]?.created_at || '',
+        email_details: emailDetailsMap[emailId]
       })).sort((a, b) => new Date(b.latest_threat).getTime() - new Date(a.latest_threat).getTime());
 
       setEmailSummaries(summaries);
@@ -145,6 +192,23 @@ const ThreatMonitor = () => {
     if (score >= 70) return 'text-orange-600 bg-orange-100';
     if (score >= 50) return 'text-yellow-600 bg-yellow-100';
     return 'text-blue-600 bg-blue-100';
+  };
+
+  const releaseFromQuarantine = async (emailId: string) => {
+    try {
+      const { error } = await supabase
+        .from('emails')
+        .update({ processing_status: 'processed' })
+        .eq('id', emailId);
+
+      if (error) throw error;
+
+      toast.success('Email released from quarantine');
+      fetchThreatData(); // Refresh data
+    } catch (error) {
+      console.error('Error releasing email from quarantine:', error);
+      toast.error('Failed to release email from quarantine');
+    }
   };
 
   const getThreatTypeIcon = (type: string) => {
@@ -237,15 +301,216 @@ const ThreatMonitor = () => {
           </Card>
         </div>
 
-        {/* Email Threat Summaries */}
+        {/* Quarantined Emails Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-red-500" />
+              Quarantined Emails
+            </CardTitle>
+            <CardDescription>
+              Emails that have been quarantined due to threat detection - review and release if safe
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {emailSummaries.filter(s => s.quarantined).length === 0 ? (
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  No emails currently quarantined. All threats have been processed.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              emailSummaries
+                .filter(summary => summary.quarantined)
+                .slice(0, 10)
+                .map((summary) => (
+                  <div key={summary.email_id} className="border border-red-200 rounded-lg p-4 space-y-4 bg-red-50/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="destructive">QUARANTINED</Badge>
+                        <Badge className={getThreatSeverityColor(summary.max_threat_score)}>
+                          Risk: {summary.max_threat_score}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4 mr-1" />
+                              View Details
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle>Email Threat Details</DialogTitle>
+                              <DialogDescription>
+                                Complete analysis of threats detected in this email
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              {summary.email_details && (
+                                <div className="space-y-3">
+                                  <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                      <strong>Subject:</strong>
+                                      <div className="mt-1 p-2 bg-muted rounded">
+                                        {summary.email_details.subject}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <strong>From:</strong>
+                                      <div className="mt-1 p-2 bg-muted rounded">
+                                        {summary.email_details.sender_name ? 
+                                          `${summary.email_details.sender_name} (${summary.email_details.sender_email})` : 
+                                          summary.email_details.sender_email
+                                        }
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <strong>Received:</strong>
+                                      <div className="mt-1 p-2 bg-muted rounded flex items-center gap-2">
+                                        <Calendar className="h-4 w-4" />
+                                        {new Date(summary.email_details.received_at).toLocaleString()}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <strong>Mailbox:</strong>
+                                      <div className="mt-1 p-2 bg-muted rounded flex items-center gap-2">
+                                        <User className="h-4 w-4" />
+                                        {summary.email_details.mailbox_name} ({summary.email_details.mailbox_email})
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <h4 className="font-medium">Detected Threats:</h4>
+                                    <div className="space-y-2">
+                                      {summary.threat_details.map((threat) => (
+                                        <div key={threat.id} className="border rounded p-3 space-y-2">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <span>{getThreatTypeIcon(threat.threat_type)}</span>
+                                              <span className="font-medium">{threat.feed_name}</span>
+                                            </div>
+                                            <Badge className={getThreatSeverityColor(threat.threat_score)}>
+                                              {threat.threat_score}
+                                            </Badge>
+                                          </div>
+                                          <div className="text-sm">
+                                            <strong>Indicator:</strong>
+                                            <code className="ml-2 bg-background px-2 py-1 rounded text-xs">
+                                              {threat.threat_indicator}
+                                            </code>
+                                          </div>
+                                          {threat.details && (
+                                            <div className="text-sm text-muted-foreground">
+                                              <strong>Details:</strong> {JSON.stringify(threat.details, null, 2)}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => releaseFromQuarantine(summary.email_id)}
+                          className="text-green-600 border-green-600 hover:bg-green-50"
+                        >
+                          <Unlock className="h-4 w-4 mr-1" />
+                          Release
+                        </Button>
+                      </div>
+                    </div>
+
+                    {summary.email_details && (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                              <Mail className="h-4 w-4" />
+                              <strong>Subject:</strong>
+                            </div>
+                            <div className="truncate">{summary.email_details.subject}</div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                              <User className="h-4 w-4" />
+                              <strong>From:</strong>
+                            </div>
+                            <div className="truncate">
+                              {summary.email_details.sender_name ? 
+                                `${summary.email_details.sender_name} (${summary.email_details.sender_email})` : 
+                                summary.email_details.sender_email
+                              }
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                              <Calendar className="h-4 w-4" />
+                              <strong>Received:</strong>
+                            </div>
+                            <div>{new Date(summary.email_details.received_at).toLocaleString()}</div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                              <ExternalLink className="h-4 w-4" />
+                              <strong>Mailbox:</strong>
+                            </div>
+                            <div className="truncate">
+                              {summary.email_details.mailbox_name} ({summary.email_details.mailbox_email})
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium">Detected Threats ({summary.total_threats}):</div>
+                      <div className="grid gap-2">
+                        {summary.threat_details.slice(0, 3).map((threat) => (
+                          <div key={threat.id} className="flex items-center justify-between text-sm bg-white/80 p-2 rounded border">
+                            <div className="flex items-center gap-2">
+                              <span>{getThreatTypeIcon(threat.threat_type)}</span>
+                              <span className="font-medium">{threat.feed_name}</span>
+                              <code className="bg-background px-1 rounded text-xs max-w-xs truncate">
+                                {threat.threat_indicator}
+                              </code>
+                            </div>
+                            <Badge className={getThreatSeverityColor(threat.threat_score)}>
+                              {threat.threat_score}
+                            </Badge>
+                          </div>
+                        ))}
+                        {summary.threat_details.length > 3 && (
+                          <div className="text-xs text-muted-foreground text-center py-1">
+                            +{summary.threat_details.length - 3} more threats detected
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* All Email Threat Summaries */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
-              Email Threat Analysis
+              All Email Threat Analysis
             </CardTitle>
             <CardDescription>
-              Recent emails with threat detections and quarantine status
+              Complete history of emails with threat detections
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -257,7 +522,7 @@ const ThreatMonitor = () => {
                 </AlertDescription>
               </Alert>
             ) : (
-              emailSummaries.slice(0, 10).map((summary) => (
+              emailSummaries.slice(0, 20).map((summary) => (
                 <div key={summary.email_id} className="border rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -267,6 +532,11 @@ const ThreatMonitor = () => {
                       <Badge variant={summary.quarantined ? 'destructive' : 'secondary'}>
                         {summary.quarantined ? 'QUARANTINED' : 'ALLOWED'}
                       </Badge>
+                      {summary.email_details && (
+                        <div className="text-sm text-muted-foreground truncate max-w-md">
+                          {summary.email_details.subject}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Clock className="h-4 w-4" />
@@ -281,6 +551,12 @@ const ThreatMonitor = () => {
                         {summary.max_threat_score}
                       </Badge>
                     </span>
+                    {summary.email_details && (
+                      <>
+                        <span><strong>From:</strong> {summary.email_details.sender_email}</span>
+                        <span><strong>Mailbox:</strong> {summary.email_details.mailbox_email}</span>
+                      </>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -291,7 +567,9 @@ const ThreatMonitor = () => {
                           <div className="flex items-center gap-2">
                             <span>{getThreatTypeIcon(threat.threat_type)}</span>
                             <span className="font-medium">{threat.feed_name}</span>
-                            <code className="bg-background px-1 rounded text-xs">{threat.threat_indicator}</code>
+                            <code className="bg-background px-1 rounded text-xs max-w-xs truncate">
+                              {threat.threat_indicator}
+                            </code>
                           </div>
                           <Badge className={getThreatSeverityColor(threat.threat_score)}>
                             {threat.threat_score}
