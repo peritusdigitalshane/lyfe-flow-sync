@@ -372,44 +372,20 @@ export default function UserManagement() {
     try {
       setUpdatingUser(userId);
 
-      // Check if user has any associated mailboxes
-      const { count: mailboxCount, error: mailboxCheckError } = await supabase
-        .from("mailboxes")
-        .select("*", { count: 'exact', head: true })
-        .eq("user_id", userId);
+      // Call the delete-user edge function with proper admin authentication
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId }
+      });
 
-      if (mailboxCheckError) throw mailboxCheckError;
-
-      if (mailboxCount && mailboxCount > 0) {
-        toast.error("Cannot delete user with associated mailboxes. Please remove mailboxes first.");
-        return;
+      if (error) {
+        throw error;
       }
 
-      // Delete user roles first
-      const { error: rolesError } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userId);
-
-      if (rolesError) throw rolesError;
-
-      // Delete user profile
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", userId);
-
-      if (profileError) throw profileError;
-
-      // Delete from auth (this requires admin privileges in Supabase)
-      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-      
-      if (authError) {
-        console.warn("Could not delete from auth:", authError);
-        // Continue anyway as the profile and roles are already deleted
+      if (data.error) {
+        throw new Error(data.error);
       }
 
-      toast.success(`User ${userEmail} deleted successfully`);
+      toast.success(data.message || `User ${userEmail} deleted successfully`);
       
       // Refresh users list and stats
       await Promise.all([fetchUsers(), fetchStats()]);
