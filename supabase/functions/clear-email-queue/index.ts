@@ -57,21 +57,22 @@ serve(async (req) => {
       try {
         console.log(`Processing email: ${email.id} - "${email.subject}"`);
         
-        const response = await supabase.functions.invoke('email-workflow-processor', {
+        // Use a more direct approach to process the email
+        const { data: response, error: processingError } = await supabase.functions.invoke('email-workflow-processor', {
           body: {
             emailId: email.id,
             forceProcess: true
           }
         });
 
-        if (response.error) {
-          console.error(`Failed to process email ${email.id}:`, response.error);
+        if (processingError) {
+          console.error(`Failed to process email ${email.id}:`, processingError);
           errorCount++;
           results.push({
             email_id: email.id,
             subject: email.subject,
             success: false,
-            error: response.error.message || 'Processing failed'
+            error: processingError.message || 'Processing failed'
           });
         } else {
           console.log(`Successfully processed email ${email.id}`);
@@ -81,10 +82,20 @@ serve(async (req) => {
             subject: email.subject,
             success: true
           });
+          
+          // Update email status to processed after successful processing
+          try {
+            await supabase
+              .from('emails')
+              .update({ processing_status: 'processed' })
+              .eq('id', email.id);
+          } catch (updateError) {
+            console.warn(`Failed to update email status for ${email.id}:`, updateError);
+          }
         }
 
         // Small delay between processing to avoid overwhelming the system
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 200)); // Reduced delay for faster processing
 
       } catch (error) {
         console.error(`Exception processing email ${email.id}:`, error);
@@ -100,22 +111,68 @@ serve(async (req) => {
 
     console.log(`Queue clearing completed: ${processedCount} processed, ${errorCount} errors`);
 
+    // Log the queue clearing action for audit trail
+    try {
+      await supabase
+        .from('audit_logs')
+        .insert({
+          tenant_id: null, // Global super admin operation
+          action: 'queue_cleared',
+          details: {
+            total_processed: processedCount,
+            total_errors: errorCount,
+            batch_size: pendingEmails.length,
+            operation: 'global_queue_clear',
+            timestamp: new Date().toISOString(),
+            admin_action: true
+          }
+        });
+    } catch (logError) {
+      console.warn('Failed to log audit entry:', logError);
+    }
+
     return new Response(JSON.stringify({
       success: true,
-      message: `Processed ${processedCount} emails from queue`,
+      message: `Successfully processed ${processedCount} emails from global queue`,
       processed: processedCount,
       errors: errorCount,
       results: results,
-      batch_size: pendingEmails.length
+      batch_size: pendingEmails.length,
+      timestamp: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('Clear email queue error:', error);
+    
+    // Log the error for debugging
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      await supabase
+        .from('audit_logs')
+        .insert({
+          tenant_id: null,
+          action: 'error_occurred',
+          details: {
+            operation: 'global_queue_clear',
+            error_message: error.message,
+            error_stack: error.stack,
+            timestamp: new Date().toISOString()
+          }
+        });
+    } catch (logError) {
+      console.error('Failed to log error:', logError);
+    }
+    
     return new Response(JSON.stringify({ 
-      error: 'Internal server error',
-      details: error.message 
+      success: false,
+      error: 'Failed to clear email queue',
+      details: error.message,
+      timestamp: new Date().toISOString()
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

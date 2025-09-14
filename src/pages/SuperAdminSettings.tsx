@@ -471,16 +471,27 @@ Respond with JSON format:
   const handleClearEmailQueue = async () => {
     setClearingQueue(true);
     try {
+      console.log('Initiating global email queue clearance...');
+      
       const { data, error } = await supabase.functions.invoke('clear-email-queue', {
         body: {}
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Function invoke error:', error);
+        throw new Error(`Function error: ${error.message}`);
+      }
 
-      toast.success(`🚀 Global queue cleared! Processed ${data.processed || 0} stuck emails across all mailboxes`);
+      console.log('Queue clearance response:', data);
+      
+      if (data?.success) {
+        toast.success(`🚀 Global queue cleared successfully! Processed ${data.processed || 0} emails`);
+      } else {
+        throw new Error(data?.error || 'Unknown error occurred');
+      }
     } catch (error) {
       console.error('Error clearing global email queue:', error);
-      toast.error('Failed to clear global email queue');
+      toast.error(`Failed to clear global email queue: ${error.message}`);
     } finally {
       setClearingQueue(false);
     }

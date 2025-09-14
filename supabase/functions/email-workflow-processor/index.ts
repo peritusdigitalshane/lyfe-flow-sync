@@ -846,7 +846,7 @@ async function logWorkflowExecution(email: any, rule: any, actions: any[], start
       email_id: email.id,
       mailbox_id: email.mailbox_id,
       rule_id: rule?.id,
-      execution_status: actions.length > 0 ? 'completed' : 'no_actions',
+      execution_status: actions.length > 0 ? 'completed' : 'completed', // Use 'completed' even for no actions
       actions_taken: actions,
       execution_time_ms: Date.now() - startTime
     });
