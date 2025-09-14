@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import TriggerEmailProcessing from "@/components/TriggerEmailProcessing";
 
 interface MailboxInfo {
   id: string;
@@ -281,6 +282,9 @@ export default function MailboxActivity() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Email Processing */}
+        <TriggerEmailProcessing mailboxId={mailboxId} />
 
         {/* Activity Logs */}
         <Card>
