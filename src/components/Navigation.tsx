@@ -11,7 +11,8 @@ import {
   FolderOpen,
   Workflow,
   GitBranch,
-  ChevronDown
+  ChevronDown,
+  Brain
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -37,6 +38,7 @@ export const Navigation = () => {
     { path: '/email-categories', label: 'Categories', icon: FolderOpen },
     { path: '/workflows', label: 'Workflows', icon: Workflow },
     { path: '/workflow-rules', label: 'Rules', icon: GitBranch },
+    { path: '/ai-classification', label: 'AI Testing', icon: Brain },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
