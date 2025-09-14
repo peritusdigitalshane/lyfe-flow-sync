@@ -7,13 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { User, LogOut, Save, Loader2, BookOpen } from "lucide-react";
+import { User, LogOut, Save, Loader2, BookOpen, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface EmailSettings {
   polling_interval_minutes: number;
   max_emails_per_poll: number;
   auto_categorise: boolean;
+  threat_quarantine_threshold: number;
 }
 
 export default function Settings() {
@@ -24,7 +25,8 @@ export default function Settings() {
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({
     polling_interval_minutes: 5,
     max_emails_per_poll: 50,
-    auto_categorise: true
+    auto_categorise: true,
+    threat_quarantine_threshold: 70
   });
 
   useEffect(() => {
@@ -52,7 +54,8 @@ export default function Settings() {
         setEmailSettings({
           polling_interval_minutes: emailConfig.polling_interval_minutes || 5,
           max_emails_per_poll: emailConfig.max_emails_per_poll || 50,
-          auto_categorise: emailConfig.auto_categorise !== false
+          auto_categorise: emailConfig.auto_categorise !== false,
+          threat_quarantine_threshold: emailConfig.threat_quarantine_threshold || 70
         });
       }
     } catch (error) {
@@ -217,9 +220,12 @@ export default function Settings() {
           {/* Email Processing Settings */}
           <Card>
             <CardHeader>
-              <CardTitle>Email Processing</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Email Processing & Security
+              </CardTitle>
               <CardDescription>
-                Configure how emails are processed and analysed
+                Configure how emails are processed, analysed, and secured
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -257,6 +263,24 @@ export default function Settings() {
                   />
                   <p className="text-sm text-muted-foreground">
                     Maximum number of emails to process per polling cycle
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="threat-threshold">Threat Score Quarantine Threshold</Label>
+                  <Input
+                    id="threat-threshold"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={emailSettings.threat_quarantine_threshold}
+                    onChange={(e) => setEmailSettings({
+                      ...emailSettings,
+                      threat_quarantine_threshold: parseInt(e.target.value) || 70
+                    })}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Emails with threat scores above this value will be automatically quarantined (1-100)
                   </p>
                 </div>
               </div>

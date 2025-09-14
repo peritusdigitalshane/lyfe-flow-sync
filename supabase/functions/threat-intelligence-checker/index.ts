@@ -190,10 +190,17 @@ serve(async (req) => {
       }
     }
 
-    // Determine if email should be quarantined based on threat score
-    threatResults.should_quarantine = threatResults.max_threat_score >= 70;
+    // Determine if email should be quarantined based on configurable threat score
+    const { data: settingsData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'email_config')
+      .maybeSingle();
+    
+    const threatThreshold = settingsData?.value?.threat_quarantine_threshold || 70;
+    threatResults.should_quarantine = threatResults.max_threat_score >= threatThreshold;
 
-    console.log(`Threat check completed. Threats: ${threatResults.threats_detected}, Max Score: ${threatResults.max_threat_score}, Quarantine: ${threatResults.should_quarantine}`);
+    console.log(`Threat check completed. Threats: ${threatResults.threats_detected}, Max Score: ${threatResults.max_threat_score}, Threshold: ${threatThreshold}, Quarantine: ${threatResults.should_quarantine}`);
 
     return new Response(JSON.stringify({
       success: true,
