@@ -27,10 +27,17 @@ export default function AccountStatusCheck({ children }: AccountStatusCheckProps
           .from('profiles')
           .select('account_status')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error) {
           console.error('Error fetching profile:', error);
+          setAccountStatus('pending');
+          return;
+        }
+
+        // If no profile exists, treat as pending
+        if (!profile) {
+          console.log('No profile found for user, treating as pending');
           setAccountStatus('pending');
           return;
         }
