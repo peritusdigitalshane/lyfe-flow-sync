@@ -195,15 +195,22 @@ Be precise and only use the exact category names provided.`;
     try {
       // Remove markdown code blocks if present
       let cleanContent = content.trim();
+      console.log('Original content:', JSON.stringify(content));
+      
       if (cleanContent.startsWith('```json')) {
         cleanContent = cleanContent.replace(/```json\s*/, '').replace(/\s*```$/, '');
+        console.log('Removed json markdown blocks');
       } else if (cleanContent.startsWith('```')) {
         cleanContent = cleanContent.replace(/```\s*/, '').replace(/\s*```$/, '');
+        console.log('Removed generic markdown blocks');
       }
       
+      console.log('Cleaned content for parsing:', JSON.stringify(cleanContent));
       classificationResult = JSON.parse(cleanContent);
+      console.log('Successfully parsed classification result:', classificationResult);
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', content);
+      console.error('Cleaned content was:', cleanContent);
       console.error('Parse error:', parseError);
       // Fallback classification
       classificationResult = {
@@ -211,6 +218,7 @@ Be precise and only use the exact category names provided.`;
         confidence: 0.5,
         reasoning: "Failed to parse AI response, defaulting to first available category"
       };
+      console.log('Using fallback classification:', classificationResult);
     }
 
     // Validate that the category exists in user's categories
@@ -229,10 +237,13 @@ Be precise and only use the exact category names provided.`;
     // Also run threat intelligence check if user has access
     let threatIntelligenceResult = null;
     try {
+      console.log('Checking if user has threat intelligence access...');
       // Check if user has threat intelligence access
       const { data: hasAccess } = await supabase.rpc('has_threat_intelligence_access', {
         _user_id: emailData.user_id
       });
+
+      console.log('Threat intelligence access result:', hasAccess);
 
       if (hasAccess) {
         console.log('Running threat intelligence check...');
