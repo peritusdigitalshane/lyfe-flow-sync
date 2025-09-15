@@ -902,6 +902,9 @@ async function refreshTokenForM365Category(tokenData: any, mailboxId: string, su
 }
 
 async function quarantineEmail(email: any, supabase: any, reason?: string): Promise<void> {
+  console.log(`🚨 [QUARANTINE] Starting quarantine process for email ${email.id} (${email.microsoft_id})`);
+  
+  // Update database status first
   await supabase
     .from('emails')
     .update({
@@ -909,6 +912,37 @@ async function quarantineEmail(email: any, supabase: any, reason?: string): Prom
       processed_at: new Date().toISOString()
     })
     .eq('id', email.id);
+
+  console.log(`✅ [QUARANTINE] Database status updated for email ${email.id}`);
+
+  // Move email to Junk folder in M365
+  try {
+    console.log(`🔄 [QUARANTINE] Moving email to Junk folder in M365...`);
+    await moveEmailToJunkInM365(email, supabase);
+    console.log(`✅ [QUARANTINE] Successfully moved email to Junk folder in M365`);
+  } catch (m365Error) {
+    console.error('❌ [QUARANTINE] Failed to move email to Junk folder in M365:', m365Error);
+    console.error('❌ [QUARANTINE] Error stack:', m365Error.stack);
+    
+    // Log M365 quarantine error
+    await supabase
+      .from('audit_logs')
+      .insert({
+        tenant_id: email.tenant_id,
+        mailbox_id: email.mailbox_id,
+        action: 'workflow_executed',
+        details: {
+          email_id: email.id,
+          subject: email.subject,
+          quarantine_db_success: true,
+          m365_junk_move_error: m365Error.message,
+          m365_error_stack: m365Error.stack,
+          status: 'm365_quarantine_failed'
+        }
+      });
+    
+    // Don't throw here - database quarantine succeeded, M365 move is secondary
+  }
 
   // Log quarantine activity
   await supabase
@@ -925,6 +959,124 @@ async function quarantineEmail(email: any, supabase: any, reason?: string): Prom
         quarantined_at: new Date().toISOString()
       }
     });
+}
+
+async function moveEmailToJunkInM365(email: any, supabase: any): Promise<void> {
+  console.log(`🔄 [M365-JUNK] Starting M365 Junk folder move for email ${email.id} (${email.microsoft_id})`);
+  
+  // Get mailbox with Microsoft Graph token
+  const { data: mailbox, error: mailboxError } = await supabase
+    .from('mailboxes')
+    .select('microsoft_graph_token')
+    .eq('id', email.mailbox_id)
+    .maybeSingle();
+
+  if (mailboxError || !mailbox || !mailbox.microsoft_graph_token) {
+    console.error('❌ [M365-JUNK] Mailbox or token not found:', mailboxError);
+    throw new Error('Mailbox not connected to Microsoft Graph');
+  }
+
+  console.log(`🔑 [M365-JUNK] Token found, length: ${mailbox.microsoft_graph_token.length}`);
+
+  // Parse the token
+  let parsedToken;
+  try {
+    parsedToken = JSON.parse(mailbox.microsoft_graph_token);
+    console.log(`🔑 [M365-JUNK] Token parsed successfully, expires at: ${new Date(parsedToken.expires_at || 0).toISOString()}`);
+  } catch (error) {
+    console.error('❌ [M365-JUNK] Failed to parse Microsoft Graph token:', error);
+    throw new Error('Invalid Microsoft Graph token format');
+  }
+
+  // Check if token is expired and refresh if needed
+  const now = Date.now();
+  if (parsedToken.expires_at && parsedToken.expires_at <= now) {
+    console.log('🔄 [M365-JUNK] Token expired, attempting to refresh...');
+    
+    if (!parsedToken.refresh_token) {
+      console.error('❌ [M365-JUNK] No refresh token available');
+      throw new Error('No refresh token available');
+    }
+
+    parsedToken = await refreshTokenForM365Category(parsedToken, email.mailbox_id, supabase);
+    console.log('✅ [M365-JUNK] Token refreshed successfully');
+  } else {
+    console.log('✅ [M365-JUNK] Token is valid');
+  }
+
+  // First, get the Junk folder ID
+  console.log(`🔍 [M365-JUNK] Getting Junk folder ID...`);
+  
+  const foldersResponse = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
+    headers: {
+      'Authorization': `Bearer ${parsedToken.access_token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!foldersResponse.ok) {
+    const foldersErrorText = await foldersResponse.text();
+    console.error(`❌ [M365-JUNK] Failed to fetch folders: ${foldersResponse.status} - ${foldersErrorText}`);
+    throw new Error(`Failed to fetch M365 folders: ${foldersResponse.status}`);
+  }
+
+  const foldersData = await foldersResponse.json();
+  const folders = foldersData.value || [];
+  
+  // Find Junk folder (it might be called "Junk Email", "Junk", "Spam", etc.)
+  const junkFolder = folders.find((folder: any) => 
+    folder.displayName.toLowerCase().includes('junk') ||
+    folder.displayName.toLowerCase().includes('spam') ||
+    folder.wellKnownName === 'junkemail'
+  );
+
+  if (!junkFolder) {
+    console.error('❌ [M365-JUNK] Junk folder not found');
+    console.log('📋 [M365-JUNK] Available folders:', folders.map((f: any) => f.displayName));
+    throw new Error('Junk folder not found in M365');
+  }
+
+  console.log(`📁 [M365-JUNK] Found Junk folder: "${junkFolder.displayName}" (ID: ${junkFolder.id})`);
+
+  // Move email to Junk folder
+  const moveUrl = `https://graph.microsoft.com/v1.0/me/messages/${email.microsoft_id}/move`;
+  
+  const moveData = {
+    destinationId: junkFolder.id
+  };
+
+  console.log(`🔄 [M365-JUNK] Moving email to Junk folder...`);
+  console.log(`📤 [M365-JUNK] Request URL: ${moveUrl}`);
+  console.log(`📤 [M365-JUNK] Request body:`, JSON.stringify(moveData, null, 2));
+  
+  const moveResponse = await fetch(moveUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${parsedToken.access_token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(moveData)
+  });
+
+  console.log(`📥 [M365-JUNK] Response status: ${moveResponse.status}`);
+  
+  if (!moveResponse.ok) {
+    const errorText = await moveResponse.text();
+    console.error(`❌ [M365-JUNK] Failed to move email to Junk folder: ${moveResponse.status} - ${errorText}`);
+    
+    // Log detailed error information
+    console.error(`🔍 [M365-JUNK] Error details:`);
+    console.error(`  - Email ID: ${email.id}`);
+    console.error(`  - Microsoft ID: ${email.microsoft_id}`);
+    console.error(`  - Junk Folder ID: ${junkFolder.id}`);
+    console.error(`  - Mailbox ID: ${email.mailbox_id}`);
+    
+    throw new Error(`Failed to move email to Junk folder: ${moveResponse.status} - ${errorText}`);
+  }
+
+  const moveResult = await moveResponse.json();
+  console.log(`✅ [M365-JUNK] Email successfully moved to Junk folder`);
+  console.log(`📋 [M365-JUNK] Move result:`, moveResult);
 }
 
 async function markEmailAsRead(email: any, supabase: any): Promise<void> {
