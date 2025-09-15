@@ -248,28 +248,41 @@ Be precise and only use the exact category names provided.`;
       if (hasAccess) {
         console.log('Running threat intelligence check...');
         
-        // Call threat intelligence checker
-        const { data: threatData, error: threatError } = await supabase.functions.invoke(
-          'threat-intelligence-checker',
-          {
-            body: {
-              email_id: `test-${Date.now()}`, // Use test ID for manual classification
-              email_content: {
-                subject: emailData.subject,
-                sender_email: emailData.sender_email,
-                sender_name: emailData.sender_name || '',
-                body_content: emailData.body
-              },
-              tenant_id: emailData.user_id // Use user_id as tenant for this test
-            }
-          }
-        );
+        // Get user's tenant_id from their profile
+        const { data: userProfile, error: profileError } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('id', emailData.user_id)
+          .single();
 
-        if (threatError) {
-          console.error('Threat intelligence check failed:', threatError);
+        if (profileError) {
+          console.error('Error fetching user profile:', profileError);
         } else {
-          threatIntelligenceResult = threatData;
-          console.log('Threat intelligence result:', threatData);
+          console.log('User tenant_id:', userProfile.tenant_id);
+          
+          // Call threat intelligence checker
+          const { data: threatData, error: threatError } = await supabase.functions.invoke(
+            'threat-intelligence-checker',
+            {
+              body: {
+                email_id: `test-${Date.now()}`, // Use test ID for manual classification
+                email_content: {
+                  subject: emailData.subject,
+                  sender_email: emailData.sender_email,
+                  sender_name: emailData.sender_name || '',
+                  body_content: emailData.body
+                },
+                tenant_id: userProfile.tenant_id // Use actual tenant_id from profile
+              }
+            }
+          );
+
+          if (threatError) {
+            console.error('Threat intelligence check failed:', threatError);
+          } else {
+            threatIntelligenceResult = threatData;
+            console.log('Threat intelligence result:', threatData);
+          }
         }
       } else {
         console.log('User does not have threat intelligence access');

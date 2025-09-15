@@ -36,6 +36,12 @@ verify_jwt = false
 [functions.trigger-email-processing]
 verify_jwt = false
 
+[functions.threat-intelligence-checker]
+verify_jwt = false
+
+[functions.feed-health-monitor]
+verify_jwt = false
+
 [functions.create-user]
 verify_jwt = true
 
