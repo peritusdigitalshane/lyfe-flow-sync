@@ -555,6 +555,9 @@ async function evaluateAICondition(condition: string, email: any, supabase: any)
       }
     });
 
+    // Log the full response for debugging
+    console.log('AI condition evaluator raw response:', JSON.stringify(response, null, 2));
+
     if (response.error) {
       console.error('Error calling AI condition evaluator:', response.error);
       return false;
@@ -565,14 +568,15 @@ async function evaluateAICondition(condition: string, email: any, supabase: any)
       console.log(`AI evaluation result: ${result.result.meets_condition} (confidence: ${result.result.confidence})`);
       console.log(`Reasoning: ${result.result.reasoning}`);
       
-      // Use lower confidence threshold for better matching
-      return result.result.meets_condition && result.result.confidence > 0.7;
+      // Use lower confidence threshold for better matching - reduced from 0.7 to 0.5
+      return result.result.meets_condition && result.result.confidence > 0.5;
     } else if (result?.fallback_result) {
       // Handle fallback case when AI is unavailable
       console.log(`AI evaluation fallback: ${result.fallback_result.meets_condition} (${result.fallback_result.reasoning})`);
       return result.fallback_result.meets_condition;
     }
 
+    console.error('Unexpected AI condition evaluator response format:', result);
     return false;
   } catch (error) {
     console.error('Error evaluating AI condition:', error);
