@@ -45,9 +45,9 @@ serve(async (req) => {
 
     // Get OpenAI API key and model from environment or app settings
     let openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    let selectedModel = 'gpt-4o-mini'; // Default to working model
+    let selectedModel = 'gpt-4o-mini'; // Final fallback if nothing is configured
     
-    // List of reliable models in order of preference 
+    // List of known working models for fallback only
     const fallbackModels = [
       'gpt-4o-mini',
       'gpt-4o',
@@ -73,11 +73,12 @@ serve(async (req) => {
       openAIApiKey = openaiConfig.value.api_key;
       const configuredModel = openaiConfig.value.model;
       
-      // Validate configured model against known working models
-      if (configuredModel && fallbackModels.includes(configuredModel)) {
+      // Use the configured model from settings - don't override unless it fails
+      if (configuredModel) {
         selectedModel = configuredModel;
-      } else if (configuredModel) {
-        console.warn(`Configured model ${configuredModel} may not be available, using fallback ${selectedModel}`);
+        console.log(`Using configured model from settings: ${selectedModel}`);
+      } else {
+        console.log(`No model configured in settings, using default: ${selectedModel}`);
       }
     }
 
