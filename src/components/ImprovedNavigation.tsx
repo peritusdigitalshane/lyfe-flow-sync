@@ -11,6 +11,7 @@ import {
   Users,
   FileText,
   Activity,
+  BarChart3,
   FolderOpen,
   Workflow,
   GitBranch,
@@ -67,6 +68,7 @@ export const ImprovedNavigation = () => {
       items: [
         { path: '/platform-overview', label: 'Platform Overview', icon: Home, description: 'Module status and platform summary' },
         { path: '/dashboard', label: 'Dashboard', icon: Activity, description: 'Main dashboard and mailbox overview' },
+        { path: '/performance-metrics', label: 'Performance Metrics', icon: BarChart3, description: 'Time saved and productivity analytics' },
       ]
     },
     {

@@ -29,6 +29,7 @@ import ThreatIntelligence from "./pages/ThreatIntelligence";
 import ThreatMonitor from "./pages/ThreatMonitor";
 import ModuleManagement from "./pages/ModuleManagement";
 import PlatformOverview from "./pages/PlatformOverview";
+import PerformanceMetrics from "./pages/PerformanceMetrics";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ModuleGuard } from "./components/ModuleGuard";
@@ -54,6 +55,11 @@ const App = () => (
             <Route path="/platform-overview" element={
               <AccountStatusCheck>
                 <PlatformOverview />
+              </AccountStatusCheck>
+            } />
+            <Route path="/performance-metrics" element={
+              <AccountStatusCheck>
+                <PerformanceMetrics />
               </AccountStatusCheck>
             } />
             <Route path="/add-mailbox" element={

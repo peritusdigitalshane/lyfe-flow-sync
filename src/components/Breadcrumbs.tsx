@@ -31,6 +31,7 @@ const routeLabels: Record<string, string> = {
   'email-monitoring': 'Email Monitoring',
   'user-guide': 'User Guide',
   'super-admin-guide': 'Admin Guide',
+  'performance-metrics': 'Performance Metrics',
 };
 
 export const Breadcrumbs: React.FC = () => {
