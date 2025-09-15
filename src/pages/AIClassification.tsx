@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Brain } from 'lucide-react';
+import { Loader2, Brain, Upload, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -40,6 +40,7 @@ export default function AIClassification() {
     sender_name: ''
   });
   const [result, setResult] = useState<ClassificationResult | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -117,6 +118,145 @@ export default function AIClassification() {
     return 'bg-red-500';
   };
 
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const emailText = e.dataTransfer.getData('text/plain');
+    const emailHtml = e.dataTransfer.getData('text/html');
+
+    try {
+      // Handle dropped files (like .msg files from Outlook)
+      if (files.length > 0) {
+        const file = files[0];
+        if (file.name.endsWith('.msg') || file.name.endsWith('.eml')) {
+          // For MSG/EML files, we'd need a parser, but for now show guidance
+          toast.error('MSG/EML file parsing not yet supported. Please copy and paste email content or drag the email content directly.');
+          return;
+        }
+        
+        // Handle text files
+        if (file.type === 'text/plain' || file.type === 'text/html') {
+          const content = await file.text();
+          parseEmailContent(content);
+          return;
+        }
+      }
+
+      // Handle text content dropped directly from Outlook
+      if (emailText || emailHtml) {
+        parseEmailContent(emailHtml || emailText);
+        return;
+      }
+
+      toast.error('No supported email content found. Please drag an email directly from Outlook or paste the content.');
+    } catch (error) {
+      console.error('Error processing dropped content:', error);
+      toast.error('Failed to process dropped email');
+    }
+  };
+
+  const parseEmailContent = (content: string) => {
+    try {
+      // Basic email parsing - this handles common email formats
+      let subject = '';
+      let body = '';
+      let senderEmail = '';
+      let senderName = '';
+
+      // Try to extract from HTML content first
+      if (content.includes('<')) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(content, 'text/html');
+        
+        // Remove script and style elements
+        const scripts = doc.querySelectorAll('script, style');
+        scripts.forEach(el => el.remove());
+        
+        body = doc.body?.innerText || doc.documentElement?.innerText || content;
+      } else {
+        body = content;
+      }
+
+      // Look for common email patterns in the text
+      const lines = body.split('\n');
+      
+      for (let i = 0; i < Math.min(lines.length, 10); i++) {
+        const line = lines[i].trim();
+        
+        // Look for subject
+        if (line.toLowerCase().startsWith('subject:')) {
+          subject = line.substring(8).trim();
+        }
+        
+        // Look for from field
+        if (line.toLowerCase().startsWith('from:')) {
+          const fromLine = line.substring(5).trim();
+          const emailMatch = fromLine.match(/([^<]+)<([^>]+)>/);
+          if (emailMatch) {
+            senderName = emailMatch[1].trim();
+            senderEmail = emailMatch[2].trim();
+          } else {
+            // Just an email address
+            const emailOnly = fromLine.match(/[\w\.-]+@[\w\.-]+\.\w+/);
+            if (emailOnly) {
+              senderEmail = emailOnly[0];
+            }
+          }
+        }
+      }
+
+      // If we found email headers, remove them from body
+      if (subject || senderEmail) {
+        const headerLines = [];
+        let bodyStartIndex = 0;
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim().toLowerCase();
+          if (line.startsWith('subject:') || line.startsWith('from:') || 
+              line.startsWith('to:') || line.startsWith('date:') ||
+              line.startsWith('sent:') || line.startsWith('cc:')) {
+            bodyStartIndex = i + 1;
+          } else if (line === '') {
+            bodyStartIndex = i + 1;
+            break;
+          } else if (bodyStartIndex === 0) {
+            break;
+          }
+        }
+        
+        if (bodyStartIndex > 0) {
+          body = lines.slice(bodyStartIndex).join('\n').trim();
+        }
+      }
+
+      // Update form with extracted data
+      setEmailData({
+        subject: subject || emailData.subject,
+        body: body || emailData.body,
+        sender_email: senderEmail || emailData.sender_email,
+        sender_name: senderName || emailData.sender_name
+      });
+
+      toast.success('Email content extracted successfully!');
+    } catch (error) {
+      console.error('Error parsing email content:', error);
+      toast.error('Failed to parse email content. Please fill fields manually.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <ImprovedNavigation />
@@ -133,6 +273,47 @@ export default function AIClassification() {
         </div>
 
       <div className="grid gap-6">
+        {/* Drag and Drop Email Zone */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Drag & Drop Email from Outlook
+            </CardTitle>
+            <CardDescription>
+              Drag an email directly from Outlook to automatically extract its content for classification
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                dragActive 
+                  ? 'border-primary bg-primary/5 text-primary' 
+                  : 'border-muted-foreground/25 hover:border-primary/50'
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <Upload className={`mx-auto h-12 w-12 mb-4 ${dragActive ? 'text-primary' : 'text-muted-foreground'}`} />
+              <div className="space-y-2">
+                <p className={`text-lg font-medium ${dragActive ? 'text-primary' : 'text-foreground'}`}>
+                  {dragActive ? 'Drop email here' : 'Drag email from Outlook'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Select an email in Outlook and drag it here to automatically extract the subject, sender, and content
+                </p>
+                <div className="text-xs text-muted-foreground mt-4 space-y-1">
+                  <p>• Drag directly from Outlook email list</p>
+                  <p>• Copy and paste email content as alternative</p>
+                  <p>• Supports plain text and HTML email formats</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Input Form */}
         <Card>
           <CardHeader>
