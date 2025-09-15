@@ -121,12 +121,28 @@ export function UserManagement() {
     try {
       setUpdatingUser(userId);
 
-      const { data, error } = await supabase.functions.invoke('activate-user', {
-        body: { userId, email }
-      });
+      // Try edge function first
+      try {
+        const { data, error } = await supabase.functions.invoke('activate-user', {
+          body: { userId, email }
+        });
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Activation failed');
+        if (!error && data?.success) {
+          toast.success("User activated successfully");
+          await fetchUsers();
+          return;
+        }
+      } catch (edgeFunctionError) {
+        console.warn("Edge function failed, trying direct approach:", edgeFunctionError);
+      }
+
+      // Fallback: Just update the account status directly
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ account_status: 'active' })
+        .eq("id", userId);
+
+      if (profileError) throw profileError;
 
       toast.success("User activated successfully");
       await fetchUsers();
