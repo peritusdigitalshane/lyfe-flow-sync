@@ -31,10 +31,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && user && mailboxes.length === 0) {
       fetchMailboxes();
     }
-  }, [user, authLoading]);
+  }, [user?.id, authLoading]); // Only depend on user.id instead of full user object
 
   // Remove the old auth checks - AccountStatusCheck handles them now
 
