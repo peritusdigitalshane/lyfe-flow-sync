@@ -217,11 +217,53 @@ Be precise and only use the exact category names provided.`;
 
     console.log('Final classification:', classificationResult);
 
+    // Also run threat intelligence check if user has access
+    let threatIntelligenceResult = null;
+    try {
+      // Check if user has threat intelligence access
+      const { data: hasAccess } = await supabase.rpc('has_threat_intelligence_access', {
+        _user_id: emailData.user_id
+      });
+
+      if (hasAccess) {
+        console.log('Running threat intelligence check...');
+        
+        // Call threat intelligence checker
+        const { data: threatData, error: threatError } = await supabase.functions.invoke(
+          'threat-intelligence-checker',
+          {
+            body: {
+              email_id: `test-${Date.now()}`, // Use test ID for manual classification
+              email_content: {
+                subject: emailData.subject,
+                sender_email: emailData.sender_email,
+                sender_name: emailData.sender_name || '',
+                body_content: emailData.body
+              },
+              tenant_id: emailData.user_id // Use user_id as tenant for this test
+            }
+          }
+        );
+
+        if (threatError) {
+          console.error('Threat intelligence check failed:', threatError);
+        } else {
+          threatIntelligenceResult = threatData;
+          console.log('Threat intelligence result:', threatData);
+        }
+      } else {
+        console.log('User does not have threat intelligence access');
+      }
+    } catch (threatError) {
+      console.error('Error checking threat intelligence:', threatError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         classification: classificationResult,
-        categories: categories
+        categories: categories,
+        threatIntelligence: threatIntelligenceResult
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

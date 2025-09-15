@@ -19,6 +19,24 @@ interface ClassificationResult {
   reasoning: string;
 }
 
+interface ThreatIntelligenceResult {
+  shouldQuarantine: boolean;
+  maxThreatScore: number;
+  threshold: number;
+  detectedThreats: Array<{
+    indicator: string;
+    score: number;
+    details: any;
+  }>;
+}
+
+interface AIClassificationResponse {
+  success: boolean;
+  classification: ClassificationResult;
+  categories: EmailCategory[];
+  threatIntelligence?: ThreatIntelligenceResult;
+}
+
 interface EmailCategory {
   id: string;
   name: string;
@@ -40,6 +58,7 @@ export default function AIClassification() {
     sender_name: ''
   });
   const [result, setResult] = useState<ClassificationResult | null>(null);
+  const [threatResult, setThreatResult] = useState<ThreatIntelligenceResult | null>(null);
   const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => {
@@ -103,7 +122,13 @@ export default function AIClassification() {
       }
 
       setResult(data.classification);
-      toast.success('Email classified successfully!');
+      setThreatResult(data.threatIntelligence || null);
+      
+      if (data.threatIntelligence?.shouldQuarantine) {
+        toast.warning('⚠️ Threat detected! Email would be quarantined.');
+      } else {
+        toast.success('Email classified successfully!');
+      }
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to classify email');
@@ -421,6 +446,86 @@ export default function AIClassification() {
                     {result.reasoning}
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Threat Intelligence Results */}
+        {threatResult && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {threatResult.shouldQuarantine ? (
+                  <Badge variant="destructive">⚠️ Threat Detected</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-green-600">✅ Clean</Badge>
+                )}
+                Threat Intelligence Analysis
+              </CardTitle>
+              <CardDescription>
+                Security analysis using configured threat intelligence feeds
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>Threat Score</Label>
+                    <div className="text-lg font-semibold">
+                      {threatResult.maxThreatScore}/{threatResult.threshold}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Status</Label>
+                    <div className={`font-semibold ${
+                      threatResult.shouldQuarantine ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {threatResult.shouldQuarantine ? 'Would Quarantine' : 'Safe'}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Threats Found</Label>
+                    <div className="text-lg font-semibold">
+                      {threatResult.detectedThreats.length}
+                    </div>
+                  </div>
+                </div>
+
+                {threatResult.detectedThreats.length > 0 && (
+                  <div>
+                    <Label>Detected Threats</Label>
+                    <div className="mt-2 space-y-2">
+                      {threatResult.detectedThreats.map((threat, index) => (
+                        <div key={index} className="bg-red-50 border border-red-200 p-3 rounded-md">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-semibold text-red-800">
+                                {threat.indicator}
+                              </div>
+                              <div className="text-sm text-red-600">
+                                {threat.details.feed_source} - Score: {threat.score}
+                              </div>
+                              {threat.details.otx_permalink && (
+                                <a 
+                                  href={threat.details.otx_permalink} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-blue-600 hover:underline"
+                                >
+                                  View on AlienVault OTX ↗
+                                </a>
+                              )}
+                            </div>
+                            <Badge variant="destructive">
+                              {threat.score}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
