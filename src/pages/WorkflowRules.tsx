@@ -976,14 +976,15 @@ export default function WorkflowRules() {
                               <SelectTrigger className="text-sm">
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="subject">Subject</SelectItem>
-                                <SelectItem value="sender_email">Sender Email</SelectItem>
-                                <SelectItem value="body_content">Body Content</SelectItem>
-                                <SelectItem value="has_attachments">Has Attachments</SelectItem>
-                                <SelectItem value="risk_score">Risk Score</SelectItem>
-                                <SelectItem value="category">Category</SelectItem>
-                              </SelectContent>
+                               <SelectContent>
+                                 <SelectItem value="subject">Subject</SelectItem>
+                                 <SelectItem value="sender_email">Sender Email</SelectItem>
+                                 <SelectItem value="body_content">Body Content</SelectItem>
+                                 <SelectItem value="has_attachments">Has Attachments</SelectItem>
+                                 <SelectItem value="risk_score">Risk Score</SelectItem>
+                                 <SelectItem value="category">Category</SelectItem>
+                                 <SelectItem value="ai_analysis">AI Analysis</SelectItem>
+                               </SelectContent>
                             </Select>
                             
                             <Select
@@ -1362,14 +1363,15 @@ export default function WorkflowRules() {
                                       <SelectTrigger className="text-sm">
                                         <SelectValue />
                                       </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="subject">Subject</SelectItem>
-                                        <SelectItem value="sender_email">Sender Email</SelectItem>
-                                        <SelectItem value="body_content">Body Content</SelectItem>
-                                        <SelectItem value="has_attachments">Has Attachments</SelectItem>
-                                        <SelectItem value="risk_score">Risk Score</SelectItem>
-                                        <SelectItem value="category">Category</SelectItem>
-                                      </SelectContent>
+                                       <SelectContent>
+                                         <SelectItem value="subject">Subject</SelectItem>
+                                         <SelectItem value="sender_email">Sender Email</SelectItem>
+                                         <SelectItem value="body_content">Body Content</SelectItem>
+                                         <SelectItem value="has_attachments">Has Attachments</SelectItem>
+                                         <SelectItem value="risk_score">Risk Score</SelectItem>
+                                         <SelectItem value="category">Category</SelectItem>
+                                         <SelectItem value="ai_analysis">AI Analysis</SelectItem>
+                                       </SelectContent>
                                     </Select>
                                     
                                     <Select
