@@ -91,6 +91,12 @@ export const ImprovedNavigation = () => {
       ]
     },
     {
+      title: "Settings",
+      items: [
+        { path: '/settings', label: 'Settings', icon: Settings, description: 'Profile and platform configuration' },
+      ]
+    },
+    {
       title: "Administration",
       requiresRole: 'admin',
       items: [
@@ -114,8 +120,9 @@ export const ImprovedNavigation = () => {
 
   const renderNavigationItems = (section: NavigationSection, isMobile = false) => {
     const Icon = section.requiresModule === 'email_management' ? Mail : 
-                section.requiresModule === 'security' ? Shield :
-                section.requiresRole === 'admin' ? Crown : Activity;
+                 section.requiresModule === 'security' ? Shield :
+                 section.requiresRole === 'admin' ? Crown : 
+                 section.title === 'Settings' ? Settings : Activity;
 
     if (isMobile) {
       return (
