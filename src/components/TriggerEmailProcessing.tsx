@@ -109,10 +109,12 @@ const TriggerEmailProcessing: React.FC<{ mailboxId?: string }> = ({ mailboxId })
     setReprocessResults(null);
     
     try {
+      console.log('Starting reprocess emails request...');
       const { data, error } = await supabase.functions.invoke('reprocess-emails');
       
       if (error) {
-        toast.error("Failed to reprocess emails");
+        console.error('Supabase function error:', error);
+        toast.error(`Failed to reprocess emails: ${error.message}`);
         setReprocessResults({
           success: false,
           message: error.message || "Failed to reprocess emails"
@@ -120,18 +122,20 @@ const TriggerEmailProcessing: React.FC<{ mailboxId?: string }> = ({ mailboxId })
         return;
       }
 
-      if (data.success) {
+      console.log('Reprocess response:', data);
+      if (data && data.success) {
         toast.success(data.message);
         setReprocessResults(data);
       } else {
-        toast.error(data.error || "Failed to reprocess emails");
-        setReprocessResults(data);
+        toast.error(data?.error || "Failed to reprocess emails");
+        setReprocessResults(data || { success: false, message: "Unknown error" });
       }
     } catch (error) {
-      toast.error("Error reprocessing emails");
+      console.error('Error reprocessing emails:', error);
+      toast.error(`Error reprocessing emails: ${error.message || error}`);
       setReprocessResults({
         success: false,
-        message: "Error reprocessing emails"
+        message: `Error reprocessing emails: ${error.message || error}`
       });
     } finally {
       setIsReprocessing(false);
