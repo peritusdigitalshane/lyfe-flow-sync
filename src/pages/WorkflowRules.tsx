@@ -1653,18 +1653,30 @@ export default function WorkflowRules() {
                       <div>
                         <Label className="text-sm font-medium">Conditions ({rule.conditions.length})</Label>
                          <div className="mt-2 space-y-1">
-                           {rule.conditions.slice(0, 3).map((condition, index) => (
-                             <div key={index} className="text-sm text-muted-foreground">
-                               {condition.field === 'ai_analysis' ? (
-                                 <span className="inline-flex items-center gap-1">
-                                   <span className="inline-block w-2 h-2 bg-primary rounded-full"></span>
-                                   AI: "{condition.value}"
-                                 </span>
-                               ) : (
-                                 `${condition.field} ${condition.operator} "${condition.value}"`
-                               )}
-                             </div>
-                           ))}
+                           {rule.conditions.slice(0, 3).map((condition, index) => {
+                             console.log(`RULE: ${rule.name} - Condition ${index}:`, condition);
+                             console.log(`Field comparison: "${condition.field}" === "ai_analysis" = ${condition.field === 'ai_analysis'}`);
+                             
+                             return (
+                               <div key={index} className="text-sm text-muted-foreground">
+                                 {condition.field === 'ai_analysis' ? (
+                                   <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded border-l-4 border-blue-500">
+                                     <span className="inline-flex items-center gap-2 font-medium text-blue-700 dark:text-blue-300">
+                                       <span className="inline-block w-3 h-3 bg-blue-500 rounded-full"></span>
+                                       AI Condition
+                                     </span>
+                                     <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">"{condition.value}"</p>
+                                   </div>
+                                 ) : (
+                                   <div className="p-2 rounded bg-gray-50 dark:bg-gray-800">
+                                     <span className="text-gray-700 dark:text-gray-300">
+                                       {condition.field} {condition.operator} "{condition.value}"
+                                     </span>
+                                   </div>
+                                 )}
+                               </div>
+                             );
+                           })}
                           {rule.conditions.length > 3 && (
                             <div className="text-sm text-muted-foreground">
                               ... and {rule.conditions.length - 3} more
