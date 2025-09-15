@@ -23,8 +23,8 @@ interface EmailAnalysis {
 }
 
 interface WorkflowCondition {
-  field: 'subject' | 'sender_email' | 'body_content' | 'has_attachments' | 'risk_score' | 'category';
-  operator: 'contains' | 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'starts_with' | 'ends_with';
+  field: 'subject' | 'sender_email' | 'body_content' | 'has_attachments' | 'risk_score' | 'category' | 'ai_analysis';
+  operator: 'contains' | 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'starts_with' | 'ends_with' | 'ai_condition';
   value: string | number | boolean;
   case_sensitive?: boolean;
 }
@@ -315,11 +315,14 @@ serve(async (req) => {
     let matchedRule: WorkflowRule | null = null;
 
     for (const rule of rules || []) {
+      console.log(`Evaluating rule: ${rule.name} with conditions:`, rule.conditions);
       if (await evaluateRule(rule, email, analysis, supabase)) {
         actionsToExecute.push(...rule.actions);
         matchedRule = rule;
-        console.log(`Rule matched: ${rule.name}`);
+        console.log(`✅ Rule matched: ${rule.name}`);
         break; // Execute first matching rule only
+      } else {
+        console.log(`❌ Rule did not match: ${rule.name}`);
       }
     }
 
@@ -562,8 +565,8 @@ async function evaluateAICondition(condition: string, email: any, supabase: any)
       console.log(`AI evaluation result: ${result.result.meets_condition} (confidence: ${result.result.confidence})`);
       console.log(`Reasoning: ${result.result.reasoning}`);
       
-      // Use higher confidence threshold to reduce false positives
-      return result.result.meets_condition && result.result.confidence > 0.85;
+      // Use lower confidence threshold for better matching
+      return result.result.meets_condition && result.result.confidence > 0.7;
     } else if (result?.fallback_result) {
       // Handle fallback case when AI is unavailable
       console.log(`AI evaluation fallback: ${result.fallback_result.meets_condition} (${result.fallback_result.reasoning})`);

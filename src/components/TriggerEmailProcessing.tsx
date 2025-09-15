@@ -180,7 +180,7 @@ const TriggerEmailProcessing: React.FC<{ mailboxId?: string }> = ({ mailboxId })
               </AlertDescription>
             </Alert>
 
-            {results.results.length > 0 && (
+            {results.results && results.results.length > 0 && (
               <div className="space-y-2">
                 <h4 className="font-semibold">Processing Results:</h4>
                 <div className="max-h-60 overflow-y-auto space-y-2">
