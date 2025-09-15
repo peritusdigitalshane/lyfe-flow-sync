@@ -4,6 +4,7 @@ import { useRoles } from "@/hooks/useRoles";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -327,7 +328,108 @@ export default function WorkflowRules() {
         }
       }
 
-      setSuggestedRules(suggestions.slice(0, 5)); // Limit to top 5 suggestions
+      // Add AI-powered suggestions for common inbox management scenarios
+      const aiSuggestions = [
+        {
+          type: 'ai_urgent_detection',
+          title: 'Auto-detect urgent emails',
+          description: 'Use AI to identify emails that require immediate attention',
+          impact: 'Never miss important deadlines or urgent requests',
+          suggestion_data: {
+            ai_condition: 'contains an urgent request or deadline',
+            action_type: 'priority_flag',
+            examples: ['Emails with urgent keywords', 'Time-sensitive requests', 'Deadline mentions']
+          }
+        },
+        {
+          type: 'ai_meeting_detection',
+          title: 'Automatically organize meeting requests',
+          description: 'AI identifies and categorizes meeting invitations and calendar requests',
+          impact: 'Streamline scheduling and never miss important meetings',
+          suggestion_data: {
+            ai_condition: 'appears to be a meeting request or calendar invitation',
+            action_type: 'categorise',
+            category_name: 'Meetings',
+            examples: ['Meeting invitations', 'Calendar requests', 'Schedule confirmations']
+          }
+        },
+        {
+          type: 'ai_action_required',
+          title: 'Identify emails requiring action',
+          description: 'AI detects emails that need a response or specific action from you',
+          impact: 'Stay on top of your to-do list and never miss follow-ups',
+          suggestion_data: {
+            ai_condition: 'requires a response or specific action from me',
+            action_type: 'categorise',
+            category_name: 'Action Required',
+            examples: ['Questions needing answers', 'Approval requests', 'Follow-up reminders']
+          }
+        },
+        {
+          type: 'ai_newsletter_detection',
+          title: 'Smart newsletter organization',
+          description: 'AI distinguishes between newsletters, promotions, and personal emails',
+          impact: 'Keep your inbox clean while preserving important communications',
+          suggestion_data: {
+            ai_condition: 'appears to be a newsletter or promotional email',
+            action_type: 'categorise',
+            category_name: 'Newsletters',
+            examples: ['Marketing emails', 'Subscription updates', 'Promotional content']
+          }
+        },
+        {
+          type: 'ai_personal_business',
+          title: 'Separate personal from business emails',
+          description: 'AI analyzes content to distinguish personal and professional communications',
+          impact: 'Better work-life balance with organized email separation',
+          suggestion_data: {
+            ai_condition: 'appears to be a personal email rather than business',
+            action_type: 'categorise',
+            category_name: 'Personal',
+            examples: ['Family communications', 'Personal services', 'Non-work related']
+          }
+        },
+        {
+          type: 'ai_receipt_detection',
+          title: 'Auto-organize receipts and invoices',
+          description: 'AI identifies financial documents, receipts, and billing emails',
+          impact: 'Simplify expense tracking and financial organization',
+          suggestion_data: {
+            ai_condition: 'contains a receipt, invoice, or financial document',
+            action_type: 'categorise',
+            category_name: 'Financial',
+            examples: ['Purchase receipts', 'Invoice notifications', 'Payment confirmations']
+          }
+        },
+        {
+          type: 'ai_spam_enhancement',
+          title: 'Enhanced spam detection',
+          description: 'AI provides advanced spam and phishing detection beyond standard filters',
+          impact: 'Improved security with smarter threat detection',
+          suggestion_data: {
+            ai_condition: 'appears to be spam, phishing, or suspicious content',
+            action_type: 'quarantine',
+            examples: ['Suspicious links', 'Phishing attempts', 'Unsolicited offers']
+          }
+        }
+      ];
+
+      // Add AI suggestions that don't conflict with existing rules
+      for (const aiSuggestion of aiSuggestions) {
+        // Check if user already has similar AI conditions
+        const hasAIRule = rules.some(rule => 
+          rule.conditions?.some(condition => 
+            condition.field === 'ai_analysis' && 
+            (condition.value as string).toLowerCase().includes(aiSuggestion.suggestion_data.ai_condition.split(' ')[0])
+          )
+        );
+
+        if (!hasAIRule) {
+          suggestions.push(aiSuggestion);
+        }
+      }
+
+      setSuggestedRules(suggestions.slice(0, 8)); // Increased to show more suggestions including AI ones
     } catch (error) {
       console.error('Error loading suggested rules:', error);
     } finally {
@@ -359,9 +461,17 @@ export default function WorkflowRules() {
         value: suggestion.suggestion_data.pattern,
         case_sensitive: false
       }];
+    } else if (suggestion.type.startsWith('ai_')) {
+      // Handle AI-powered suggestions
+      newRuleFromSuggestion.conditions = [{
+        field: 'ai_analysis',
+        operator: 'ai_condition',
+        value: suggestion.suggestion_data.ai_condition,
+        case_sensitive: false
+      }];
     }
 
-    // Set up categorization action if category info is available
+    // Set up actions based on suggestion data
     if (suggestion.suggestion_data.category_name) {
       const category = categories.find(c => c.name === suggestion.suggestion_data.category_name);
       if (category) {
@@ -369,6 +479,44 @@ export default function WorkflowRules() {
           type: 'categorise',
           parameters: { category_id: category.id }
         }];
+      }
+    } else if (suggestion.suggestion_data.action_type) {
+      // Handle AI suggestion actions
+      switch (suggestion.suggestion_data.action_type) {
+        case 'priority_flag':
+          newRuleFromSuggestion.actions = [{
+            type: 'mark_as_read',
+            parameters: {}
+          }];
+          break;
+        case 'quarantine':
+          newRuleFromSuggestion.actions = [{
+            type: 'quarantine',
+            parameters: {}
+          }];
+          break;
+        case 'categorise':
+          // Try to find or suggest creating the category
+          const categoryName = suggestion.suggestion_data.category_name || 'AI Categorized';
+          const existingCategory = categories.find(c => c.name === categoryName);
+          if (existingCategory) {
+            newRuleFromSuggestion.actions = [{
+              type: 'categorise',
+              parameters: { category_id: existingCategory.id }
+            }];
+          } else {
+            // Suggest manual category selection
+            newRuleFromSuggestion.actions = [{
+              type: 'categorise',
+              parameters: {}
+            }];
+          }
+          break;
+        default:
+          newRuleFromSuggestion.actions = [{
+            type: 'categorise',
+            parameters: {}
+          }];
       }
     }
 
@@ -617,20 +765,38 @@ export default function WorkflowRules() {
             <CardContent>
               <div className="space-y-4">
                 {suggestedRules.map((suggestion, index) => (
-                  <div key={index} className="border rounded-lg p-4 bg-muted/30">
+                  <div key={index} className={`border rounded-lg p-4 ${suggestion.type.startsWith('ai_') ? 'bg-gradient-to-r from-primary/5 to-purple/5 border-primary/20' : 'bg-muted/30'}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h4 className="font-medium text-sm">{suggestion.title}</h4>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium text-sm">{suggestion.title}</h4>
+                          {suggestion.type.startsWith('ai_') && (
+                            <Badge variant="secondary" className="text-xs px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
+                              AI Powered
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground mt-1">{suggestion.description}</p>
-                        <p className="text-xs text-primary mt-2">{suggestion.impact}</p>
+                        <p className="text-xs text-primary mt-2 font-medium">{suggestion.impact}</p>
+                        
+                        {suggestion.type.startsWith('ai_') && suggestion.suggestion_data.ai_condition && (
+                          <div className="mt-3 p-3 bg-background/50 border rounded-lg">
+                            <p className="text-xs text-muted-foreground mb-1">AI Condition:</p>
+                            <p className="text-xs font-mono bg-muted/50 px-2 py-1 rounded">
+                              "{suggestion.suggestion_data.ai_condition}"
+                            </p>
+                          </div>
+                        )}
                         
                         {suggestion.suggestion_data.examples && (
                           <div className="mt-3">
-                            <p className="text-xs text-muted-foreground mb-1">Example subjects:</p>
+                            <p className="text-xs text-muted-foreground mb-1">
+                              {suggestion.type.startsWith('ai_') ? 'Will detect emails like:' : 'Example subjects:'}
+                            </p>
                             <div className="text-xs space-y-1">
-                              {suggestion.suggestion_data.examples.slice(0, 2).map((example: string, i: number) => (
+                              {suggestion.suggestion_data.examples.slice(0, 3).map((example: string, i: number) => (
                                 <div key={i} className="bg-background/50 px-2 py-1 rounded text-muted-foreground">
-                                  "{example}"
+                                  • {example}
                                 </div>
                               ))}
                             </div>
@@ -651,14 +817,14 @@ export default function WorkflowRules() {
                               style={{ backgroundColor: suggestion.suggestion_data.category_color }}
                             />
                             <span className="text-xs text-muted-foreground">
-                              Most emails go to: {suggestion.suggestion_data.category_name}
+                              {suggestion.type.startsWith('ai_') ? 'Will categorize as:' : 'Most emails go to:'} {suggestion.suggestion_data.category_name}
                             </span>
                           </div>
                         )}
                       </div>
                       
                       <Button
-                        variant="outline"
+                        variant={suggestion.type.startsWith('ai_') ? "premium" : "outline"}
                         size="sm"
                         onClick={() => createRuleFromSuggestion(suggestion)}
                         className="ml-4 gap-2"
@@ -668,8 +834,8 @@ export default function WorkflowRules() {
                       </Button>
                     </div>
                   </div>
-                ))}
-              </div>
+                 ))}
+               </div>
             </CardContent>
           </Card>
         )}
