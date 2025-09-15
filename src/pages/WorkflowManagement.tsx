@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, Play, Pause, Settings, ExternalLink, Loader2, User, LogOut, Plus } from 'lucide-react';
+import { AlertCircle, Play, Pause, Settings, ExternalLink, Loader2, User, LogOut, Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 
@@ -54,6 +54,7 @@ export default function WorkflowManagement() {
   const [executions, setExecutions] = useState<WorkflowExecution[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [isReprocessing, setIsReprocessing] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -182,6 +183,31 @@ export default function WorkflowManagement() {
     }
   };
 
+  const handleReprocessEmails = async () => {
+    setIsReprocessing(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('reprocess-emails');
+      
+      if (error) {
+        toast.error("Failed to reprocess emails");
+        return;
+      }
+
+      if (data.success) {
+        toast.success(data.message);
+        await loadData(); // Refresh data
+      } else {
+        toast.error(data.error || "Failed to reprocess emails");
+      }
+    } catch (error) {
+      toast.error("Error reprocessing emails");
+    } finally {
+      setIsReprocessing(false);
+    }
+  };
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'connected':
@@ -239,12 +265,32 @@ export default function WorkflowManagement() {
               Monitor and manage your email automation workflows
             </p>
           </div>
-          <Button asChild variant="premium" className="gap-2">
-            <Link to="/workflow-rules">
-              <Plus className="h-4 w-4" />
-              Create Rule
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleReprocessEmails} 
+              disabled={isReprocessing}
+              variant="secondary"
+              className="gap-2"
+            >
+              {isReprocessing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Reprocessing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Reprocess Last 50 Emails
+                </>
+              )}
+            </Button>
+            <Button asChild variant="premium" className="gap-2">
+              <Link to="/workflow-rules">
+                <Plus className="h-4 w-4" />
+                Create Rule
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6">
