@@ -694,10 +694,13 @@ export default function ThreatIntelligence() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <span className="text-sm font-mono">
-                            {feed.total_entries.toLocaleString()}
-                          </span>
+                         <TableCell>
+                           <span className="text-sm font-mono">
+                             {feed.total_entries === -1 
+                               ? <Badge variant="outline">API-based</Badge>
+                               : feed.total_entries.toLocaleString()
+                             }
+                           </span>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">

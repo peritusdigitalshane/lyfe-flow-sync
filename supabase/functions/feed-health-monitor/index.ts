@@ -76,12 +76,47 @@ serve(async (req) => {
             lastError = `HTTP ${response.status}: ${response.statusText}`;
           }
         } else if (feed.api_endpoint) {
-          // API-based feed (like VirusTotal)
-          isHealthy = !!feed.api_key; // Healthy if API key is configured
-          entriesCount = isHealthy ? -1 : 0; // -1 indicates API endpoint (not countable)
-          
-          if (!feed.api_key) {
-            lastError = 'API key required but not configured';
+          // API-based feed (like VirusTotal or OTX)
+          if (feed.feed_type === 'otx_indicators') {
+            // Test OTX API with a simple call
+            if (feed.api_key) {
+              try {
+                const testResponse = await fetch(`${feed.api_endpoint}/indicators/domain/google.com/general`, {
+                  headers: { 
+                    'X-OTX-API-KEY': feed.api_key,
+                    'Accept': 'application/json'
+                  },
+                  signal: AbortSignal.timeout(10000)
+                });
+                
+                statusCode = testResponse.status;
+                if (testResponse.ok || testResponse.status === 404) {
+                  // 404 is OK for OTX - it means the domain isn't in threat data
+                  isHealthy = true;
+                  entriesCount = -1; // API-based, not countable
+                } else {
+                  lastError = `OTX API error: HTTP ${testResponse.status}`;
+                  isHealthy = false;
+                  entriesCount = 0;
+                }
+              } catch (error) {
+                lastError = `OTX API connection failed: ${error.message}`;
+                isHealthy = false;
+                entriesCount = 0;
+              }
+            } else {
+              lastError = 'OTX API key required but not configured';
+              isHealthy = false;
+              entriesCount = 0;
+            }
+          } else {
+            // Other API-based feeds
+            isHealthy = !!feed.api_key; // Healthy if API key is configured
+            entriesCount = isHealthy ? -1 : 0; // -1 indicates API endpoint (not countable)
+            
+            if (!feed.api_key) {
+              lastError = 'API key required but not configured';
+            }
           }
         }
 
@@ -106,7 +141,7 @@ serve(async (req) => {
           })
           .eq('id', feed.id);
 
-        console.log(`Feed ${feed.name}: ${isHealthy ? 'HEALTHY' : 'UNHEALTHY'} (${entriesCount} entries, ${responseTime}ms)`);
+        console.log(`Feed ${feed.name}: ${isHealthy ? 'HEALTHY' : 'UNHEALTHY'} (${entriesCount === -1 ? 'API-based' : entriesCount + ' entries'}, ${responseTime}ms)`);
 
       } catch (error) {
         const responseTime = Date.now() - startTime;
