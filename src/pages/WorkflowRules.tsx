@@ -117,8 +117,8 @@ export default function WorkflowRules() {
       setCategories(categoriesData || []);
       setMailboxes(mailboxesData || []);
       
-      // Load suggested rules after data is loaded
-      await loadSuggestedRules();
+      // Load suggested rules after data is loaded, passing the actual rules data
+      await loadSuggestedRules(convertedRules);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -169,7 +169,8 @@ export default function WorkflowRules() {
     }
   };
 
-  const loadSuggestedRules = async () => {
+  const loadSuggestedRules = async (currentRules?: WorkflowRule[]) => {
+    const rulesToCheck = currentRules || rules;
     try {
       setLoadingSuggestions(true);
       
@@ -419,7 +420,7 @@ export default function WorkflowRules() {
       // Add AI suggestions that don't conflict with existing rules
       for (const aiSuggestion of aiSuggestions) {
         // Check if user already has a similar AI condition (more flexible matching)
-        const hasConflictingRule = rules.some(rule => 
+        const hasConflictingRule = rulesToCheck.some(rule =>
           rule.conditions?.some(condition => 
             condition.field === 'ai_analysis' && 
             condition.value && 
