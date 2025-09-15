@@ -664,9 +664,30 @@ async function categorizeEmail(email: any, categoryId: string, supabase: any): P
 
   // Apply category to email in Microsoft 365
   try {
+    console.log(`🚀 [M365] Starting M365 category sync for email ${email.id}`);
     await applyCategoryToEmailInM365(email, categoryId, supabase);
+    console.log(`✅ [M365] Successfully synced category to M365 for email ${email.id}`);
   } catch (m365Error) {
-    console.error('❌ Error applying category to email in M365:', m365Error);
+    console.error('❌ [M365] Critical error applying category to email in M365:', m365Error);
+    console.error('❌ [M365] Error stack:', m365Error.stack);
+    
+    // Log the error to audit logs for debugging
+    await supabase
+      .from('audit_logs')
+      .insert({
+        tenant_id: email.tenant_id,
+        mailbox_id: email.mailbox_id,
+        action: 'workflow_executed',
+        details: {
+          email_id: email.id,
+          subject: email.subject,
+          category_id: categoryId,
+          m365_error: m365Error.message,
+          m365_error_stack: m365Error.stack,
+          status: 'm365_sync_failed'
+        }
+      });
+    
     // Don't throw here - classification in our DB succeeded, M365 sync is secondary
   }
 
@@ -687,7 +708,7 @@ async function categorizeEmail(email: any, categoryId: string, supabase: any): P
 }
 
 async function applyCategoryToEmailInM365(email: any, categoryId: string, supabase: any): Promise<void> {
-  console.log(`🔄 Applying category to email ${email.id} in Microsoft 365`);
+  console.log(`🔄 [M365] Starting category application for email ${email.id} (${email.microsoft_id})`);
   
   // Get category name
   const { data: category, error: categoryError } = await supabase
@@ -697,9 +718,11 @@ async function applyCategoryToEmailInM365(email: any, categoryId: string, supaba
     .maybeSingle();
 
   if (categoryError || !category) {
-    console.error('❌ Category not found:', categoryError);
+    console.error('❌ [M365] Category not found:', categoryError);
     throw new Error('Category not found');
   }
+
+  console.log(`📋 [M365] Category found: "${category.name}"`);
 
   // Get mailbox with Microsoft Graph token
   const { data: mailbox, error: mailboxError } = await supabase
@@ -709,31 +732,88 @@ async function applyCategoryToEmailInM365(email: any, categoryId: string, supaba
     .maybeSingle();
 
   if (mailboxError || !mailbox || !mailbox.microsoft_graph_token) {
-    console.error('❌ Mailbox or token not found:', mailboxError);
+    console.error('❌ [M365] Mailbox or token not found:', mailboxError);
     throw new Error('Mailbox not connected to Microsoft Graph');
   }
+
+  console.log(`🔑 [M365] Token found, length: ${mailbox.microsoft_graph_token.length}`);
 
   // Parse the token
   let parsedToken;
   try {
     parsedToken = JSON.parse(mailbox.microsoft_graph_token);
+    console.log(`🔑 [M365] Token parsed successfully, expires at: ${new Date(parsedToken.expires_at || 0).toISOString()}`);
   } catch (error) {
-    console.error('❌ Failed to parse Microsoft Graph token:', error);
+    console.error('❌ [M365] Failed to parse Microsoft Graph token:', error);
     throw new Error('Invalid Microsoft Graph token format');
   }
 
   // Check if token is expired and refresh if needed
   const now = Date.now();
   if (parsedToken.expires_at && parsedToken.expires_at <= now) {
-    console.log('🔄 Token expired, attempting to refresh...');
+    console.log('🔄 [M365] Token expired, attempting to refresh...');
     
     if (!parsedToken.refresh_token) {
-      console.error('❌ No refresh token available');
+      console.error('❌ [M365] No refresh token available');
       throw new Error('No refresh token available');
     }
 
     parsedToken = await refreshTokenForM365Category(parsedToken, email.mailbox_id, supabase);
-    console.log('✅ Token refreshed successfully');
+    console.log('✅ [M365] Token refreshed successfully');
+  } else {
+    console.log('✅ [M365] Token is valid');
+  }
+
+  // First, ensure the category exists in M365
+  console.log(`🔍 [M365] Checking if category "${category.name}" exists in M365...`);
+  
+  const categoriesResponse = await fetch('https://graph.microsoft.com/v1.0/me/outlook/masterCategories', {
+    headers: {
+      'Authorization': `Bearer ${parsedToken.access_token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!categoriesResponse.ok) {
+    const categoriesErrorText = await categoriesResponse.text();
+    console.error(`❌ [M365] Failed to fetch categories: ${categoriesResponse.status} - ${categoriesErrorText}`);
+    throw new Error(`Failed to fetch M365 categories: ${categoriesResponse.status}`);
+  }
+
+  const categoriesData = await categoriesResponse.json();
+  const existingCategories = categoriesData.value || [];
+  const categoryExists = existingCategories.some((cat: any) => 
+    cat.displayName.toLowerCase() === category.name.toLowerCase()
+  );
+
+  console.log(`📋 [M365] Existing categories count: ${existingCategories.length}`);
+  console.log(`🔍 [M365] Category "${category.name}" exists: ${categoryExists}`);
+
+  // Create category if it doesn't exist
+  if (!categoryExists) {
+    console.log(`➕ [M365] Creating category "${category.name}" in M365...`);
+    
+    const createCategoryData = {
+      displayName: category.name,
+      color: 'preset5' // Default to blue
+    };
+
+    const createResponse = await fetch('https://graph.microsoft.com/v1.0/me/outlook/masterCategories', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${parsedToken.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(createCategoryData)
+    });
+
+    if (!createResponse.ok) {
+      const createErrorText = await createResponse.text();
+      console.error(`❌ [M365] Failed to create category: ${createResponse.status} - ${createErrorText}`);
+      // Don't throw here - try to apply anyway in case category exists
+    } else {
+      console.log(`✅ [M365] Category "${category.name}" created successfully`);
+    }
   }
 
   // Apply category to email in M365
@@ -743,7 +823,9 @@ async function applyCategoryToEmailInM365(email: any, categoryId: string, supaba
     categories: [category.name]
   };
 
-  console.log(`🔄 Updating email ${email.microsoft_id} with category: ${category.name}`);
+  console.log(`🔄 [M365] Applying category to email ${email.microsoft_id}`);
+  console.log(`📤 [M365] Request URL: ${updateUrl}`);
+  console.log(`📤 [M365] Request body:`, JSON.stringify(updateData, null, 2));
   
   const updateResponse = await fetch(updateUrl, {
     method: 'PATCH',
@@ -754,13 +836,27 @@ async function applyCategoryToEmailInM365(email: any, categoryId: string, supaba
     body: JSON.stringify(updateData)
   });
 
+  console.log(`📥 [M365] Response status: ${updateResponse.status}`);
+  
   if (!updateResponse.ok) {
     const errorText = await updateResponse.text();
-    console.error(`❌ Failed to apply category to email: ${updateResponse.status} - ${errorText}`);
+    console.error(`❌ [M365] Failed to apply category to email: ${updateResponse.status} - ${errorText}`);
+    
+    // Log detailed error information
+    console.error(`🔍 [M365] Error details:`);
+    console.error(`  - Email ID: ${email.id}`);
+    console.error(`  - Microsoft ID: ${email.microsoft_id}`);
+    console.error(`  - Category: ${category.name}`);
+    console.error(`  - Mailbox ID: ${email.mailbox_id}`);
+    console.error(`  - Response status: ${updateResponse.status}`);
+    console.error(`  - Response text: ${errorText}`);
+    
     throw new Error(`Failed to apply category to email: ${updateResponse.status} - ${errorText}`);
   }
 
-  console.log(`✅ Successfully applied category "${category.name}" to email ${email.microsoft_id} in M365`);
+  const responseText = await updateResponse.text();
+  console.log(`✅ [M365] Successfully applied category "${category.name}" to email ${email.microsoft_id}`);
+  console.log(`📥 [M365] Response: ${responseText}`);
 }
 
 async function refreshTokenForM365Category(tokenData: any, mailboxId: string, supabase: any): Promise<any> {
