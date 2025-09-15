@@ -56,7 +56,8 @@ const FEED_TYPES = [
   { value: 'ip_blocklist', label: 'IP Blocklist' },
   { value: 'hash_blocklist', label: 'Hash Blocklist' },
   { value: 'reputation_check', label: 'Reputation Check' },
-  { value: 'phishing_check', label: 'Phishing Check' }
+  { value: 'phishing_check', label: 'Phishing Check' },
+  { value: 'otx_indicators', label: 'AlienVault OTX Indicators' }
 ];
 
 import { ImprovedNavigation } from "@/components/ImprovedNavigation";

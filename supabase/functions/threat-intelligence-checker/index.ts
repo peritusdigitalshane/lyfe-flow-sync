@@ -400,6 +400,22 @@ async function checkFeedForThreats(feed: any, indicators: any, supabase: any) {
       }
     }
 
+    // Add AlienVault OTX indicator checking
+    if (feed.feed_type === 'otx_indicators') {
+      for (const domain of indicators.domains) {
+        const result = await checkOtxIndicator('domain', domain, feed);
+        if (result) results.push(result);
+      }
+      for (const url of indicators.urls) {
+        const result = await checkOtxIndicator('url', url, feed);
+        if (result) results.push(result);
+      }
+      for (const ip of indicators.ips) {
+        const result = await checkOtxIndicator('IPv4', ip, feed);
+        if (result) results.push(result);
+      }
+    }
+
   } catch (error) {
     console.error(`Error checking feed ${feed.name}:`, error);
   }
@@ -644,6 +660,87 @@ async function checkDomainReputation(domain: string, feed: any) {
       }
     } catch (error) {
       console.error(`Error checking domain reputation for ${domain}:`, error);
+    }
+  }
+
+  return null;
+}
+
+async function checkOtxIndicator(indicatorType: string, indicator: string, feed: any) {
+  // AlienVault OTX API checking
+  if (feed.api_endpoint && feed.api_key) {
+    try {
+      // Construct the OTX API URL based on indicator type
+      let apiUrl = '';
+      switch (indicatorType) {
+        case 'domain':
+          apiUrl = `${feed.api_endpoint}/indicators/domain/${indicator}/general`;
+          break;
+        case 'url':
+          // For URLs, we need to encode them properly
+          const encodedUrl = encodeURIComponent(indicator);
+          apiUrl = `${feed.api_endpoint}/indicators/url/${encodedUrl}/general`;
+          break;
+        case 'IPv4':
+          apiUrl = `${feed.api_endpoint}/indicators/IPv4/${indicator}/general`;
+          break;
+        default:
+          console.log(`Unsupported OTX indicator type: ${indicatorType}`);
+          return null;
+      }
+
+      const response = await fetch(apiUrl, {
+        headers: { 
+          'X-OTX-API-KEY': feed.api_key,
+          'Accept': 'application/json',
+          'User-Agent': 'ThreatIntelligenceChecker/1.0'
+        },
+        signal: AbortSignal.timeout(10000) // 10 second timeout
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Check if the indicator has any malicious activity
+        const pulseInfo = data.pulse_info || {};
+        const pulseCount = pulseInfo.count || 0;
+        const reputation = data.reputation || 0; // Lower reputation is worse
+        
+        // Calculate threat score based on pulse count and reputation
+        let threatScore = 0;
+        if (pulseCount > 0) {
+          threatScore = Math.min(30 + (pulseCount * 10), 100); // Base 30 + 10 per pulse, max 100
+        }
+        
+        // Adjust based on reputation (0 is worst, higher is better)
+        if (reputation < 0) {
+          threatScore = Math.max(threatScore, 60); // Negative reputation is concerning
+        }
+        
+        if (threatScore > 30) { // Only report if significant threat
+          return {
+            indicator: indicator,
+            score: threatScore,
+            details: { 
+              feed_type: feed.feed_type, 
+              indicator_type: indicatorType,
+              indicator: indicator,
+              pulse_count: pulseCount,
+              reputation: reputation,
+              pulses: pulseInfo.pulses ? pulseInfo.pulses.slice(0, 3) : [], // First 3 pulses
+              feed_source: feed.name,
+              otx_permalink: data.permalink || null
+            }
+          };
+        }
+      } else if (response.status === 404) {
+        // 404 means indicator not found in OTX, which is good
+        return null;
+      } else {
+        console.error(`OTX API error for ${indicator}: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error(`Error checking OTX indicator ${indicator}:`, error);
     }
   }
 
