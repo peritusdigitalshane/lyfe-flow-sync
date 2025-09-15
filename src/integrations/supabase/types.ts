@@ -859,6 +859,13 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      user_has_module_access: {
+        Args: {
+          _module: Database["public"]["Enums"]["user_module"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:

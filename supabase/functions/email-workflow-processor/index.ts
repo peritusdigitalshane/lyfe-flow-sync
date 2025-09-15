@@ -116,8 +116,36 @@ serve(async (req) => {
       console.log('AI quarantine enabled:', quarantineSettings.ai_enabled);
     }
 
-    // Step 2: Enhanced threat intelligence check (with timeout and error handling)
-    if (shouldCheckQuarantine || quarantineSettings.threat_intelligence_enabled) {
+    // Step 2: Check if user has Security module access before threat intelligence
+    const { data: mailbox, error: mailboxError } = await supabase
+      .from('mailboxes')
+      .select('user_id')
+      .eq('id', email.mailbox_id)
+      .single();
+
+    if (mailboxError) {
+      console.error('Error fetching mailbox:', mailboxError);
+      // Continue processing without threat intelligence
+    }
+
+    let userHasSecurityModule = false;
+    if (mailbox?.user_id) {
+      const { data: hasSecurityAccess, error: securityError } = await supabase
+        .rpc('user_has_module_access', { 
+          _user_id: mailbox.user_id, 
+          _module: 'security' 
+        });
+
+      if (!securityError && hasSecurityAccess) {
+        userHasSecurityModule = true;
+        console.log('User has Security module access - threat intelligence enabled');
+      } else {
+        console.log('User does not have Security module access - skipping threat intelligence');
+      }
+    }
+
+    // Step 3: Enhanced threat intelligence check (only if user has Security module)
+    if (userHasSecurityModule && (shouldCheckQuarantine || quarantineSettings.threat_intelligence_enabled)) {
       try {
         console.log('Running threat intelligence check...');
         
