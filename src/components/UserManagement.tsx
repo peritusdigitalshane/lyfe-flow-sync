@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Shield, UserCheck, Crown } from "lucide-react";
+import { Users, Shield, UserCheck, Crown, CheckCircle, AlertCircle } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -16,6 +16,7 @@ interface User {
   email: string;
   full_name: string | null;
   created_at: string;
+  account_status: string;
   roles: string[];
 }
 
@@ -35,7 +36,7 @@ export function UserManagement() {
       // Fetch users with their roles
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, email, full_name, created_at")
+        .select("id, email, full_name, created_at, account_status")
         .order("created_at", { ascending: false });
 
       if (profilesError) throw profilesError;
@@ -95,6 +96,41 @@ export function UserManagement() {
     } catch (error) {
       console.error("Error updating user role:", error);
       toast.error("Failed to update user role");
+    } finally {
+      setUpdatingUser(null);
+    }
+  };
+
+  const activateUser = async (userId: string, email: string) => {
+    try {
+      setUpdatingUser(userId);
+
+      // Update account status to active
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ account_status: 'active' })
+        .eq("id", userId);
+
+      if (profileError) throw profileError;
+
+      // Create or update subscriber record
+      const { error: subscriberError } = await supabase
+        .from("subscribers")
+        .upsert({
+          user_id: userId,
+          email: email,
+          subscribed: true,
+          subscription_tier: 'manual',
+          updated_at: new Date().toISOString()
+        });
+
+      if (subscriberError) throw subscriberError;
+
+      toast.success("User activated successfully");
+      await fetchUsers();
+    } catch (error) {
+      console.error("Error activating user:", error);
+      toast.error("Failed to activate user");
     } finally {
       setUpdatingUser(null);
     }
@@ -166,6 +202,7 @@ export function UserManagement() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Roles</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead>Actions</TableHead>
@@ -183,6 +220,23 @@ export function UserManagement() {
                     <div className="text-sm text-muted-foreground">
                       {user.email}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      variant={user.account_status === 'active' ? 'default' : 'secondary'}
+                      className={`text-xs ${
+                        user.account_status === 'active' 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                          : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                      }`}
+                    >
+                      {user.account_status === 'active' ? (
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                      ) : (
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                      )}
+                      {user.account_status === 'active' ? 'Active' : 'Pending'}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
@@ -212,7 +266,20 @@ export function UserManagement() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                      {user.account_status === 'pending' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => activateUser(user.id, user.email)}
+                          disabled={updatingUser === user.id}
+                          className="h-8 text-xs"
+                        >
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Activate
+                        </Button>
+                      )}
+                      
                       <Select
                         onValueChange={(role) => updateUserRole(user.id, role as AppRole, 'add')}
                         disabled={updatingUser === user.id}
