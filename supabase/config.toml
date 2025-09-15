@@ -59,6 +59,3 @@ verify_jwt = true
 
 [functions.reprocess-emails]
 verify_jwt = true
-
-[functions.activate-user]
-verify_jwt = true

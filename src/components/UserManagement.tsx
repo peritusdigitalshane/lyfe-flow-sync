@@ -17,7 +17,6 @@ interface User {
   full_name: string | null;
   created_at: string;
   account_status: string;
-  subscription_status: 'active' | 'inactive';
   roles: string[];
 }
 
@@ -34,7 +33,7 @@ export function UserManagement() {
     try {
       setLoading(true);
       
-      // Fetch users with their subscription status
+      // Fetch users with their account status
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("id, email, full_name, created_at, account_status")
@@ -42,16 +41,8 @@ export function UserManagement() {
 
       if (profilesError) throw profilesError;
 
-      // Fetch subscription data
-      const userIds = profiles?.map(p => p.id) || [];
-      const { data: subscribers, error: subscribersError } = await supabase
-        .from("subscribers")
-        .select("user_id, subscribed")
-        .in("user_id", userIds);
-
-      if (subscribersError) console.warn("Could not fetch subscribers:", subscribersError);
-
       // Fetch roles for each user
+      const userIds = profiles?.map(p => p.id) || [];
       const { data: userRoles, error: rolesError } = await supabase
         .from("user_roles")
         .select("user_id, role")
@@ -59,18 +50,11 @@ export function UserManagement() {
 
       if (rolesError) throw rolesError;
 
-      // Combine users with their roles and subscription status
-      const usersWithRoles = profiles?.map(profile => {
-        const subscriber = subscribers?.find(s => s.user_id === profile.id);
-        const hasActiveSubscription = subscriber?.subscribed === true;
-        const isAccountActive = profile.account_status === 'active';
-        
-        return {
-          ...profile,
-          subscription_status: (hasActiveSubscription && isAccountActive) ? 'active' as const : 'inactive' as const,
-          roles: userRoles?.filter(role => role.user_id === profile.id).map(role => role.role) || []
-        };
-      }) || [];
+      // Combine users with their roles
+      const usersWithRoles = profiles?.map(profile => ({
+        ...profile,
+        roles: userRoles?.filter(role => role.user_id === profile.id).map(role => role.role) || []
+      })) || [];
 
       setUsers(usersWithRoles);
     } catch (error) {
@@ -121,34 +105,18 @@ export function UserManagement() {
     try {
       setUpdatingUser(userId);
 
-      // Try edge function first
-      try {
-        const { data, error } = await supabase.functions.invoke('activate-user', {
-          body: { userId, email }
-        });
+      // Use the database function directly - this works for both Stripe and manual activation
+      const { error } = await supabase.rpc('activate_user_account', {
+        user_email: email
+      });
 
-        if (!error && data?.success) {
-          toast.success("User activated successfully");
-          await fetchUsers();
-          return;
-        }
-      } catch (edgeFunctionError) {
-        console.warn("Edge function failed, trying direct approach:", edgeFunctionError);
-      }
-
-      // Fallback: Just update the account status directly
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ account_status: 'active' })
-        .eq("id", userId);
-
-      if (profileError) throw profileError;
+      if (error) throw error;
 
       toast.success("User activated successfully");
       await fetchUsers();
     } catch (error) {
       console.error("Error activating user:", error);
-      toast.error("Failed to activate user");
+      toast.error("Failed to activate user: " + (error as Error).message);
     } finally {
       setUpdatingUser(null);
     }
@@ -241,19 +209,19 @@ export function UserManagement() {
                   </TableCell>
                   <TableCell>
                     <Badge 
-                      variant={user.subscription_status === 'active' ? 'default' : 'secondary'}
+                      variant={user.account_status === 'active' ? 'default' : 'secondary'}
                       className={`text-xs ${
-                        user.subscription_status === 'active' 
+                        user.account_status === 'active' 
                           ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                          : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
                       }`}
                     >
-                      {user.subscription_status === 'active' ? (
+                      {user.account_status === 'active' ? (
                         <CheckCircle className="h-3 w-3 mr-1" />
                       ) : (
                         <AlertCircle className="h-3 w-3 mr-1" />
                       )}
-                      {user.subscription_status === 'active' ? 'Active' : 'Inactive'}
+                      {user.account_status === 'active' ? 'Active' : 'Pending'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -285,7 +253,7 @@ export function UserManagement() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2 flex-wrap">
-                      {user.subscription_status === 'inactive' && (
+                      {user.account_status === 'pending' && (
                         <Button
                           size="sm"
                           variant="outline"
