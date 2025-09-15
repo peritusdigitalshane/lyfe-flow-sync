@@ -36,6 +36,8 @@ export default function WorkflowRules() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [loading, setLoading] = useState(true);
+  const [suggestedRules, setSuggestedRules] = useState<any[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [editingRule, setEditingRule] = useState<string | null>(null);
   const [newRule, setNewRule] = useState<Partial<WorkflowRule>>({
     name: '',
@@ -104,6 +106,9 @@ export default function WorkflowRules() {
       setRules(convertedRules);
       setCategories(categoriesData || []);
       setMailboxes(mailboxesData || []);
+      
+      // Load suggested rules after data is loaded
+      await loadSuggestedRules();
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -114,6 +119,209 @@ export default function WorkflowRules() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadSuggestedRules = async () => {
+    try {
+      setLoadingSuggestions(true);
+      
+      // Get email patterns that could benefit from automation
+      const { data: emailStats, error: statsError } = await supabase
+        .from('emails')
+        .select(`
+          sender_email,
+          sender_name,
+          subject,
+          email_classifications (
+            category_id,
+            email_categories (
+              id,
+              name,
+              color
+            )
+          )
+        `)
+        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()); // Last 30 days
+
+      if (statsError) throw statsError;
+
+      // Analyze patterns for suggestions
+      const suggestions = [];
+      
+      // Group emails by sender
+      const senderStats = new Map();
+      emailStats?.forEach(email => {
+        const key = email.sender_email;
+        const classifications = Array.isArray(email.email_classifications) ? email.email_classifications : [];
+        const firstClassification = classifications[0];
+        const category = firstClassification?.email_categories;
+        
+        if (!senderStats.has(key)) {
+          senderStats.set(key, {
+            sender_email: email.sender_email,
+            sender_name: email.sender_name,
+            count: 0,
+            categories: new Set(),
+            category_name: category?.name,
+            category_color: category?.color
+          });
+        }
+        const stats = senderStats.get(key);
+        stats.count++;
+        if (firstClassification?.category_id) {
+          stats.categories.add(firstClassification.category_id);
+        }
+      });
+
+      // Find senders with high volume (5+ emails) that don't have rules
+      for (const [sender, stats] of senderStats) {
+        if (stats.count >= 5) {
+          // Check if there's already a rule for this sender
+          const hasRule = rules.some(rule => 
+            rule.conditions?.some(condition => 
+              condition.field === 'sender_email' && 
+              (condition.value === sender || sender.includes(condition.value as string))
+            )
+          );
+
+          if (!hasRule) {
+            suggestions.push({
+              type: 'sender_automation',
+              title: `Automate emails from ${stats.sender_name || sender}`,
+              description: `${stats.count} emails in the last 30 days`,
+              impact: `Save time by automatically categorizing emails from this sender`,
+              suggestion_data: {
+                sender_email: sender,
+                sender_name: stats.sender_name,
+                category_name: stats.category_name,
+                category_color: stats.category_color,
+                email_count: stats.count
+              }
+            });
+          }
+        }
+      }
+
+      // Group by subject patterns (e.g., newsletters, notifications)
+      const subjectPatterns = new Map();
+      emailStats?.forEach(email => {
+        // Extract common patterns from subjects
+        const subject = email.subject.toLowerCase();
+        let pattern = null;
+        
+        if (subject.includes('newsletter') || subject.includes('update') || subject.includes('digest')) {
+          pattern = 'newsletter';
+        } else if (subject.includes('notification') || subject.includes('alert')) {
+          pattern = 'notification';
+        } else if (subject.includes('invoice') || subject.includes('receipt') || subject.includes('payment')) {
+          pattern = 'billing';
+        }
+
+        if (pattern) {
+          const classifications = Array.isArray(email.email_classifications) ? email.email_classifications : [];
+          const firstClassification = classifications[0];
+          const category = firstClassification?.email_categories;
+          
+          if (!subjectPatterns.has(pattern)) {
+            subjectPatterns.set(pattern, {
+              pattern,
+              count: 0,
+              examples: [],
+              category_name: category?.name,
+              category_color: category?.color
+            });
+          }
+          const stats = subjectPatterns.get(pattern);
+          stats.count++;
+          if (stats.examples.length < 3) {
+            stats.examples.push(email.subject);
+          }
+        }
+      });
+
+      // Add subject pattern suggestions
+      for (const [pattern, stats] of subjectPatterns) {
+        if (stats.count >= 3) {
+          const hasRule = rules.some(rule => 
+            rule.conditions?.some(condition => 
+              condition.field === 'subject' && 
+              (condition.value as string).toLowerCase().includes(pattern)
+            )
+          );
+
+          if (!hasRule) {
+            suggestions.push({
+              type: 'subject_pattern',
+              title: `Automate ${pattern} emails`,
+              description: `${stats.count} emails matching this pattern in the last 30 days`,
+              impact: `Automatically categorize ${pattern} emails`,
+              suggestion_data: {
+                pattern,
+                examples: stats.examples,
+                category_name: stats.category_name,
+                category_color: stats.category_color,
+                email_count: stats.count
+              }
+            });
+          }
+        }
+      }
+
+      setSuggestedRules(suggestions.slice(0, 5)); // Limit to top 5 suggestions
+    } catch (error) {
+      console.error('Error loading suggested rules:', error);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const createRuleFromSuggestion = (suggestion: any) => {
+    let newRuleFromSuggestion: Partial<WorkflowRule> = {
+      name: suggestion.title,
+      conditions: [],
+      actions: [],
+      is_active: true,
+      priority: 1
+    };
+
+    // Create conditions based on suggestion type
+    if (suggestion.type === 'sender_automation') {
+      newRuleFromSuggestion.conditions = [{
+        field: 'sender_email',
+        operator: 'equals',
+        value: suggestion.suggestion_data.sender_email,
+        case_sensitive: false
+      }];
+    } else if (suggestion.type === 'subject_pattern') {
+      newRuleFromSuggestion.conditions = [{
+        field: 'subject',
+        operator: 'contains',
+        value: suggestion.suggestion_data.pattern,
+        case_sensitive: false
+      }];
+    }
+
+    // Set up categorization action if category info is available
+    if (suggestion.suggestion_data.category_name) {
+      const category = categories.find(c => c.name === suggestion.suggestion_data.category_name);
+      if (category) {
+        newRuleFromSuggestion.actions = [{
+          type: 'categorise',
+          parameters: { category_id: category.id }
+        }];
+      }
+    }
+
+    setNewRule(newRuleFromSuggestion);
+    setEditingRule('new');
+
+    // Remove the suggestion from the list
+    setSuggestedRules(prev => prev.filter(s => s !== suggestion));
+
+    toast({
+      title: "Rule Template Created",
+      description: "Review and customize the rule before saving",
+    });
   };
 
   const saveRule = async (rule: Partial<WorkflowRule>) => {
@@ -333,6 +541,78 @@ export default function WorkflowRules() {
             Create Rule
           </Button>
         </div>
+
+        {/* Suggested Rules Section */}
+        {suggestedRules.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span>Suggested Rules</span>
+                {loadingSuggestions && <Loader2 className="h-4 w-4 animate-spin" />}
+              </CardTitle>
+              <CardDescription>
+                Based on your email patterns, here are some automation opportunities that could save you time
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {suggestedRules.map((suggestion, index) => (
+                  <div key={index} className="border rounded-lg p-4 bg-muted/30">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm">{suggestion.title}</h4>
+                        <p className="text-sm text-muted-foreground mt-1">{suggestion.description}</p>
+                        <p className="text-xs text-primary mt-2">{suggestion.impact}</p>
+                        
+                        {suggestion.suggestion_data.examples && (
+                          <div className="mt-3">
+                            <p className="text-xs text-muted-foreground mb-1">Example subjects:</p>
+                            <div className="text-xs space-y-1">
+                              {suggestion.suggestion_data.examples.slice(0, 2).map((example: string, i: number) => (
+                                <div key={i} className="bg-background/50 px-2 py-1 rounded text-muted-foreground">
+                                  "{example}"
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {suggestion.suggestion_data.sender_name && (
+                          <div className="mt-2 text-xs">
+                            <span className="text-muted-foreground">Sender: </span>
+                            <span className="font-medium">{suggestion.suggestion_data.sender_name}</span>
+                          </div>
+                        )}
+
+                        {suggestion.suggestion_data.category_name && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: suggestion.suggestion_data.category_color }}
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              Most emails go to: {suggestion.suggestion_data.category_name}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => createRuleFromSuggestion(suggestion)}
+                        className="ml-4 gap-2"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Add Rule
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* New Rule Form */}
         {editingRule === 'new' && (
