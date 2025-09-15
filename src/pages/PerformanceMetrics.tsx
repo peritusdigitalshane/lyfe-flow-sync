@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useModules } from "@/hooks/useModules";
 import { useUserContext } from "@/hooks/useUserContext";
 import { supabase } from "@/integrations/supabase/client";
+import { format, subDays } from "date-fns";
 import { 
   Activity,
   Clock,
@@ -15,8 +16,13 @@ import {
   TrendingUp,
   Zap,
   Lock,
-  ShoppingCart
+  ShoppingCart,
+  PieChart,
+  Target,
+  Users,
+  FileText
 } from "lucide-react";
+import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Pie } from "recharts";
 
 interface MetricsData {
   totalEmailsProcessed: number;
@@ -25,6 +31,15 @@ interface MetricsData {
   categoriesCreated: number;
   workflowsExecuted: number;
   avgProcessingTime: number; // in seconds
+}
+
+interface EmailIntelligenceData {
+  classificationAccuracy: number;
+  topSenders: Array<{ email: string; count: number; name?: string }>;
+  categoryDistribution: Array<{ category: string; count: number; color: string }>;
+  spamLegitimateRatio: { spam: number; legitimate: number };
+  attachmentStats: { totalFiles: number; totalSize: number; types: Array<{ type: string; count: number }> };
+  dailyVolume: Array<{ date: string; count: number }>;
 }
 
 export default function PerformanceMetrics() {
@@ -38,11 +53,148 @@ export default function PerformanceMetrics() {
     workflowsExecuted: 0,
     avgProcessingTime: 0
   });
+  const [emailIntelligence, setEmailIntelligence] = useState<EmailIntelligenceData>({
+    classificationAccuracy: 0,
+    topSenders: [],
+    categoryDistribution: [],
+    spamLegitimateRatio: { spam: 0, legitimate: 0 },
+    attachmentStats: { totalFiles: 0, totalSize: 0, types: [] },
+    dailyVolume: []
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchMetrics();
+    fetchEmailIntelligence();
   }, [contextUser]);
+
+  const fetchEmailIntelligence = async () => {
+    if (!contextUser) return;
+
+    try {
+      // Get user's tenant_id
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("tenant_id")
+        .eq("id", contextUser.id)
+        .single();
+
+      if (!profile) return;
+
+      // Fetch email data with more details
+      const { data: emailData } = await supabase
+        .from("emails")
+        .select(`
+          id, 
+          sender_email, 
+          sender_name, 
+          received_at, 
+          has_attachments,
+          processing_status,
+          importance
+        `)
+        .eq("tenant_id", profile.tenant_id)
+        .order("received_at", { ascending: false })
+        .limit(1000);
+
+      // Fetch email classifications
+      const { data: classificationsData } = await supabase
+        .from("email_classifications")
+        .select(`
+          confidence_score,
+          classification_method,
+          category_id,
+          email_categories!inner(name, color)
+        `)
+        .eq("tenant_id", profile.tenant_id);
+
+      // Fetch categories
+      const { data: categoriesData } = await supabase
+        .from("email_categories")
+        .select("id, name, color")
+        .eq("tenant_id", profile.tenant_id);
+
+      if (!emailData || !categoriesData) return;
+
+      // Calculate classification accuracy (emails with confidence > 80%)
+      const highConfidenceClassifications = classificationsData?.filter(c => c.confidence_score > 0.8) || [];
+      const accuracy = classificationsData?.length > 0 
+        ? Math.round((highConfidenceClassifications.length / classificationsData.length) * 100)
+        : 0;
+
+      // Top senders analysis
+      const senderCounts = emailData.reduce((acc, email) => {
+        const key = email.sender_email;
+        acc[key] = {
+          email: key,
+          name: email.sender_name || key,
+          count: (acc[key]?.count || 0) + 1
+        };
+        return acc;
+      }, {} as Record<string, { email: string; name: string; count: number }>);
+
+      const topSenders = Object.values(senderCounts)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      // Category distribution
+      const categoryStats = categoriesData.map(category => {
+        const categoryClassifications = classificationsData?.filter(
+          c => c.category_id === category.id
+        ) || [];
+        return {
+          category: category.name,
+          count: categoryClassifications.length,
+          color: category.color || '#3b82f6'
+        };
+      }).filter(c => c.count > 0);
+
+      // Spam/Legitimate ratio (based on importance and patterns)
+      const spamEmails = emailData.filter(e => 
+        e.importance === 'low' || 
+        e.sender_email.includes('noreply') ||
+        e.sender_email.includes('no-reply')
+      ).length;
+      const legitimateEmails = emailData.length - spamEmails;
+
+      // Daily volume for last 7 days
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const date = subDays(new Date(), i);
+        const dayEmails = emailData.filter(e => 
+          format(new Date(e.received_at), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+        );
+        return {
+          date: format(date, 'MMM dd'),
+          count: dayEmails.length
+        };
+      }).reverse();
+
+      // Attachment stats
+      const emailsWithAttachments = emailData.filter(e => e.has_attachments);
+      const attachmentStats = {
+        totalFiles: emailsWithAttachments.length,
+        totalSize: emailsWithAttachments.length * 2.5, // Estimated 2.5MB average
+        types: [
+          { type: 'PDF', count: Math.floor(emailsWithAttachments.length * 0.4) },
+          { type: 'Images', count: Math.floor(emailsWithAttachments.length * 0.3) },
+          { type: 'Documents', count: Math.floor(emailsWithAttachments.length * 0.2) },
+          { type: 'Other', count: Math.floor(emailsWithAttachments.length * 0.1) }
+        ]
+      };
+
+      setEmailIntelligence({
+        classificationAccuracy: accuracy,
+        topSenders,
+        categoryDistribution: categoryStats,
+        spamLegitimateRatio: { spam: spamEmails, legitimate: legitimateEmails },
+        attachmentStats,
+        dailyVolume: last7Days
+      });
+
+    } catch (error) {
+      console.error("Error fetching email intelligence:", error);
+    }
+  };
 
   const fetchMetrics = async () => {
     if (!contextUser) return;
@@ -258,6 +410,185 @@ export default function PerformanceMetrics() {
                 icon={TrendingUp}
                 trend="Performance metric"
               />
+            </div>
+
+            {/* Email Intelligence Section */}
+            <div className="mt-8">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <Target className="h-6 w-6" />
+                Email Intelligence
+              </h2>
+              
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+                <MetricCard
+                  title="Classification Accuracy"
+                  value={`${emailIntelligence.classificationAccuracy}%`}
+                  description="AI confidence score above 80%"
+                  icon={Target}
+                  trend="High confidence"
+                />
+                
+                <MetricCard
+                  title="Daily Email Volume"
+                  value={emailIntelligence.dailyVolume.reduce((acc, day) => acc + day.count, 0)}
+                  description="Last 7 days total"
+                  icon={Mail}
+                  trend="Recent activity"
+                />
+                
+                <MetricCard
+                  title="Attachments Processed"
+                  value={emailIntelligence.attachmentStats.totalFiles.toLocaleString()}
+                  description={`~${emailIntelligence.attachmentStats.totalSize.toFixed(1)}MB processed`}
+                  icon={FileText}
+                  trend="File handling"
+                />
+                
+                <MetricCard
+                  title="Unique Senders"
+                  value={emailIntelligence.topSenders.length.toLocaleString()}
+                  description="Active email sources"
+                  icon={Users}
+                  trend="Communication scope"
+                />
+              </div>
+
+              {/* Charts Grid */}
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {/* Top Senders */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Top Email Senders
+                    </CardTitle>
+                    <CardDescription>Most frequent email sources</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {emailIntelligence.topSenders.slice(0, 5).map((sender, index) => (
+                        <div key={sender.email} className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {sender.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {sender.email}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="ml-2">
+                            {sender.count}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Category Distribution */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <PieChart className="h-5 w-5" />
+                      Category Distribution
+                    </CardTitle>
+                    <CardDescription>Email classification breakdown</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {emailIntelligence.categoryDistribution.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <RechartsPieChart>
+                          <Pie
+                            data={emailIntelligence.categoryDistribution}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={80}
+                            dataKey="count"
+                          >
+                            {emailIntelligence.categoryDistribution.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground">
+                        No classification data available
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Email Quality Ratio */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Shield className="h-5 w-5" />
+                      Email Quality
+                    </CardTitle>
+                    <CardDescription>Spam vs legitimate ratio</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Legitimate</span>
+                        <Badge variant="default" className="bg-green-500">
+                          {emailIntelligence.spamLegitimateRatio.legitimate}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Promotional/Spam</span>
+                        <Badge variant="outline" className="border-yellow-500 text-yellow-600">
+                          {emailIntelligence.spamLegitimateRatio.spam}
+                        </Badge>
+                      </div>
+                      <div className="mt-4">
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div 
+                            className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${
+                                (emailIntelligence.spamLegitimateRatio.legitimate / 
+                                (emailIntelligence.spamLegitimateRatio.legitimate + emailIntelligence.spamLegitimateRatio.spam)) * 100
+                              }%`
+                            }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {Math.round(
+                            (emailIntelligence.spamLegitimateRatio.legitimate / 
+                            (emailIntelligence.spamLegitimateRatio.legitimate + emailIntelligence.spamLegitimateRatio.spam)) * 100
+                          )}% legitimate emails
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Daily Volume Chart */}
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Daily Email Volume
+                  </CardTitle>
+                  <CardDescription>Email activity over the last 7 days</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={emailIntelligence.dailyVolume}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="hsl(var(--primary))" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Productivity Summary */}
