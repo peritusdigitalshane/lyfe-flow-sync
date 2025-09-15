@@ -1624,14 +1624,12 @@ export default function WorkflowRules() {
                         </Button>
                       </div>
                    </div>
-                 ) : (
-                   <div className="grid grid-cols-2 gap-4">
-                   <div>
-                     <Label className="text-sm font-medium">Conditions ({rule.conditions.length})</Label>
-                      <div className="mt-2 space-y-1">
-                        {rule.conditions.slice(0, 3).map((condition, index) => {
-                          console.log('Condition debug:', condition); // Debug log
-                          return (
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium">Conditions ({rule.conditions.length})</Label>
+                        <div className="mt-2 space-y-1">
+                          {rule.conditions.slice(0, 3).map((condition, index) => (
                             <div key={index} className="text-sm text-muted-foreground">
                               {condition.field === 'ai_analysis' ? (
                                 <span className="inline-flex items-center gap-1">
@@ -1642,32 +1640,31 @@ export default function WorkflowRules() {
                                 `${condition.field} ${condition.operator} "${condition.value}"`
                               )}
                             </div>
-                          );
-                        })}
-                        {rule.conditions.length > 3 && (
-                          <div className="text-sm text-muted-foreground">
-                            ... and {rule.conditions.length - 3} more
-                          </div>
-                        )}
+                          ))}
+                          {rule.conditions.length > 3 && (
+                            <div className="text-sm text-muted-foreground">
+                              ... and {rule.conditions.length - 3} more
+                            </div>
+                          )}
+                        </div>
                       </div>
-                   </div>
-                   <div>
-                     <Label className="text-sm font-medium">Actions ({rule.actions.length})</Label>
-                     <div className="mt-2 space-y-1">
-                       {rule.actions.slice(0, 3).map((action, index) => (
-                         <div key={index} className="text-sm text-muted-foreground">
-                           {action.type.replace('_', ' ')}
-                         </div>
-                       ))}
-                       {rule.actions.length > 3 && (
-                         <div className="text-sm text-muted-foreground">
-                           ... and {rule.actions.length - 3} more
-                         </div>
-                       )}
+                      <div>
+                        <Label className="text-sm font-medium">Actions ({rule.actions.length})</Label>
+                        <div className="mt-2 space-y-1">
+                          {rule.actions.slice(0, 3).map((action, index) => (
+                            <div key={index} className="text-sm text-muted-foreground">
+                              {action.type.replace('_', ' ')}
+                            </div>
+                          ))}
+                          {rule.actions.length > 3 && (
+                            <div className="text-sm text-muted-foreground">
+                              ... and {rule.actions.length - 3} more
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                 </div>
-                 )}
+                  )}
                </CardContent>
             </Card>
           ))}
