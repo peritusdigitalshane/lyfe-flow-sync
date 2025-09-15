@@ -129,6 +129,7 @@ export default function WorkflowRules() {
       const { data: emailStats, error: statsError } = await supabase
         .from('emails')
         .select(`
+          id,
           microsoft_id,
           sender_email,
           sender_name,
@@ -139,7 +140,7 @@ export default function WorkflowRules() {
       if (statsError) throw statsError;
 
       // Get classifications for these emails
-      const emailIds = emailStats?.map(email => email.microsoft_id) || [];
+      const emailIds = emailStats?.map(email => email.id) || [];
       const { data: classifications } = await supabase
         .from('email_classifications')
         .select(`
@@ -166,7 +167,7 @@ export default function WorkflowRules() {
       const senderStats = new Map();
       emailStats?.forEach(email => {
         const key = email.sender_email;
-        const classification = classificationMap.get(email.microsoft_id);
+        const classification = classificationMap.get(email.id);
         const category = classification?.email_categories;
         
         if (!senderStats.has(key)) {
@@ -231,7 +232,7 @@ export default function WorkflowRules() {
         }
 
         if (pattern) {
-          const classification = classificationMap.get(email.microsoft_id);
+          const classification = classificationMap.get(email.id);
           const category = classification?.email_categories;
           
           if (!subjectPatterns.has(pattern)) {
