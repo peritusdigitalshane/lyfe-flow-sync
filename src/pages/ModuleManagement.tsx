@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Navigation } from "@/components/Navigation";
+import { ImprovedNavigation } from "@/components/ImprovedNavigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Plus, Shield, Mail, Calendar, User, Trash2, Edit, Users } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -201,9 +203,10 @@ export default function ModuleManagement() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <ImprovedNavigation />
       
       <main className="container mx-auto px-4 py-8">
+        <Breadcrumbs />
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold">Module Management</h1>

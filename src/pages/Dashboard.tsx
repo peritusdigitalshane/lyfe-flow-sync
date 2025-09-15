@@ -20,6 +20,8 @@ interface Mailbox {
 }
 
 import { Navigation } from "@/components/Navigation";
+import { ImprovedNavigation } from "@/components/ImprovedNavigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
@@ -148,10 +150,11 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <ImprovedNavigation />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
+        <Breadcrumbs />
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold">Dashboard</h1>
