@@ -64,8 +64,16 @@ export default function PerformanceMetrics() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchMetrics();
-    fetchEmailIntelligence();
+    const loadData = async () => {
+      console.log("Loading data for user:", contextUser?.id);
+      await fetchMetrics();
+      await fetchEmailIntelligence();
+      console.log("Data loaded");
+    };
+    
+    if (contextUser) {
+      loadData();
+    }
   }, [contextUser]);
 
   const fetchEmailIntelligence = async () => {
