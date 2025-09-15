@@ -123,7 +123,7 @@ export const ImprovedNavigation = () => {
             {section.title}
             {section.requiresModule && (
               <Badge variant="outline" className="text-xs">
-                {section.requiresModule === 'email_management' ? 'Free' : 'Premium'}
+                {section.requiresModule === 'email_management' ? 'Standard' : 'Premium'}
               </Badge>
             )}
           </div>
@@ -203,7 +203,7 @@ export const ImprovedNavigation = () => {
             {section.title}
             {section.requiresModule && (
               <Badge variant="outline" className="text-xs">
-                {section.requiresModule === 'email_management' ? 'Free' : 'Premium'}
+                {section.requiresModule === 'email_management' ? 'Standard' : 'Premium'}
               </Badge>
             )}
           </DropdownMenuLabel>
