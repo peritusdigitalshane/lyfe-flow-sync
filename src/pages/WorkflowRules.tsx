@@ -336,8 +336,9 @@ export default function WorkflowRules() {
           description: 'Use AI to identify emails that require immediate attention',
           impact: 'Never miss important deadlines or urgent requests',
           suggestion_data: {
-            ai_condition: 'contains an urgent request or deadline',
-            action_type: 'priority_flag',
+            ai_condition: 'contains an urgent request, deadline, or time-sensitive matter',
+            action_type: 'categorise',
+            category_name: 'Urgent',
             examples: ['Emails with urgent keywords', 'Time-sensitive requests', 'Deadline mentions']
           }
         },
@@ -347,7 +348,7 @@ export default function WorkflowRules() {
           description: 'AI identifies and categorizes meeting invitations and calendar requests',
           impact: 'Streamline scheduling and never miss important meetings',
           suggestion_data: {
-            ai_condition: 'appears to be a meeting request or calendar invitation',
+            ai_condition: 'appears to be a meeting request, calendar invitation, or scheduling email',
             action_type: 'categorise',
             category_name: 'Meetings',
             examples: ['Meeting invitations', 'Calendar requests', 'Schedule confirmations']
@@ -359,7 +360,7 @@ export default function WorkflowRules() {
           description: 'AI detects emails that need a response or specific action from you',
           impact: 'Stay on top of your to-do list and never miss follow-ups',
           suggestion_data: {
-            ai_condition: 'requires a response or specific action from me',
+            ai_condition: 'requires a response, approval, or specific action from me',
             action_type: 'categorise',
             category_name: 'Action Required',
             examples: ['Questions needing answers', 'Approval requests', 'Follow-up reminders']
@@ -371,22 +372,10 @@ export default function WorkflowRules() {
           description: 'AI distinguishes between newsletters, promotions, and personal emails',
           impact: 'Keep your inbox clean while preserving important communications',
           suggestion_data: {
-            ai_condition: 'appears to be a newsletter or promotional email',
+            ai_condition: 'appears to be a newsletter, digest, or subscription email (not promotional)',
             action_type: 'categorise',
             category_name: 'Newsletters',
-            examples: ['Marketing emails', 'Subscription updates', 'Promotional content']
-          }
-        },
-        {
-          type: 'ai_personal_business',
-          title: 'Separate personal from business emails',
-          description: 'AI analyzes content to distinguish personal and professional communications',
-          impact: 'Better work-life balance with organized email separation',
-          suggestion_data: {
-            ai_condition: 'appears to be a personal email rather than business',
-            action_type: 'categorise',
-            category_name: 'Personal',
-            examples: ['Family communications', 'Personal services', 'Non-work related']
+            examples: ['Industry newsletters', 'Weekly digests', 'Subscription updates']
           }
         },
         {
@@ -395,41 +384,65 @@ export default function WorkflowRules() {
           description: 'AI identifies financial documents, receipts, and billing emails',
           impact: 'Simplify expense tracking and financial organization',
           suggestion_data: {
-            ai_condition: 'contains a receipt, invoice, or financial document',
+            ai_condition: 'contains a receipt, invoice, payment confirmation, or financial document',
             action_type: 'categorise',
             category_name: 'Financial',
             examples: ['Purchase receipts', 'Invoice notifications', 'Payment confirmations']
           }
         },
         {
-          type: 'ai_spam_enhancement',
-          title: 'Enhanced spam detection',
-          description: 'AI provides advanced spam and phishing detection beyond standard filters',
-          impact: 'Improved security with smarter threat detection',
+          type: 'ai_support_detection',
+          title: 'Customer support automation',
+          description: 'AI identifies support tickets, help desk responses, and technical communications',
+          impact: 'Efficiently manage customer service and technical support emails',
           suggestion_data: {
-            ai_condition: 'appears to be spam, phishing, or suspicious content',
-            action_type: 'quarantine',
-            examples: ['Suspicious links', 'Phishing attempts', 'Unsolicited offers']
+            ai_condition: 'appears to be customer support, help desk, or technical assistance email',
+            action_type: 'categorise',
+            category_name: 'Support',
+            examples: ['Support tickets', 'Help desk responses', 'Technical assistance']
+          }
+        },
+        {
+          type: 'ai_travel_detection',
+          title: 'Travel and booking organization',
+          description: 'AI detects travel confirmations, booking receipts, and trip-related emails',
+          impact: 'Keep all travel information organized and easily accessible',
+          suggestion_data: {
+            ai_condition: 'relates to travel, bookings, reservations, or trip confirmations',
+            action_type: 'categorise',
+            category_name: 'Travel',
+            examples: ['Flight confirmations', 'Hotel bookings', 'Car rental receipts']
           }
         }
       ];
 
       // Add AI suggestions that don't conflict with existing rules
       for (const aiSuggestion of aiSuggestions) {
-        // Check if user already has similar AI conditions
-        const hasAIRule = rules.some(rule => 
+        // Check if user already has a similar AI condition (more flexible matching)
+        const hasConflictingRule = rules.some(rule => 
           rule.conditions?.some(condition => 
             condition.field === 'ai_analysis' && 
-            (condition.value as string).toLowerCase().includes(aiSuggestion.suggestion_data.ai_condition.split(' ')[0])
+            condition.value && 
+            typeof condition.value === 'string' &&
+            (
+              // Check for keyword overlap to avoid very similar rules
+              aiSuggestion.suggestion_data.ai_condition.toLowerCase().includes('urgent') && condition.value.toLowerCase().includes('urgent') ||
+              aiSuggestion.suggestion_data.ai_condition.toLowerCase().includes('meeting') && condition.value.toLowerCase().includes('meeting') ||
+              aiSuggestion.suggestion_data.ai_condition.toLowerCase().includes('newsletter') && condition.value.toLowerCase().includes('newsletter') ||
+              aiSuggestion.suggestion_data.ai_condition.toLowerCase().includes('receipt') && condition.value.toLowerCase().includes('receipt') ||
+              aiSuggestion.suggestion_data.ai_condition.toLowerCase().includes('invoice') && condition.value.toLowerCase().includes('invoice') ||
+              aiSuggestion.suggestion_data.ai_condition.toLowerCase().includes('support') && condition.value.toLowerCase().includes('support') ||
+              aiSuggestion.suggestion_data.ai_condition.toLowerCase().includes('travel') && condition.value.toLowerCase().includes('travel')
+            )
           )
         );
 
-        if (!hasAIRule) {
+        if (!hasConflictingRule) {
           suggestions.push(aiSuggestion);
         }
       }
 
-      setSuggestedRules(suggestions.slice(0, 8)); // Increased to show more suggestions including AI ones
+      setSuggestedRules(suggestions.slice(0, 8)); // Show up to 8 suggestions
     } catch (error) {
       console.error('Error loading suggested rules:', error);
     } finally {
