@@ -17,6 +17,7 @@ interface User {
   full_name: string | null;
   created_at: string;
   account_status: string;
+  subscription_status: 'active' | 'inactive';
   roles: string[];
 }
 
@@ -33,7 +34,7 @@ export function UserManagement() {
     try {
       setLoading(true);
       
-      // Fetch users with their roles
+      // Fetch users with their subscription status
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("id, email, full_name, created_at, account_status")
@@ -41,8 +42,16 @@ export function UserManagement() {
 
       if (profilesError) throw profilesError;
 
-      // Fetch roles for each user
+      // Fetch subscription data
       const userIds = profiles?.map(p => p.id) || [];
+      const { data: subscribers, error: subscribersError } = await supabase
+        .from("subscribers")
+        .select("user_id, subscribed")
+        .in("user_id", userIds);
+
+      if (subscribersError) console.warn("Could not fetch subscribers:", subscribersError);
+
+      // Fetch roles for each user
       const { data: userRoles, error: rolesError } = await supabase
         .from("user_roles")
         .select("user_id, role")
@@ -50,11 +59,18 @@ export function UserManagement() {
 
       if (rolesError) throw rolesError;
 
-      // Combine users with their roles
-      const usersWithRoles = profiles?.map(profile => ({
-        ...profile,
-        roles: userRoles?.filter(role => role.user_id === profile.id).map(role => role.role) || []
-      })) || [];
+      // Combine users with their roles and subscription status
+      const usersWithRoles = profiles?.map(profile => {
+        const subscriber = subscribers?.find(s => s.user_id === profile.id);
+        const hasActiveSubscription = subscriber?.subscribed === true;
+        const isAccountActive = profile.account_status === 'active';
+        
+        return {
+          ...profile,
+          subscription_status: (hasActiveSubscription && isAccountActive) ? 'active' as const : 'inactive' as const,
+          roles: userRoles?.filter(role => role.user_id === profile.id).map(role => role.role) || []
+        };
+      }) || [];
 
       setUsers(usersWithRoles);
     } catch (error) {
@@ -105,26 +121,12 @@ export function UserManagement() {
     try {
       setUpdatingUser(userId);
 
-      // Update account status to active
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ account_status: 'active' })
-        .eq("id", userId);
+      const { data, error } = await supabase.functions.invoke('activate-user', {
+        body: { userId, email }
+      });
 
-      if (profileError) throw profileError;
-
-      // Create or update subscriber record
-      const { error: subscriberError } = await supabase
-        .from("subscribers")
-        .upsert({
-          user_id: userId,
-          email: email,
-          subscribed: true,
-          subscription_tier: 'manual',
-          updated_at: new Date().toISOString()
-        });
-
-      if (subscriberError) throw subscriberError;
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Activation failed');
 
       toast.success("User activated successfully");
       await fetchUsers();
@@ -223,19 +225,19 @@ export function UserManagement() {
                   </TableCell>
                   <TableCell>
                     <Badge 
-                      variant={user.account_status === 'active' ? 'default' : 'secondary'}
+                      variant={user.subscription_status === 'active' ? 'default' : 'secondary'}
                       className={`text-xs ${
-                        user.account_status === 'active' 
+                        user.subscription_status === 'active' 
                           ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                          : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                       }`}
                     >
-                      {user.account_status === 'active' ? (
+                      {user.subscription_status === 'active' ? (
                         <CheckCircle className="h-3 w-3 mr-1" />
                       ) : (
                         <AlertCircle className="h-3 w-3 mr-1" />
                       )}
-                      {user.account_status === 'active' ? 'Active' : 'Pending'}
+                      {user.subscription_status === 'active' ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -267,7 +269,7 @@ export function UserManagement() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2 flex-wrap">
-                      {user.account_status === 'pending' && (
+                      {user.subscription_status === 'inactive' && (
                         <Button
                           size="sm"
                           variant="outline"
