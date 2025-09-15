@@ -662,6 +662,14 @@ async function categorizeEmail(email: any, categoryId: string, supabase: any): P
 
   console.log('✅ Email categorized successfully:', data);
 
+  // Apply category to email in Microsoft 365
+  try {
+    await applyCategoryToEmailInM365(email, categoryId, supabase);
+  } catch (m365Error) {
+    console.error('❌ Error applying category to email in M365:', m365Error);
+    // Don't throw here - classification in our DB succeeded, M365 sync is secondary
+  }
+
   // Log categorization activity
   await supabase
     .from('audit_logs')
@@ -676,6 +684,125 @@ async function categorizeEmail(email: any, categoryId: string, supabase: any): P
         method: 'workflow_rule'
       }
     });
+}
+
+async function applyCategoryToEmailInM365(email: any, categoryId: string, supabase: any): Promise<void> {
+  console.log(`🔄 Applying category to email ${email.id} in Microsoft 365`);
+  
+  // Get category name
+  const { data: category, error: categoryError } = await supabase
+    .from('email_categories')
+    .select('name')
+    .eq('id', categoryId)
+    .maybeSingle();
+
+  if (categoryError || !category) {
+    console.error('❌ Category not found:', categoryError);
+    throw new Error('Category not found');
+  }
+
+  // Get mailbox with Microsoft Graph token
+  const { data: mailbox, error: mailboxError } = await supabase
+    .from('mailboxes')
+    .select('microsoft_graph_token')
+    .eq('id', email.mailbox_id)
+    .maybeSingle();
+
+  if (mailboxError || !mailbox || !mailbox.microsoft_graph_token) {
+    console.error('❌ Mailbox or token not found:', mailboxError);
+    throw new Error('Mailbox not connected to Microsoft Graph');
+  }
+
+  // Parse the token
+  let parsedToken;
+  try {
+    parsedToken = JSON.parse(mailbox.microsoft_graph_token);
+  } catch (error) {
+    console.error('❌ Failed to parse Microsoft Graph token:', error);
+    throw new Error('Invalid Microsoft Graph token format');
+  }
+
+  // Check if token is expired and refresh if needed
+  const now = Date.now();
+  if (parsedToken.expires_at && parsedToken.expires_at <= now) {
+    console.log('🔄 Token expired, attempting to refresh...');
+    
+    if (!parsedToken.refresh_token) {
+      console.error('❌ No refresh token available');
+      throw new Error('No refresh token available');
+    }
+
+    parsedToken = await refreshTokenForM365Category(parsedToken, email.mailbox_id, supabase);
+    console.log('✅ Token refreshed successfully');
+  }
+
+  // Apply category to email in M365
+  const updateUrl = `https://graph.microsoft.com/v1.0/me/messages/${email.microsoft_id}`;
+  
+  const updateData = {
+    categories: [category.name]
+  };
+
+  console.log(`🔄 Updating email ${email.microsoft_id} with category: ${category.name}`);
+  
+  const updateResponse = await fetch(updateUrl, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${parsedToken.access_token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(updateData)
+  });
+
+  if (!updateResponse.ok) {
+    const errorText = await updateResponse.text();
+    console.error(`❌ Failed to apply category to email: ${updateResponse.status} - ${errorText}`);
+    throw new Error(`Failed to apply category to email: ${updateResponse.status} - ${errorText}`);
+  }
+
+  console.log(`✅ Successfully applied category "${category.name}" to email ${email.microsoft_id} in M365`);
+}
+
+async function refreshTokenForM365Category(tokenData: any, mailboxId: string, supabase: any): Promise<any> {
+  const refreshUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+  
+  const params = new URLSearchParams({
+    client_id: '80b5126b-2f86-4a4d-8d55-43afbd7c970e',
+    client_secret: Deno.env.get('MICROSOFT_CLIENT_SECRET') ?? '',
+    scope: 'https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/MailboxSettings.ReadWrite offline_access',
+    refresh_token: tokenData.refresh_token,
+    grant_type: 'refresh_token'
+  });
+
+  const response = await fetch(refreshUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Token refresh failed: ${response.status} - ${errorText}`);
+  }
+
+  const newTokenData = await response.json();
+  
+  const expiresAt = Date.now() + (newTokenData.expires_in * 1000);
+  const updatedTokenData = {
+    access_token: newTokenData.access_token,
+    refresh_token: newTokenData.refresh_token || tokenData.refresh_token,
+    expires_at: expiresAt
+  };
+
+  await supabase
+    .from('mailboxes')
+    .update({ microsoft_graph_token: JSON.stringify(updatedTokenData) })
+    .eq('id', mailboxId);
+
+  console.log('✅ Token refreshed successfully for M365 category application');
+  return updatedTokenData;
 }
 
 async function quarantineEmail(email: any, supabase: any, reason?: string): Promise<void> {
