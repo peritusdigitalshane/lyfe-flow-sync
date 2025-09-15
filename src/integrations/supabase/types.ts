@@ -641,6 +641,57 @@ export type Database = {
           },
         ]
       }
+      user_modules: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          is_active: boolean | null
+          module: Database["public"]["Enums"]["user_module"]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          module: Database["public"]["Enums"]["user_module"]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          module?: Database["public"]["Enums"]["user_module"]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_modules_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_modules_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -786,6 +837,13 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]
       }
+      has_module_access: {
+        Args: {
+          _module: Database["public"]["Enums"]["user_module"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -827,6 +885,7 @@ export type Database = {
         | "bulk_processing"
         | "manual_processing"
       mailbox_status: "pending" | "connected" | "error" | "paused"
+      user_module: "email_management" | "security"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -980,6 +1039,7 @@ export const Constants = {
         "manual_processing",
       ],
       mailbox_status: ["pending", "connected", "error", "paused"],
+      user_module: ["email_management", "security"],
     },
   },
 } as const

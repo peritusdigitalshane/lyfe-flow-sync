@@ -24,28 +24,50 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoles } from "@/hooks/useRoles";
+import { useModules } from "@/hooks/useModules";
 import { cn } from "@/lib/utils";
 
 export const Navigation = () => {
   const { user, signOut } = useAuth();
   const { isSuperAdmin } = useRoles();
+  const { hasEmailManagement, hasSecurity } = useModules();
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname === path;
 
-  const standardMenuItems = [
+  // Core navigation items (always visible)
+  const coreMenuItems = [
+    { path: '/platform-overview', label: 'Overview', icon: Activity },
     { path: '/dashboard', label: 'Dashboard', icon: Activity },
+    { path: '/settings', label: 'Settings', icon: Settings },
+  ];
+
+  // Email Management module items
+  const emailManagementItems = [
     { path: '/email-categories', label: 'Categories', icon: FolderOpen },
     { path: '/workflows', label: 'Workflows', icon: Workflow },
     { path: '/workflow-rules', label: 'Rules', icon: GitBranch },
     { path: '/ai-classification', label: 'AI Testing', icon: Brain },
-    { path: '/settings', label: 'Settings', icon: Settings },
+  ];
+
+  // Security module items
+  const securityItems = [
+    { path: '/threat-intelligence', label: 'Threat Intelligence', icon: Shield },
+    { path: '/threat-monitor', label: 'Threat Monitor', icon: Shield },
+    { path: '/quarantine-test', label: 'Quarantine Test', icon: Shield },
+  ];
+
+  // Build menu items based on module access
+  const standardMenuItems = [
+    ...coreMenuItems,
+    ...(hasEmailManagement ? emailManagementItems : []),
+    ...(hasSecurity ? securityItems : []),
   ];
 
   const superAdminItems = [
     { path: '/admin/users', label: 'User Management', icon: Users },
+    { path: '/module-management', label: 'Module Management', icon: Settings },
     { path: '/admin/diagnostics', label: 'System Diagnostics', icon: Activity },
-    { path: '/threat-intelligence', label: 'Threat Intelligence', icon: Shield },
     { path: '/admin/settings', label: 'Super Admin Settings', icon: Settings },
     { path: '/super-admin-guide', label: 'Admin Guide', icon: FileText },
   ];

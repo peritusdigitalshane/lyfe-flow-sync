@@ -27,8 +27,11 @@ import SuperAdminSettings from "./pages/SuperAdminSettings";
 import UserGuide from "./pages/UserGuide";
 import ThreatIntelligence from "./pages/ThreatIntelligence";
 import ThreatMonitor from "./pages/ThreatMonitor";
+import ModuleManagement from "./pages/ModuleManagement";
+import PlatformOverview from "./pages/PlatformOverview";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ModuleGuard } from "./components/ModuleGuard";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +51,11 @@ const App = () => (
                 <Dashboard />
               </AccountStatusCheck>
             } />
+            <Route path="/platform-overview" element={
+              <AccountStatusCheck>
+                <PlatformOverview />
+              </AccountStatusCheck>
+            } />
             <Route path="/add-mailbox" element={
               <AccountStatusCheck>
                 <AddMailbox />
@@ -65,22 +73,30 @@ const App = () => (
             } />
             <Route path="/workflows" element={
               <AccountStatusCheck>
-                <WorkflowManagement />
+                <ModuleGuard requiredModule="email_management">
+                  <WorkflowManagement />
+                </ModuleGuard>
               </AccountStatusCheck>
             } />
             <Route path="/workflow-rules" element={
               <AccountStatusCheck>
-                <WorkflowRules />
+                <ModuleGuard requiredModule="email_management">
+                  <WorkflowRules />
+                </ModuleGuard>
               </AccountStatusCheck>
             } />
             <Route path="/email-categories" element={
               <AccountStatusCheck>
-                <EmailCategories />
+                <ModuleGuard requiredModule="email_management">
+                  <EmailCategories />
+                </ModuleGuard>
               </AccountStatusCheck>
             } />
             <Route path="/email-monitoring" element={
               <AccountStatusCheck>
-                <EmailMonitoring />
+                <ModuleGuard requiredModule="email_management">
+                  <EmailMonitoring />
+                </ModuleGuard>
               </AccountStatusCheck>
             } />
             <Route path="/auth/callback" element={<AuthCallback />} />
@@ -91,7 +107,9 @@ const App = () => (
             } />
             <Route path="/ai-classification" element={
               <AccountStatusCheck>
-                <AIClassification />
+                <ModuleGuard requiredModule="email_management">
+                  <AIClassification />
+                </ModuleGuard>
               </AccountStatusCheck>
             } />
             <Route path="/admin/diagnostics" element={
@@ -114,7 +132,9 @@ const App = () => (
               element={
                 <ProtectedRoute requireAdmin>
                   <AccountStatusCheck>
-                    <QuarantineTest />
+                    <ModuleGuard requiredModule="security">
+                      <QuarantineTest />
+                    </ModuleGuard>
                   </AccountStatusCheck>
                 </ProtectedRoute>
               } 
@@ -146,14 +166,28 @@ const App = () => (
             } />
             <Route path="/threat-intelligence" element={
               <AccountStatusCheck>
-                <ThreatIntelligence />
+                <ModuleGuard requiredModule="security">
+                  <ThreatIntelligence />
+                </ModuleGuard>
               </AccountStatusCheck>
             } />
             <Route path="/threat-monitor" element={
               <AccountStatusCheck>
-                <ThreatMonitor />
+                <ModuleGuard requiredModule="security">
+                  <ThreatMonitor />
+                </ModuleGuard>
               </AccountStatusCheck>
             } />
+            <Route 
+              path="/module-management" 
+              element={
+                <ProtectedRoute requireSuperAdmin>
+                  <AccountStatusCheck>
+                    <ModuleManagement />
+                  </AccountStatusCheck>
+                </ProtectedRoute>
+              } 
+            />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
