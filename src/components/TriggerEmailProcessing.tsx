@@ -110,6 +110,20 @@ const TriggerEmailProcessing: React.FC<{ mailboxId?: string }> = ({ mailboxId })
     
     try {
       console.log('Starting reprocess emails request...');
+      
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session check:', session ? 'Session exists' : 'No session');
+      
+      if (!session) {
+        toast.error('You must be logged in to reprocess emails');
+        setReprocessResults({
+          success: false,
+          message: "Authentication required"
+        });
+        return;
+      }
+      
       const { data, error } = await supabase.functions.invoke('reprocess-emails');
       
       if (error) {
