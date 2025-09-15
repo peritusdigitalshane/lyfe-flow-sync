@@ -206,7 +206,6 @@ export default function WorkflowManagement() {
       setIsReprocessing(false);
     }
   };
-  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
