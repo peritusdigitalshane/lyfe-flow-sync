@@ -61,6 +61,7 @@ export default function WorkflowRules() {
   useEffect(() => {
     if (!authLoading && user) {
       loadData();
+      loadSuggestedRules(); // Load suggested rules on page load
     }
   }, [user, authLoading]);
 
@@ -170,7 +171,53 @@ export default function WorkflowRules() {
   };
 
   const loadSuggestedRules = async (currentRules?: WorkflowRule[]) => {
-    const rulesToCheck = currentRules || rules;
+    try {
+      setLoadingSuggestions(true);
+      console.log('Loading AI-powered suggested workflow rules...');
+      
+      const { data, error } = await supabase.functions.invoke('suggest-workflow-rules', {
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+      });
+
+      if (error) {
+        console.error('Error loading suggestions:', error);
+        throw error;
+      }
+
+      console.log('Loaded AI suggestions:', data);
+      
+      // Transform the suggestions to match the expected format
+      const transformedSuggestions = (data.suggestions || []).map((suggestion: any) => ({
+        id: `ai_${Date.now()}_${Math.random()}`,
+        type: 'ai_smart_categorization',
+        title: suggestion.name,
+        description: suggestion.description,
+        confidence: suggestion.confidence,
+        suggestion_data: {
+          ai_condition: suggestion.condition_text,
+          action_type: 'categorise',
+          category_name: suggestion.suggested_action.category_name,
+          category_color: suggestion.suggested_action.category_color
+        },
+        email_examples: suggestion.email_examples || []
+      }));
+
+      setSuggestedRules(transformedSuggestions);
+      
+    } catch (error) {
+      console.error('Error loading suggested rules:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load AI suggestions. Please try again later.",
+        variant: "destructive",
+      });
+      setSuggestedRules([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
     try {
       setLoadingSuggestions(true);
       
@@ -451,99 +498,100 @@ export default function WorkflowRules() {
     }
   };
 
-  const createRuleFromSuggestion = (suggestion: any) => {
-    let newRuleFromSuggestion: Partial<WorkflowRule> = {
-      name: suggestion.title,
-      conditions: [],
-      actions: [],
-      is_active: true,
-      priority: 1
-    };
+  const createRuleFromSuggestion = async (suggestion: any) => {
+    try {
+      let newRuleFromSuggestion: Partial<WorkflowRule> = {
+        name: suggestion.title,
+        conditions: [],
+        actions: [],
+        is_active: true,
+        priority: 1
+      };
 
-    // Create conditions based on suggestion type
-    if (suggestion.type === 'sender_automation') {
-      newRuleFromSuggestion.conditions = [{
-        field: 'sender_email',
-        operator: 'equals',
-        value: suggestion.suggestion_data.sender_email,
-        case_sensitive: false
-      }];
-    } else if (suggestion.type === 'subject_pattern') {
-      newRuleFromSuggestion.conditions = [{
-        field: 'subject',
-        operator: 'contains',
-        value: suggestion.suggestion_data.pattern,
-        case_sensitive: false
-      }];
-    } else if (suggestion.type.startsWith('ai_')) {
-      // Handle AI-powered suggestions
-      newRuleFromSuggestion.conditions = [{
-        field: 'ai_analysis',
-        operator: 'ai_condition',
-        value: suggestion.suggestion_data.ai_condition,
-        case_sensitive: false
-      }];
-    }
-
-    // Set up actions based on suggestion data
-    if (suggestion.suggestion_data.category_name) {
-      const category = categories.find(c => c.name === suggestion.suggestion_data.category_name);
-      if (category) {
-        newRuleFromSuggestion.actions = [{
-          type: 'categorise',
-          parameters: { category_id: category.id }
+      // Create conditions based on suggestion type
+      if (suggestion.type === 'ai_smart_categorization' || suggestion.type.startsWith('ai_')) {
+        // Handle AI-powered suggestions
+        newRuleFromSuggestion.conditions = [{
+          field: 'ai_analysis',
+          operator: 'ai_condition',
+          value: suggestion.suggestion_data.ai_condition,
+          case_sensitive: false
+        }];
+      } else if (suggestion.type === 'sender_automation') {
+        newRuleFromSuggestion.conditions = [{
+          field: 'sender_email',
+          operator: 'equals',
+          value: suggestion.suggestion_data.sender_email,
+          case_sensitive: false
+        }];
+      } else if (suggestion.type === 'subject_pattern') {
+        newRuleFromSuggestion.conditions = [{
+          field: 'subject',
+          operator: 'contains',
+          value: suggestion.suggestion_data.pattern,
+          case_sensitive: false
         }];
       }
-    } else if (suggestion.suggestion_data.action_type) {
-      // Handle AI suggestion actions
-      switch (suggestion.suggestion_data.action_type) {
-        case 'priority_flag':
-          newRuleFromSuggestion.actions = [{
-            type: 'mark_as_read',
-            parameters: {}
-          }];
-          break;
-        case 'quarantine':
-          newRuleFromSuggestion.actions = [{
-            type: 'quarantine',
-            parameters: {}
-          }];
-          break;
-        case 'categorise':
-          // Try to find or suggest creating the category
-          const categoryName = suggestion.suggestion_data.category_name || 'AI Categorized';
-          const existingCategory = categories.find(c => c.name === categoryName);
-          if (existingCategory) {
-            newRuleFromSuggestion.actions = [{
-              type: 'categorise',
-              parameters: { category_id: existingCategory.id }
-            }];
-          } else {
-            // Suggest manual category selection
-            newRuleFromSuggestion.actions = [{
-              type: 'categorise',
-              parameters: {}
-            }];
-          }
-          break;
-        default:
+
+      // Handle actions based on suggestion data
+      if (suggestion.suggestion_data.category_name) {
+        // First, try to find existing category
+        const existingCategory = categories.find(c => c.name === suggestion.suggestion_data.category_name);
+        
+        if (existingCategory) {
           newRuleFromSuggestion.actions = [{
             type: 'categorise',
-            parameters: {}
+            parameters: { category_id: existingCategory.id }
           }];
+        } else {
+          // Create new category
+          const { data: newCategory, error: categoryError } = await supabase
+            .from('email_categories')
+            .insert({
+              name: suggestion.suggestion_data.category_name,
+              color: suggestion.suggestion_data.category_color || '#3b82f6',
+              user_id: user?.id,
+              tenant_id: profile?.tenant_id,
+              is_active: true
+            })
+            .select()
+            .single();
+
+          if (categoryError) {
+            console.error('Error creating category:', categoryError);
+            throw categoryError;
+          }
+
+          newRuleFromSuggestion.actions = [{
+            type: 'categorise',
+            parameters: { category_id: newCategory.id }
+          }];
+
+          // Update categories list
+          setCategories(prev => [...prev, newCategory]);
+        }
       }
+
+      // Set the new rule and open editor
+      setNewRule(newRuleFromSuggestion);
+      setEditingRule('new');
+      
+      // Remove the suggestion from the list
+      setSuggestedRules(prev => prev.filter(s => s.title !== suggestion.title));
+      
+      toast({
+        title: "Success",
+        description: `Rule template "${suggestion.title}" loaded. Review and save when ready.`,
+      });
+
+    } catch (error) {
+      console.error('Error creating rule from suggestion:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create rule from suggestion",
+        variant: "destructive",
+      });
     }
-
-    setNewRule(newRuleFromSuggestion);
-    setEditingRule('new');
-
-    // Remove the suggestion from the list
-    setSuggestedRules(prev => prev.filter(s => s !== suggestion));
-
-    toast({
-      title: "Rule Template Created",
-      description: "Review and customize the rule before saving",
-    });
   };
 
   const saveRule = async (rule: Partial<WorkflowRule>) => {
