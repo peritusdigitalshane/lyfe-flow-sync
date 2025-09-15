@@ -317,11 +317,22 @@ serve(async (req) => {
     for (const rule of rules || []) {
       console.log(`Evaluating rule: ${rule.name} with conditions:`, rule.conditions);
       console.log(`DEBUG: About to evaluate rule "${rule.name}" for email: "${email.subject}"`);
+      console.log(`DEBUG: Rule actions before evaluation:`, JSON.stringify(rule.actions));
       
       if (await evaluateRule(rule, email, analysis, supabase)) {
-        actionsToExecute.push(...rule.actions);
-        matchedRule = rule;
         console.log(`✅ Rule matched: ${rule.name}`);
+        console.log(`DEBUG: Rule "${rule.name}" MATCHED - adding actions:`, JSON.stringify(rule.actions));
+        
+        // Ensure rule.actions exists and is an array before spreading
+        if (rule.actions && Array.isArray(rule.actions)) {
+          console.log(`DEBUG: Adding ${rule.actions.length} actions to execution queue`);
+          actionsToExecute.push(...rule.actions);
+          console.log(`DEBUG: Actions queue now has ${actionsToExecute.length} actions:`, JSON.stringify(actionsToExecute));
+        } else {
+          console.error(`DEBUG: Rule "${rule.name}" has invalid actions:`, rule.actions);
+        }
+        
+        matchedRule = rule;
         console.log(`DEBUG: Rule "${rule.name}" MATCHED - breaking loop`);
         break; // Execute first matching rule only
       } else {
@@ -331,18 +342,22 @@ serve(async (req) => {
     }
 
     // Step 7: Execute actions
+    console.log(`DEBUG: About to execute ${actionsToExecute.length} actions:`, JSON.stringify(actionsToExecute));
     const executedActions: WorkflowAction[] = [];
     
     for (const action of actionsToExecute) {
       try {
+        console.log(`DEBUG: Executing action:`, JSON.stringify(action));
         await executeAction(action, email, supabase);
         executedActions.push(action);
-        console.log(`Action executed: ${action.type}`);
+        console.log(`✅ Action executed successfully: ${action.type}`);
       } catch (error) {
-        console.error(`Error executing action ${action.type}:`, error);
+        console.error(`❌ Error executing action ${action.type}:`, error);
         // Continue with other actions even if one fails
       }
     }
+    
+    console.log(`DEBUG: Execution complete. ${executedActions.length} actions executed successfully.`);
 
     // Step 8: Update email status and log execution
     await supabase
@@ -624,7 +639,8 @@ async function executeAction(action: WorkflowAction, email: any, supabase: any):
 }
 
 async function categorizeEmail(email: any, categoryId: string, supabase: any): Promise<void> {
-  console.log(`Categorizing email ${email.id} with category ${categoryId}`);
+  console.log(`DEBUG: Categorizing email ${email.id} with category ${categoryId}`);
+  console.log(`DEBUG: Email details - tenant_id: ${email.tenant_id}, mailbox_id: ${email.mailbox_id}`);
   
   // Insert or update the email classification
   const { data, error } = await supabase
@@ -639,11 +655,12 @@ async function categorizeEmail(email: any, categoryId: string, supabase: any): P
     });
 
   if (error) {
-    console.error('Error categorizing email:', error);
+    console.error('❌ Error categorizing email:', error);
+    console.error('❌ Failed upsert data:', { tenant_id: email.tenant_id, email_id: email.id, mailbox_id: email.mailbox_id, category_id: categoryId });
     throw error;
   }
 
-  console.log('Email categorized successfully:', data);
+  console.log('✅ Email categorized successfully:', data);
 
   // Log categorization activity
   await supabase
