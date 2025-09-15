@@ -33,6 +33,7 @@ import PerformanceMetrics from "./pages/PerformanceMetrics";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ModuleGuard } from "./components/ModuleGuard";
+import PlatformAssistant from "./components/PlatformAssistant";
 
 const queryClient = new QueryClient();
 
@@ -197,6 +198,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <PlatformAssistant />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
