@@ -1628,25 +1628,28 @@ export default function WorkflowRules() {
                    <div className="grid grid-cols-2 gap-4">
                    <div>
                      <Label className="text-sm font-medium">Conditions ({rule.conditions.length})</Label>
-                     <div className="mt-2 space-y-1">
-                       {rule.conditions.slice(0, 3).map((condition, index) => (
-                         <div key={index} className="text-sm text-muted-foreground">
-                           {condition.field === 'ai_analysis' ? (
-                             <span className="inline-flex items-center gap-1">
-                               <span className="inline-block w-2 h-2 bg-primary rounded-full"></span>
-                               AI: "{condition.value}"
-                             </span>
-                           ) : (
-                             `${condition.field} ${condition.operator} "${condition.value}"`
-                           )}
-                         </div>
-                       ))}
-                       {rule.conditions.length > 3 && (
-                         <div className="text-sm text-muted-foreground">
-                           ... and {rule.conditions.length - 3} more
-                         </div>
-                       )}
-                     </div>
+                      <div className="mt-2 space-y-1">
+                        {rule.conditions.slice(0, 3).map((condition, index) => {
+                          console.log('Condition debug:', condition); // Debug log
+                          return (
+                            <div key={index} className="text-sm text-muted-foreground">
+                              {condition.field === 'ai_analysis' ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="inline-block w-2 h-2 bg-primary rounded-full"></span>
+                                  AI: "{condition.value}"
+                                </span>
+                              ) : (
+                                `${condition.field} ${condition.operator} "${condition.value}"`
+                              )}
+                            </div>
+                          );
+                        })}
+                        {rule.conditions.length > 3 && (
+                          <div className="text-sm text-muted-foreground">
+                            ... and {rule.conditions.length - 3} more
+                          </div>
+                        )}
+                      </div>
                    </div>
                    <div>
                      <Label className="text-sm font-medium">Actions ({rule.actions.length})</Label>
