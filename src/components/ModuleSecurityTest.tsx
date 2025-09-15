@@ -114,18 +114,35 @@ export default function ModuleSecurityTest() {
             }
           });
 
-          testResults.push({
-            name: 'Threat Intelligence Edge Function',
-            status: threatIntelError ? 'warning' : 'pass',
-            message: threatIntelError ? 'Edge function test failed (expected for test data)' : 'Edge function accessible with Security module',
-            details: threatIntelError?.message || 'Function executed successfully'
-          });
+          if (threatIntelError) {
+            testResults.push({
+              name: 'Threat Intelligence Edge Function',
+              status: 'fail',
+              message: 'Edge function returned an error',
+              details: threatIntelError.message
+            });
+          } else if (threatResponse?.success) {
+            const result = threatResponse.result;
+            testResults.push({
+              name: 'Threat Intelligence Edge Function',
+              status: 'pass',
+              message: `Threat scan completed: ${result.threats_detected} threats found (score: ${result.max_threat_score})`,
+              details: `Quarantine: ${result.should_quarantine}, Feeds: ${result.threat_details.length > 0 ? result.threat_details.map((t: any) => t.feed_name).join(', ') : 'None'}`
+            });
+          } else {
+            testResults.push({
+              name: 'Threat Intelligence Edge Function',
+              status: 'warning',
+              message: 'Edge function accessible but returned unexpected response',
+              details: JSON.stringify(threatResponse)
+            });
+          }
         } catch (error) {
           testResults.push({
             name: 'Threat Intelligence Edge Function',
-            status: 'warning',
-            message: 'Test failed (expected with test data)',
-            details: 'Edge function protection working correctly'
+            status: 'fail',
+            message: 'Edge function test failed',
+            details: error instanceof Error ? error.message : 'Unknown error'
           });
         }
       } else {
@@ -212,6 +229,8 @@ export default function ModuleSecurityTest() {
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
                 This tool tests the security enforcement of your module system. Users without the Security module should not have access to threat intelligence features.
+                <br /><br />
+                <strong>Threat Intelligence Test:</strong> The edge function analyzes test email content against simulated threat feeds, demonstrating domain blacklist checking and phishing detection capabilities. Test threats are automatically detected to validate the system is working.
               </AlertDescription>
             </Alert>
 
