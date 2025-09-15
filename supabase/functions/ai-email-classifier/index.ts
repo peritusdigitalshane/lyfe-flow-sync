@@ -193,14 +193,23 @@ Be precise and only use the exact category names provided.`;
     // Parse the JSON response
     let classificationResult: ClassificationResult;
     try {
-      classificationResult = JSON.parse(content);
+      // Remove markdown code blocks if present
+      let cleanContent = content.trim();
+      if (cleanContent.startsWith('```json')) {
+        cleanContent = cleanContent.replace(/```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanContent.startsWith('```')) {
+        cleanContent = cleanContent.replace(/```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      classificationResult = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', content);
+      console.error('Parse error:', parseError);
       // Fallback classification
       classificationResult = {
-        category: "Misc",
+        category: categories && categories.length > 0 ? categories[0].name : "Misc",
         confidence: 0.5,
-        reasoning: "Failed to parse AI response, defaulting to Misc"
+        reasoning: "Failed to parse AI response, defaulting to first available category"
       };
     }
 
