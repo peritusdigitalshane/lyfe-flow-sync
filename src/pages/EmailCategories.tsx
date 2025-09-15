@@ -14,6 +14,8 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Edit, Trash2, Tag, ArrowLeft, Loader2, Settings, Download } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import { ImprovedNavigation } from '@/components/ImprovedNavigation';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 
 interface EmailCategory {
   id: string;
@@ -451,34 +453,29 @@ export default function EmailCategories() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Link to="/settings">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Settings
-          </Button>
-        </Link>
-      </div>
+    <div className="min-h-screen bg-background">
+      <ImprovedNavigation />
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* Breadcrumbs */}
+        <Breadcrumbs />
 
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Tag className="h-6 w-6" />
-          Email Categories & Classification
-        </h1>
-        <p className="text-muted-foreground">
-          Manage email categories and automatic classification rules for each mailbox
-        </p>
-        {selectedMailbox && mailboxes.length > 0 && (
-          <div className="mt-2 flex items-center gap-2">
-            <Badge variant="outline" className="gap-1">
-              Currently viewing: {mailboxes.find(m => m.id === selectedMailbox)?.display_name || 
-                                 mailboxes.find(m => m.id === selectedMailbox)?.email_address}
-            </Badge>
-          </div>
-        )}
-      </div>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Tag className="h-6 w-6" />
+            Email Categories & Classification
+          </h1>
+          <p className="text-muted-foreground">
+            Manage email categories and automatic classification rules for each mailbox
+          </p>
+          {selectedMailbox && mailboxes.length > 0 && (
+            <div className="mt-2 flex items-center gap-2">
+              <Badge variant="outline" className="gap-1">
+                Currently viewing: {mailboxes.find(m => m.id === selectedMailbox)?.display_name || 
+                                   mailboxes.find(m => m.id === selectedMailbox)?.email_address}
+              </Badge>
+            </div>
+          )}
+        </div>
 
       <div className="grid gap-6">
         {/* Categories Section */}
@@ -865,13 +862,14 @@ export default function EmailCategories() {
               >
                 {editingRule ? 'Update' : 'Create'}
               </Button>
-              <Button variant="outline" onClick={() => setRuleDialogOpen(false)} className="flex-1">
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+               <Button variant="outline" onClick={() => setRuleDialogOpen(false)} className="flex-1">
+                 Cancel
+               </Button>
+             </div>
+           </div>
+         </DialogContent>
+       </Dialog>
+     </div>
+   </div>
+ );
 }
