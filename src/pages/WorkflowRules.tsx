@@ -244,7 +244,11 @@ export default function WorkflowRules() {
     };
 
     if (rule.id) {
-      setRules(rules.map(r => r.id === rule.id ? updatedRule as WorkflowRule : r));
+      if (editingRule === rule.id) {
+        setEditingRuleData(updatedRule);
+      } else {
+        setRules(rules.map(r => r.id === rule.id ? updatedRule as WorkflowRule : r));
+      }
     } else {
       setNewRule(updatedRule);
     }
@@ -264,7 +268,11 @@ export default function WorkflowRules() {
     };
 
     if (rule.id) {
-      setRules(rules.map(r => r.id === rule.id ? updatedRule as WorkflowRule : r));
+      if (editingRule === rule.id) {
+        setEditingRuleData(updatedRule);
+      } else {
+        setRules(rules.map(r => r.id === rule.id ? updatedRule as WorkflowRule : r));
+      }
     } else {
       setNewRule(updatedRule);
     }
@@ -282,7 +290,11 @@ export default function WorkflowRules() {
     };
 
     if (rule.id) {
-      setRules(rules.map(r => r.id === rule.id ? updatedRule as WorkflowRule : r));
+      if (editingRule === rule.id) {
+        setEditingRuleData(updatedRule);
+      } else {
+        setRules(rules.map(r => r.id === rule.id ? updatedRule as WorkflowRule : r));
+      }
     } else {
       setNewRule(updatedRule);
     }
@@ -703,24 +715,282 @@ export default function WorkflowRules() {
                        </Select>
                      </div>
 
-                     <div className="flex items-center space-x-2">
-                       <Switch
-                         checked={editingRuleData.is_active || false}
-                         onCheckedChange={(checked) => setEditingRuleData({ ...editingRuleData, is_active: checked })}
-                       />
-                       <Label>Active</Label>
-                     </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={editingRuleData.is_active || false}
+                          onCheckedChange={(checked) => setEditingRuleData({ ...editingRuleData, is_active: checked })}
+                        />
+                        <Label>Active</Label>
+                      </div>
 
-                     <div className="flex gap-2">
-                       <Button onClick={() => saveRule(editingRuleData)} className="gap-2">
-                         <Save className="h-4 w-4" />
-                         Save Changes
-                       </Button>
-                       <Button onClick={() => setEditingRule(null)} variant="outline" className="gap-2">
-                         <X className="h-4 w-4" />
-                         Cancel
-                       </Button>
-                     </div>
+                      {/* Conditions Section */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <Label className="text-sm font-medium">Conditions</Label>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addCondition(editingRuleData)}
+                              className="gap-1"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Add Standard Condition
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="premium"
+                              size="sm"
+                              onClick={() => addAICondition(editingRuleData)}
+                              className="gap-1"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Add AI Condition
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {editingRuleData.conditions && editingRuleData.conditions.length > 0 ? (
+                          <div className="space-y-2">
+                            {editingRuleData.conditions.map((condition, index) => (
+                              <div key={index} className="border rounded-lg p-3 bg-muted/50">
+                                {condition.field === 'ai_analysis' ? (
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">AI Condition</Label>
+                                    <div className="mt-1">
+                                      <Input
+                                        value={condition.value as string}
+                                        onChange={(e) => {
+                                          const updatedConditions = [...(editingRuleData.conditions || [])];
+                                          updatedConditions[index] = { ...condition, value: e.target.value };
+                                          setEditingRuleData({ ...editingRuleData, conditions: updatedConditions });
+                                        }}
+                                        placeholder="e.g., 'contains an urgent request' or 'appears to be spam'"
+                                        className="text-sm"
+                                      />
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        Describe the condition in natural language. AI will evaluate if emails match this description.
+                                      </p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="grid grid-cols-4 gap-2">
+                                    <Select
+                                      value={condition.field}
+                                      onValueChange={(value) => {
+                                        const updatedConditions = [...(editingRuleData.conditions || [])];
+                                        updatedConditions[index] = { ...condition, field: value as any };
+                                        setEditingRuleData({ ...editingRuleData, conditions: updatedConditions });
+                                      }}
+                                    >
+                                      <SelectTrigger className="text-sm">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="subject">Subject</SelectItem>
+                                        <SelectItem value="sender_email">Sender Email</SelectItem>
+                                        <SelectItem value="body_content">Body Content</SelectItem>
+                                        <SelectItem value="has_attachments">Has Attachments</SelectItem>
+                                        <SelectItem value="risk_score">Risk Score</SelectItem>
+                                        <SelectItem value="category">Category</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    
+                                    <Select
+                                      value={condition.operator}
+                                      onValueChange={(value) => {
+                                        const updatedConditions = [...(editingRuleData.conditions || [])];
+                                        updatedConditions[index] = { ...condition, operator: value as any };
+                                        setEditingRuleData({ ...editingRuleData, conditions: updatedConditions });
+                                      }}
+                                    >
+                                      <SelectTrigger className="text-sm">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="contains">Contains</SelectItem>
+                                        <SelectItem value="equals">Equals</SelectItem>
+                                        <SelectItem value="not_equals">Not Equals</SelectItem>
+                                        <SelectItem value="starts_with">Starts With</SelectItem>
+                                        <SelectItem value="ends_with">Ends With</SelectItem>
+                                        <SelectItem value="greater_than">Greater Than</SelectItem>
+                                        <SelectItem value="less_than">Less Than</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    
+                                    <Input
+                                      value={condition.value as string}
+                                      onChange={(e) => {
+                                        const updatedConditions = [...(editingRuleData.conditions || [])];
+                                        updatedConditions[index] = { ...condition, value: e.target.value };
+                                        setEditingRuleData({ ...editingRuleData, conditions: updatedConditions });
+                                      }}
+                                      placeholder="Enter value"
+                                      className="text-sm"
+                                    />
+                                    
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        const updatedConditions = editingRuleData.conditions?.filter((_, i) => i !== index) || [];
+                                        setEditingRuleData({ ...editingRuleData, conditions: updatedConditions });
+                                      }}
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                )}
+                                {condition.field !== 'ai_analysis' && (
+                                  <div className="flex items-center space-x-2 mt-2">
+                                    <Switch
+                                      checked={condition.case_sensitive}
+                                      onCheckedChange={(checked) => {
+                                        const updatedConditions = [...(editingRuleData.conditions || [])];
+                                        updatedConditions[index] = { ...condition, case_sensitive: checked };
+                                        setEditingRuleData({ ...editingRuleData, conditions: updatedConditions });
+                                      }}
+                                    />
+                                    <Label className="text-xs">Case Sensitive</Label>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 border-2 border-dashed border-muted rounded-lg">
+                            <p className="text-muted-foreground text-sm">No conditions defined</p>
+                            <p className="text-muted-foreground text-xs mt-1">
+                              Add conditions to specify when this rule should trigger
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions Section */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <Label className="text-sm font-medium">Actions</Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addAction(editingRuleData)}
+                            className="gap-1"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Add Action
+                          </Button>
+                        </div>
+                        
+                        {editingRuleData.actions && editingRuleData.actions.length > 0 ? (
+                          <div className="space-y-2">
+                            {editingRuleData.actions.map((action, index) => (
+                              <div key={index} className="border rounded-lg p-3 bg-muted/50">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <Select
+                                    value={action.type}
+                                    onValueChange={(value) => {
+                                      const updatedActions = [...(editingRuleData.actions || [])];
+                                      updatedActions[index] = { 
+                                        ...action, 
+                                        type: value as any,
+                                        parameters: value === 'categorise' ? {} : action.parameters
+                                      };
+                                      setEditingRuleData({ ...editingRuleData, actions: updatedActions });
+                                    }}
+                                  >
+                                    <SelectTrigger className="text-sm">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="categorise">Categorise Email</SelectItem>
+                                      <SelectItem value="quarantine">Quarantine Email</SelectItem>
+                                      <SelectItem value="mark_as_read">Mark as Read</SelectItem>
+                                      <SelectItem value="send_notification">Send Notification</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  
+                                  {action.type === 'categorise' && (
+                                    <Select
+                                      value={action.parameters?.category_id}
+                                      onValueChange={(value) => {
+                                        const updatedActions = [...(editingRuleData.actions || [])];
+                                        updatedActions[index] = { 
+                                          ...action, 
+                                          parameters: { ...action.parameters, category_id: value }
+                                        };
+                                        setEditingRuleData({ ...editingRuleData, actions: updatedActions });
+                                      }}
+                                    >
+                                      <SelectTrigger className="text-sm">
+                                        <SelectValue placeholder="Select category" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {categories.map((category) => (
+                                          <SelectItem key={category.id} value={category.id}>
+                                            {category.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                  
+                                  {action.type === 'send_notification' && (
+                                    <Input
+                                      value={action.parameters?.message || ''}
+                                      onChange={(e) => {
+                                        const updatedActions = [...(editingRuleData.actions || [])];
+                                        updatedActions[index] = { 
+                                          ...action, 
+                                          parameters: { ...action.parameters, message: e.target.value }
+                                        };
+                                        setEditingRuleData({ ...editingRuleData, actions: updatedActions });
+                                      }}
+                                      placeholder="Notification message"
+                                      className="text-sm"
+                                    />
+                                  )}
+                                  
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      const updatedActions = editingRuleData.actions?.filter((_, i) => i !== index) || [];
+                                      setEditingRuleData({ ...editingRuleData, actions: updatedActions });
+                                    }}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 border-2 border-dashed border-muted rounded-lg">
+                            <p className="text-muted-foreground text-sm">No actions defined</p>
+                            <p className="text-muted-foreground text-xs mt-1">
+                              Add actions to specify what should happen when conditions are met
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button onClick={() => saveRule(editingRuleData)} className="gap-2">
+                          <Save className="h-4 w-4" />
+                          Save Changes
+                        </Button>
+                        <Button onClick={() => setEditingRule(null)} variant="outline" className="gap-2">
+                          <X className="h-4 w-4" />
+                          Cancel
+                        </Button>
+                      </div>
                    </div>
                  ) : (
                    <div className="grid grid-cols-2 gap-4">
