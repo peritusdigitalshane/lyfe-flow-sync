@@ -129,21 +129,35 @@ export default function WorkflowRules() {
       const { data: emailStats, error: statsError } = await supabase
         .from('emails')
         .select(`
+          microsoft_id,
           sender_email,
           sender_name,
-          subject,
-          email_classifications (
-            category_id,
-            email_categories (
-              id,
-              name,
-              color
-            )
-          )
+          subject
         `)
         .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()); // Last 30 days
 
       if (statsError) throw statsError;
+
+      // Get classifications for these emails
+      const emailIds = emailStats?.map(email => email.microsoft_id) || [];
+      const { data: classifications } = await supabase
+        .from('email_classifications')
+        .select(`
+          email_id,
+          category_id,
+          email_categories (
+            id,
+            name,
+            color
+          )
+        `)
+        .in('email_id', emailIds);
+
+      // Create a map of email_id to classification
+      const classificationMap = new Map();
+      classifications?.forEach(classification => {
+        classificationMap.set(classification.email_id, classification);
+      });
 
       // Analyze patterns for suggestions
       const suggestions = [];
@@ -152,9 +166,8 @@ export default function WorkflowRules() {
       const senderStats = new Map();
       emailStats?.forEach(email => {
         const key = email.sender_email;
-        const classifications = Array.isArray(email.email_classifications) ? email.email_classifications : [];
-        const firstClassification = classifications[0];
-        const category = firstClassification?.email_categories;
+        const classification = classificationMap.get(email.microsoft_id);
+        const category = classification?.email_categories;
         
         if (!senderStats.has(key)) {
           senderStats.set(key, {
@@ -168,8 +181,8 @@ export default function WorkflowRules() {
         }
         const stats = senderStats.get(key);
         stats.count++;
-        if (firstClassification?.category_id) {
-          stats.categories.add(firstClassification.category_id);
+        if (classification?.category_id) {
+          stats.categories.add(classification.category_id);
         }
       });
 
@@ -218,9 +231,8 @@ export default function WorkflowRules() {
         }
 
         if (pattern) {
-          const classifications = Array.isArray(email.email_classifications) ? email.email_classifications : [];
-          const firstClassification = classifications[0];
-          const category = firstClassification?.email_categories;
+          const classification = classificationMap.get(email.microsoft_id);
+          const category = classification?.email_categories;
           
           if (!subjectPatterns.has(pattern)) {
             subjectPatterns.set(pattern, {
