@@ -316,13 +316,17 @@ serve(async (req) => {
 
     for (const rule of rules || []) {
       console.log(`Evaluating rule: ${rule.name} with conditions:`, rule.conditions);
+      console.log(`DEBUG: About to evaluate rule "${rule.name}" for email: "${email.subject}"`);
+      
       if (await evaluateRule(rule, email, analysis, supabase)) {
         actionsToExecute.push(...rule.actions);
         matchedRule = rule;
         console.log(`✅ Rule matched: ${rule.name}`);
+        console.log(`DEBUG: Rule "${rule.name}" MATCHED - breaking loop`);
         break; // Execute first matching rule only
       } else {
         console.log(`❌ Rule did not match: ${rule.name}`);
+        console.log(`DEBUG: Rule "${rule.name}" did NOT match`);
       }
     }
 
@@ -457,9 +461,14 @@ async function evaluateRule(rule: WorkflowRule, email: any, analysis: EmailAnaly
 }
 
 async function evaluateCondition(condition: WorkflowCondition, email: any, analysis: EmailAnalysis, supabase: any): Promise<boolean> {
+  console.log(`DEBUG: Evaluating condition - field: ${condition.field}, operator: ${condition.operator}, value: ${condition.value}`);
+  
   // Handle AI-based conditions
   if (condition.field === 'ai_analysis' && condition.operator === 'ai_condition') {
-    return await evaluateAICondition(condition.value as string, email, supabase);
+    console.log(`DEBUG: This is an AI condition, calling evaluateAICondition with: "${condition.value}"`);
+    const aiResult = await evaluateAICondition(condition.value as string, email, supabase);
+    console.log(`DEBUG: AI condition result: ${aiResult}`);
+    return aiResult;
   }
 
   let fieldValue: any;
@@ -568,8 +577,14 @@ async function evaluateAICondition(condition: string, email: any, supabase: any)
       console.log(`AI evaluation result: ${result.result.meets_condition} (confidence: ${result.result.confidence})`);
       console.log(`Reasoning: ${result.result.reasoning}`);
       
+      // Debug: Log the detailed AI response for troubleshooting
+      console.log(`DEBUG AI Response: meets_condition=${result.result.meets_condition}, confidence=${result.result.confidence}, threshold=0.5`);
+      
+      const meetsCriteria = result.result.meets_condition && result.result.confidence > 0.5;
+      console.log(`DEBUG: Rule evaluation result: ${meetsCriteria} (meets_condition: ${result.result.meets_condition}, confidence > 0.5: ${result.result.confidence > 0.5})`);
+      
       // Use lower confidence threshold for better matching - reduced from 0.7 to 0.5
-      return result.result.meets_condition && result.result.confidence > 0.5;
+      return meetsCriteria;
     } else if (result?.fallback_result) {
       // Handle fallback case when AI is unavailable
       console.log(`AI evaluation fallback: ${result.fallback_result.meets_condition} (${result.fallback_result.reasoning})`);
