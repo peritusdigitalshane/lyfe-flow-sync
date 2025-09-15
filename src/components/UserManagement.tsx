@@ -17,6 +17,7 @@ interface User {
   full_name: string | null;
   created_at: string;
   account_status: string;
+  subscription_status: 'active' | 'inactive';
   roles: string[];
 }
 
@@ -50,9 +51,10 @@ export function UserManagement() {
 
       if (rolesError) throw rolesError;
 
-      // Combine users with their roles
+      // Combine users with their roles and subscription status
       const usersWithRoles = profiles?.map(profile => ({
         ...profile,
+        subscription_status: profile.account_status === 'active' ? 'active' as const : 'inactive' as const,
         roles: userRoles?.filter(role => role.user_id === profile.id).map(role => role.role) || []
       })) || [];
 
@@ -209,19 +211,19 @@ export function UserManagement() {
                   </TableCell>
                   <TableCell>
                     <Badge 
-                      variant={user.account_status === 'active' ? 'default' : 'secondary'}
+                      variant={user.subscription_status === 'active' ? 'default' : 'secondary'}
                       className={`text-xs ${
-                        user.account_status === 'active' 
+                        user.subscription_status === 'active' 
                           ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                          : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                       }`}
                     >
-                      {user.account_status === 'active' ? (
+                      {user.subscription_status === 'active' ? (
                         <CheckCircle className="h-3 w-3 mr-1" />
                       ) : (
                         <AlertCircle className="h-3 w-3 mr-1" />
                       )}
-                      {user.account_status === 'active' ? 'Active' : 'Pending'}
+                      {user.subscription_status === 'active' ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -253,7 +255,7 @@ export function UserManagement() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2 flex-wrap">
-                      {user.account_status === 'pending' && (
+                      {user.subscription_status === 'inactive' && (
                         <Button
                           size="sm"
                           variant="outline"
