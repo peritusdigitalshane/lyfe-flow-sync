@@ -650,7 +650,7 @@ async function categorizeEmail(email: any, categoryId: string, supabase: any): P
       email_id: email.id,
       mailbox_id: email.mailbox_id,
       category_id: categoryId,
-      classification_method: 'workflow_rule',
+      classification_method: 'rule',
       confidence_score: 1.0
     });
 
