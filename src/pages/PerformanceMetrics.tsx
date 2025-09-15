@@ -77,9 +77,12 @@ export default function PerformanceMetrics() {
         .from("profiles")
         .select("tenant_id")
         .eq("id", contextUser.id)
-        .single();
+        .maybeSingle();
 
-      if (!profile) return;
+      if (!profile) {
+        console.log("No profile found for user");
+        return;
+      }
 
       // Fetch email data with more details
       const { data: emailData } = await supabase
@@ -207,9 +210,12 @@ export default function PerformanceMetrics() {
         .from("profiles")
         .select("tenant_id")
         .eq("id", contextUser.id)
-        .single();
+        .maybeSingle();
 
-      if (!profile) return;
+      if (!profile) {
+        console.log("No profile found in fetchMetrics");
+        return;
+      }
 
       // Fetch email metrics
       const { data: emailData } = await supabase
