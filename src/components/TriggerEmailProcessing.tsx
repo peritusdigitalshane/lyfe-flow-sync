@@ -37,6 +37,48 @@ const TriggerEmailProcessing: React.FC<{ mailboxId?: string }> = ({ mailboxId })
   const [reprocessResults, setReprocessResults] = useState<ReprocessResults | null>(null);
   const [emailId, setEmailId] = useState('');
   const [specificMailboxId, setSpecificMailboxId] = useState('');
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+
+  // Check for ongoing reprocessing when component mounts
+  React.useEffect(() => {
+    checkReprocessingStatus();
+  }, []);
+
+  const checkReprocessingStatus = async () => {
+    setIsCheckingStatus(true);
+    try {
+      // Check recent workflow_executed logs to see if reprocessing is happening
+      const { data: logs, error } = await supabase
+        .from('audit_logs')
+        .select('id, action, details, created_at')
+        .eq('action', 'workflow_executed')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error checking reprocessing status:', error);
+        return;
+      }
+
+      // If we have recent workflow executions, show status
+      if (logs && logs.length > 0) {
+        const recentActivity = new Date(logs[0].created_at);
+        const now = new Date();
+        const diffMinutes = (now.getTime() - recentActivity.getTime()) / (1000 * 60);
+        
+        if (diffMinutes < 2) {
+          setReprocessResults({
+            success: true,
+            message: "Recent email processing activity detected - Check the audit logs below for details."
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking reprocessing status:', error);
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
 
   const triggerBulkProcessing = async () => {
     setIsProcessing(true);
