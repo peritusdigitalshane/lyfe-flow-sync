@@ -196,6 +196,15 @@ export default function PerformanceMetrics() {
 
     } catch (error) {
       console.error("Error fetching email intelligence:", error);
+      // Set default values to prevent rendering issues
+      setEmailIntelligence({
+        classificationAccuracy: 0,
+        topSenders: [],
+        categoryDistribution: [],
+        spamLegitimateRatio: { spam: 0, legitimate: 0 },
+        attachmentStats: { totalFiles: 0, totalSize: 0, types: [] },
+        dailyVolume: []
+      });
     }
   };
 
@@ -424,6 +433,13 @@ export default function PerformanceMetrics() {
                 <Target className="h-6 w-6" />
                 Email Intelligence
               </h2>
+              
+              {/* Debug info */}
+              <div className="mb-4 p-4 bg-muted rounded text-xs">
+                Debug: Classification accuracy: {emailIntelligence.classificationAccuracy}%, 
+                Top senders: {emailIntelligence.topSenders.length}, 
+                Categories: {emailIntelligence.categoryDistribution.length}
+              </div>
               
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
                 <MetricCard
