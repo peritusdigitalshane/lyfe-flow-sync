@@ -138,8 +138,11 @@ const TriggerEmailProcessing: React.FC<{ mailboxId?: string }> = ({ mailboxId })
 
       console.log('Reprocess response:', data);
       if (data && data.success) {
-        toast.success(data.message);
-        setReprocessResults(data);
+        toast.success(data.message + " - Check the audit logs for progress");
+        setReprocessResults({
+          ...data,
+          message: data.message + " - Processing will continue in the background. Check the audit logs below for real-time progress."
+        });
       } else {
         toast.error(data?.error || "Failed to reprocess emails");
         setReprocessResults(data || { success: false, message: "Unknown error" });

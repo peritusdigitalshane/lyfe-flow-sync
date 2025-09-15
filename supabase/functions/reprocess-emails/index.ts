@@ -99,79 +99,69 @@ serve(async (req) => {
       logStep("Reset email processing status");
     }
 
-    // Process each email through the workflow system
-    let processedCount = 0;
-    let errorCount = 0;
-    const results = [];
-
-    for (const email of emails) {
-      try {
-        logStep("Processing email", { 
-          emailId: email.id, 
-          subject: email.subject?.substring(0, 50) + "...",
-          sender: email.sender_email 
-        });
-
-        // Call the email workflow processor for each email
-        const { data: workflowResult, error: workflowError } = await supabaseClient
-          .functions.invoke('email-workflow-processor', {
-            body: {
-              emailId: email.id,
-              mailboxId: email.mailbox_id,
-              tenantId: email.tenant_id,
-              reprocessing: true
-            }
-          });
-
-        if (workflowError) {
-          logStep("Workflow processing error", { emailId: email.id, error: workflowError });
-          errorCount++;
-          results.push({
-            emailId: email.id,
-            status: "error",
-            error: workflowError.message
-          });
-        } else {
-          processedCount++;
-          results.push({
-            emailId: email.id,
-            status: "success",
-            result: workflowResult
-          });
-          logStep("Email processed successfully", { emailId: email.id });
-        }
-
-        // Add small delay to prevent overwhelming the system
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-      } catch (error) {
-        logStep("Error processing email", { emailId: email.id, error: error.message });
-        errorCount++;
-        results.push({
-          emailId: email.id,
-          status: "error",
-          error: error.message
-        });
-      }
-    }
-
-    logStep("Reprocessing completed", { 
-      totalEmails: emails.length,
-      processed: processedCount,
-      errors: errorCount
-    });
-
-    return new Response(JSON.stringify({
+    // Return immediately after starting the reprocessing
+    // Processing will continue in the background
+    const response = new Response(JSON.stringify({
       success: true,
-      message: `Reprocessed ${processedCount} emails successfully${errorCount > 0 ? `, ${errorCount} errors` : ''}`,
+      message: `Started reprocessing ${emails.length} emails`,
       totalEmails: emails.length,
-      processed: processedCount,
-      errors: errorCount,
-      results: results
+      processed: 0,
+      errors: 0,
+      results: []
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
+
+    // Process emails asynchronously after sending response
+    (async () => {
+      let processedCount = 0;
+      let errorCount = 0;
+
+      for (const email of emails) {
+        try {
+          logStep("Processing email", { 
+            emailId: email.id, 
+            subject: email.subject?.substring(0, 50) + "...",
+            sender: email.sender_email 
+          });
+
+          // Call the email workflow processor for each email
+          const { data: workflowResult, error: workflowError } = await supabaseClient
+            .functions.invoke('email-workflow-processor', {
+              body: {
+                emailId: email.id,
+                mailboxId: email.mailbox_id,
+                tenantId: email.tenant_id,
+                reprocessing: true
+              }
+            });
+
+          if (workflowError) {
+            logStep("Workflow processing error", { emailId: email.id, error: workflowError });
+            errorCount++;
+          } else {
+            processedCount++;
+            logStep("Email processed successfully", { emailId: email.id });
+          }
+
+          // Add small delay to prevent overwhelming the system
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+        } catch (error) {
+          logStep("Error processing email", { emailId: email.id, error: error.message });
+          errorCount++;
+        }
+      }
+
+      logStep("Reprocessing completed", { 
+        totalEmails: emails.length,
+        processed: processedCount,
+        errors: errorCount
+      });
+    })();
+
+    return response;
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
