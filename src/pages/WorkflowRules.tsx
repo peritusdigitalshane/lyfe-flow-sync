@@ -708,6 +708,30 @@ export default function WorkflowRules() {
     }
   };
 
+  const addStandardCondition = (rule: Partial<WorkflowRule>, field: string) => {
+    const newCondition: WorkflowCondition = {
+      field: field as any,
+      operator: 'contains',
+      value: '',
+      case_sensitive: false
+    };
+
+    const updatedRule = {
+      ...rule,
+      conditions: [...(rule.conditions || []), newCondition]
+    };
+
+    if (rule.id) {
+      if (editingRule === rule.id) {
+        setEditingRuleData(updatedRule);
+      } else {
+        setRules(rules.map(r => r.id === rule.id ? updatedRule as WorkflowRule : r));
+      }
+    } else {
+      setNewRule(updatedRule);
+    }
+  };
+
   const addAction = (rule: Partial<WorkflowRule>) => {
     const newAction: WorkflowAction = {
       type: 'categorise',
@@ -917,26 +941,27 @@ export default function WorkflowRules() {
                 <div className="flex items-center justify-between mb-3">
                   <Label className="text-sm font-medium">Conditions</Label>
                   <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addCondition(newRule)}
-                      className="gap-1"
-                    >
-                      <Plus className="h-3 w-3" />
-                      Add Standard Condition
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="premium"
-                      size="sm"
-                      onClick={() => addAICondition(newRule)}
-                      className="gap-1"
-                    >
-                      <Plus className="h-3 w-3" />
-                      Add AI Condition
-                    </Button>
+                    <Select onValueChange={(value) => addStandardCondition(newRule, value)}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Add Standard Condition" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border-border z-50">
+                        <SelectItem value="subject">Subject</SelectItem>
+                        <SelectItem value="sender_email">Sender Email</SelectItem>
+                        <SelectItem value="body_content">Body Content</SelectItem>
+                        <SelectItem value="has_attachments">Has Attachments</SelectItem>
+                        <SelectItem value="risk_score">Risk Score</SelectItem>
+                        <SelectItem value="category">Category</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select onValueChange={() => addAICondition(newRule)}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="Add AI Condition" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border-border z-50">
+                        <SelectItem value="ai_condition">AI Analysis</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 
@@ -1301,31 +1326,32 @@ export default function WorkflowRules() {
 
                       {/* Conditions Section */}
                       <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <Label className="text-sm font-medium">Conditions</Label>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addCondition(editingRuleData)}
-                              className="gap-1"
-                            >
-                              <Plus className="h-3 w-3" />
-                              Add Standard Condition
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="premium"
-                              size="sm"
-                              onClick={() => addAICondition(editingRuleData)}
-                              className="gap-1"
-                            >
-                              <Plus className="h-3 w-3" />
-                              Add AI Condition
-                            </Button>
-                          </div>
-                        </div>
+                         <div className="flex items-center justify-between mb-3">
+                           <Label className="text-sm font-medium">Conditions</Label>
+                           <div className="flex gap-2">
+                             <Select onValueChange={(value) => addStandardCondition(editingRuleData, value)}>
+                               <SelectTrigger className="w-[180px]">
+                                 <SelectValue placeholder="Add Standard Condition" />
+                               </SelectTrigger>
+                               <SelectContent className="bg-background border-border z-50">
+                                 <SelectItem value="subject">Subject</SelectItem>
+                                 <SelectItem value="sender_email">Sender Email</SelectItem>
+                                 <SelectItem value="body_content">Body Content</SelectItem>
+                                 <SelectItem value="has_attachments">Has Attachments</SelectItem>
+                                 <SelectItem value="risk_score">Risk Score</SelectItem>
+                                 <SelectItem value="category">Category</SelectItem>
+                               </SelectContent>
+                             </Select>
+                             <Select onValueChange={() => addAICondition(editingRuleData)}>
+                               <SelectTrigger className="w-[150px]">
+                                 <SelectValue placeholder="Add AI Condition" />
+                               </SelectTrigger>
+                               <SelectContent className="bg-background border-border z-50">
+                                 <SelectItem value="ai_condition">AI Analysis</SelectItem>
+                               </SelectContent>
+                             </Select>
+                           </div>
+                         </div>
                         
                         {editingRuleData.conditions && editingRuleData.conditions.length > 0 ? (
                           <div className="space-y-2">
@@ -1629,26 +1655,18 @@ export default function WorkflowRules() {
                       <div>
                         <Label className="text-sm font-medium">Conditions ({rule.conditions.length})</Label>
                          <div className="mt-2 space-y-1">
-                           {rule.conditions.slice(0, 3).map((condition, index) => {
-                             console.log(`Rule ${rule.name} - Condition ${index}:`, {
-                               field: condition.field,
-                               operator: condition.operator,
-                               value: condition.value,
-                               fullCondition: condition
-                             });
-                             return (
-                               <div key={index} className="text-sm text-muted-foreground">
-                                 {condition.field === 'ai_analysis' ? (
-                                   <span className="inline-flex items-center gap-1">
-                                     <span className="inline-block w-2 h-2 bg-primary rounded-full"></span>
-                                     AI: "{condition.value}"
-                                   </span>
-                                 ) : (
-                                   `${condition.field} ${condition.operator} "${condition.value}"`
-                                 )}
-                               </div>
-                             );
-                           })}
+                           {rule.conditions.slice(0, 3).map((condition, index) => (
+                             <div key={index} className="text-sm text-muted-foreground">
+                               {condition.field === 'ai_analysis' ? (
+                                 <span className="inline-flex items-center gap-1">
+                                   <span className="inline-block w-2 h-2 bg-primary rounded-full"></span>
+                                   AI: "{condition.value}"
+                                 </span>
+                               ) : (
+                                 `${condition.field} ${condition.operator} "${condition.value}"`
+                               )}
+                             </div>
+                           ))}
                           {rule.conditions.length > 3 && (
                             <div className="text-sm text-muted-foreground">
                               ... and {rule.conditions.length - 3} more
