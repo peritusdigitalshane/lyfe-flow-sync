@@ -183,7 +183,7 @@ async function refreshTokenForM365Folders(supabase: any, mailboxId: string, toke
       'Content-Type': 'application/x-www-form-urlencoded'
     },
     body: new URLSearchParams({
-      client_id: Deno.env.get('MICROSOFT_CLIENT_ID') || '',
+      client_id: '80b5126b-2f86-4a4d-8d55-43afbd7c970e',
       client_secret: Deno.env.get('MICROSOFT_CLIENT_SECRET') || '',
       refresh_token: tokenData.refresh_token,
       grant_type: 'refresh_token',
