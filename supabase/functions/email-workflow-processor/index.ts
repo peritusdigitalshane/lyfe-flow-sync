@@ -625,6 +625,10 @@ async function executeAction(action: WorkflowAction, email: any, supabase: any):
       await quarantineEmail(email, supabase);
       break;
       
+    case 'move_to_folder':
+      await moveEmailToFolder(email, action.parameters.folder_id, action.parameters.mailbox_id, supabase);
+      break;
+      
     case 'mark_as_read':
       await markEmailAsRead(email, supabase);
       break;
@@ -1084,6 +1088,118 @@ async function markEmailAsRead(email: any, supabase: any): Promise<void> {
     .from('emails')
     .update({ is_read: true })
     .eq('id', email.id);
+}
+
+async function moveEmailToFolder(email: any, folderId: string, mailboxId: string, supabase: any): Promise<void> {
+  console.log(`🔄 [MOVE-FOLDER] Starting folder move for email ${email.id} (${email.microsoft_id}) to folder ${folderId}`);
+
+  try {
+    // Get the mailbox and its Microsoft Graph token
+    const { data: mailbox, error: mailboxError } = await supabase
+      .from('mailboxes')
+      .select('microsoft_graph_token')
+      .eq('id', mailboxId)
+      .single();
+
+    if (mailboxError || !mailbox) {
+      console.error('❌ [MOVE-FOLDER] Mailbox not found:', mailboxError);
+      throw new Error('Mailbox not found');
+    }
+
+    if (!mailbox.microsoft_graph_token) {
+      console.error('❌ [MOVE-FOLDER] No Microsoft Graph token found for mailbox');
+      throw new Error('Mailbox not connected to Microsoft 365');
+    }
+
+    // Parse and validate the Microsoft Graph token
+    let tokenData;
+    try {
+      tokenData = JSON.parse(mailbox.microsoft_graph_token);
+    } catch (error) {
+      console.error('❌ [MOVE-FOLDER] Invalid Microsoft Graph token format:', error);
+      throw new Error('Invalid token format');
+    }
+
+    // Check if token is expired and refresh if needed
+    const now = Date.now();
+    if (tokenData.expires_at && tokenData.expires_at <= now) {
+      console.log('🔄 [MOVE-FOLDER] Token expired, refreshing...');
+      tokenData = await refreshTokenForM365Category(tokenData, mailboxId, supabase);
+    }
+
+    // Move email to the specified folder
+    const moveUrl = `https://graph.microsoft.com/v1.0/me/messages/${email.microsoft_id}/move`;
+    
+    const moveData = {
+      destinationId: folderId
+    };
+
+    console.log(`🔄 [MOVE-FOLDER] Moving email to folder...`);
+    console.log(`📤 [MOVE-FOLDER] Request URL: ${moveUrl}`);
+    console.log(`📤 [MOVE-FOLDER] Request body:`, JSON.stringify(moveData, null, 2));
+
+    const moveResponse = await fetch(moveUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(moveData)
+    });
+
+    console.log(`📥 [MOVE-FOLDER] Response status: ${moveResponse.status}`);
+    
+    if (!moveResponse.ok) {
+      const errorText = await moveResponse.text();
+      console.error(`❌ [MOVE-FOLDER] Failed to move email to folder: ${moveResponse.status} - ${errorText}`);
+      
+      // Log detailed error information
+      console.error(`🔍 [MOVE-FOLDER] Error details:`);
+      console.error(`  - Email ID: ${email.id}`);
+      console.error(`  - Microsoft ID: ${email.microsoft_id}`);
+      console.error(`  - Folder ID: ${folderId}`);
+      console.error(`  - Mailbox ID: ${mailboxId}`);
+      
+      throw new Error(`Failed to move email to folder: ${moveResponse.status} - ${errorText}`);
+    }
+
+    const moveResult = await moveResponse.json();
+    console.log(`✅ [MOVE-FOLDER] Email successfully moved to folder`);
+    console.log(`📋 [MOVE-FOLDER] Move result:`, moveResult);
+
+    // Update email status in database
+    await supabase
+      .from('emails')
+      .update({
+        processing_status: 'moved',
+        processed_at: new Date().toISOString(),
+        folder_id: folderId
+      })
+      .eq('id', email.id);
+
+    console.log(`✅ [MOVE-FOLDER] Database status updated for email ${email.id}`);
+
+  } catch (error) {
+    console.error('❌ [MOVE-FOLDER] Error moving email to folder:', error);
+    
+    // Log the error to audit trail
+    await supabase
+      .from('audit_logs')
+      .insert({
+        tenant_id: email.tenant_id,
+        mailbox_id: email.mailbox_id,
+        action: 'workflow_executed',
+        details: {
+          email_id: email.id,
+          action_type: 'move_to_folder',
+          folder_id: folderId,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+    throw error;
+  }
 }
 
 async function sendNotification(email: any, parameters: any, supabase: any): Promise<void> {

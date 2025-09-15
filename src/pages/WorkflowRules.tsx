@@ -25,6 +25,13 @@ interface Mailbox {
   display_name: string;
 }
 
+interface MailboxFolder {
+  id: string;
+  displayName: string;
+  parentFolderId?: string;
+  wellKnownName?: string;
+}
+
 import { ImprovedNavigation } from "@/components/ImprovedNavigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 
@@ -35,6 +42,8 @@ export default function WorkflowRules() {
   const [rules, setRules] = useState<WorkflowRule[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
+  const [folders, setFolders] = useState<MailboxFolder[]>([]);
+  const [loadingFolders, setLoadingFolders] = useState(false);
   const [loading, setLoading] = useState(true);
   const [suggestedRules, setSuggestedRules] = useState<any[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -118,6 +127,44 @@ export default function WorkflowRules() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to fetch available folders for a mailbox
+  const fetchMailboxFolders = async (mailboxId: string) => {
+    if (!mailboxId) {
+      setFolders([]);
+      return;
+    }
+
+    setLoadingFolders(true);
+    try {
+      console.log('Fetching folders for mailbox:', mailboxId);
+      
+      const response = await supabase.functions.invoke('get-mailbox-folders', {
+        body: { mailbox_id: mailboxId }
+      });
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      if (response.data?.success) {
+        setFolders(response.data.folders || []);
+        console.log('Fetched folders:', response.data.folders);
+      } else {
+        throw new Error(response.data?.error || 'Failed to fetch folders');
+      }
+    } catch (error) {
+      console.error('Error fetching folders:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch mailbox folders",
+        variant: "destructive",
+      });
+      setFolders([]);
+    } finally {
+      setLoadingFolders(false);
     }
   };
 
@@ -852,12 +899,13 @@ export default function WorkflowRules() {
                             <SelectContent>
                               <SelectItem value="categorise">Categorise</SelectItem>
                               <SelectItem value="quarantine">Quarantine</SelectItem>
+                              <SelectItem value="move_to_folder">Move to Folder</SelectItem>
                               <SelectItem value="mark_as_read">Mark as Read</SelectItem>
                               <SelectItem value="send_notification">Send Notification</SelectItem>
                             </SelectContent>
                           </Select>
                           
-                          {action.type === 'categorise' && (
+                           {action.type === 'categorise' && (
                             <Select
                               value={action.parameters?.category_id || ''}
                               onValueChange={(value) => {
@@ -880,6 +928,60 @@ export default function WorkflowRules() {
                                 ))}
                               </SelectContent>
                             </Select>
+                          )}
+                          
+                          {action.type === 'move_to_folder' && (
+                            <div className="space-y-2">
+                              <Select
+                                value={action.parameters?.mailbox_id || ''}
+                                onValueChange={(value) => {
+                                  const updatedActions = [...(newRule.actions || [])];
+                                  updatedActions[index] = { 
+                                    ...action, 
+                                    parameters: { ...action.parameters, mailbox_id: value, folder_id: '' }
+                                  };
+                                  setNewRule({ ...newRule, actions: updatedActions });
+                                  fetchMailboxFolders(value);
+                                }}
+                              >
+                                <SelectTrigger className="text-sm">
+                                  <SelectValue placeholder="Select mailbox" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {mailboxes.map((mailbox) => (
+                                    <SelectItem key={mailbox.id} value={mailbox.id}>
+                                      {mailbox.display_name} ({mailbox.email_address})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              
+                              {action.parameters?.mailbox_id && (
+                                <Select
+                                  value={action.parameters?.folder_id || ''}
+                                  onValueChange={(value) => {
+                                    const updatedActions = [...(newRule.actions || [])];
+                                    updatedActions[index] = { 
+                                      ...action, 
+                                      parameters: { ...action.parameters, folder_id: value }
+                                    };
+                                    setNewRule({ ...newRule, actions: updatedActions });
+                                  }}
+                                  disabled={loadingFolders}
+                                >
+                                  <SelectTrigger className="text-sm">
+                                    <SelectValue placeholder={loadingFolders ? "Loading folders..." : "Select folder"} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {folders.map((folder) => (
+                                      <SelectItem key={folder.id} value={folder.id}>
+                                        {folder.displayName}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            </div>
                           )}
                           
                           <Button
@@ -1202,6 +1304,7 @@ export default function WorkflowRules() {
                                     <SelectContent>
                                       <SelectItem value="categorise">Categorise Email</SelectItem>
                                       <SelectItem value="quarantine">Quarantine Email</SelectItem>
+                                      <SelectItem value="move_to_folder">Move to Folder</SelectItem>
                                       <SelectItem value="mark_as_read">Mark as Read</SelectItem>
                                       <SelectItem value="send_notification">Send Notification</SelectItem>
                                     </SelectContent>
@@ -1230,6 +1333,60 @@ export default function WorkflowRules() {
                                         ))}
                                       </SelectContent>
                                     </Select>
+                                  )}
+                                  
+                                  {action.type === 'move_to_folder' && (
+                                    <div className="space-y-2">
+                                      <Select
+                                        value={action.parameters?.mailbox_id || ''}
+                                        onValueChange={(value) => {
+                                          const updatedActions = [...(editingRuleData.actions || [])];
+                                          updatedActions[index] = { 
+                                            ...action, 
+                                            parameters: { ...action.parameters, mailbox_id: value, folder_id: '' }
+                                          };
+                                          setEditingRuleData({ ...editingRuleData, actions: updatedActions });
+                                          fetchMailboxFolders(value);
+                                        }}
+                                      >
+                                        <SelectTrigger className="text-sm">
+                                          <SelectValue placeholder="Select mailbox" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {mailboxes.map((mailbox) => (
+                                            <SelectItem key={mailbox.id} value={mailbox.id}>
+                                              {mailbox.display_name} ({mailbox.email_address})
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      
+                                      {action.parameters?.mailbox_id && (
+                                        <Select
+                                          value={action.parameters?.folder_id || ''}
+                                          onValueChange={(value) => {
+                                            const updatedActions = [...(editingRuleData.actions || [])];
+                                            updatedActions[index] = { 
+                                              ...action, 
+                                              parameters: { ...action.parameters, folder_id: value }
+                                            };
+                                            setEditingRuleData({ ...editingRuleData, actions: updatedActions });
+                                          }}
+                                          disabled={loadingFolders}
+                                        >
+                                          <SelectTrigger className="text-sm">
+                                            <SelectValue placeholder={loadingFolders ? "Loading folders..." : "Select folder"} />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {folders.map((folder) => (
+                                              <SelectItem key={folder.id} value={folder.id}>
+                                                {folder.displayName}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      )}
+                                    </div>
                                   )}
                                   
                                   {action.type === 'send_notification' && (
