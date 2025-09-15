@@ -3,7 +3,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRoles } from "@/hooks/useRoles";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Navigation } from "@/components/Navigation";
+import { ImprovedNavigation } from "@/components/ImprovedNavigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -602,8 +603,9 @@ Respond with JSON format:
   if (rolesLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navigation />
+        <ImprovedNavigation />
         <main className="container mx-auto px-4 py-8">
+          <Breadcrumbs />
           <div className="flex items-center justify-center min-h-96">
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
@@ -622,8 +624,9 @@ Respond with JSON format:
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navigation />
+        <ImprovedNavigation />
         <main className="container mx-auto px-4 py-8">
+          <Breadcrumbs />
           <div className="flex items-center justify-center min-h-96">
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
@@ -637,9 +640,9 @@ Respond with JSON format:
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
-      
+      <ImprovedNavigation />
       <main className="container mx-auto px-4 py-8">
+        <Breadcrumbs />
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="flex items-center justify-between">
             <div>

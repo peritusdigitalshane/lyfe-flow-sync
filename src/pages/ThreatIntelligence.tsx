@@ -59,7 +59,8 @@ const FEED_TYPES = [
   { value: 'phishing_check', label: 'Phishing Check' }
 ];
 
-import { Navigation } from "@/components/Navigation";
+import { ImprovedNavigation } from "@/components/ImprovedNavigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export default function ThreatIntelligence() {
   const { user } = useAuth();
@@ -339,8 +340,9 @@ export default function ThreatIntelligence() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <ImprovedNavigation />
       <main className="container mx-auto px-4 py-8">
+        <Breadcrumbs />
         <div className="max-w-6xl mx-auto space-y-8">
           {/* Page Header */}
           <div className="flex items-center justify-between">

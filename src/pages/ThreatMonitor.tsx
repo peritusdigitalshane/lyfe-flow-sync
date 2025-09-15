@@ -40,7 +40,8 @@ interface EmailThreatSummary {
   };
 }
 
-import { Navigation } from "@/components/Navigation";
+import { ImprovedNavigation } from "@/components/ImprovedNavigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 const ThreatMonitor = () => {
   const [threatResults, setThreatResults] = useState<ThreatResult[]>([]);
@@ -229,8 +230,9 @@ const ThreatMonitor = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navigation />
+        <ImprovedNavigation />
         <main className="container mx-auto p-6">
+          <Breadcrumbs />
           <div>Loading threat monitoring data...</div>
         </main>
       </div>
@@ -239,8 +241,9 @@ const ThreatMonitor = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <ImprovedNavigation />
       <main className="container mx-auto p-6">
+        <Breadcrumbs />
         <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

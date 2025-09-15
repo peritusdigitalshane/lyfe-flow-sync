@@ -7,7 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { RefreshCw, CheckCircle, XCircle, AlertCircle, Play, Settings, Database } from "lucide-react";
-import { Navigation } from "@/components/Navigation";
+import { ImprovedNavigation } from "@/components/ImprovedNavigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 interface TestResult {
   name: string;
@@ -404,9 +405,10 @@ export default function AdminDiagnostics() {
   }, []);
 
   return (
-    <>
-      <Navigation />
-      <div className="container mx-auto p-6 space-y-6">
+    <div className="min-h-screen bg-background">
+      <ImprovedNavigation />
+      <main className="container mx-auto p-6 space-y-6">
+        <Breadcrumbs />
         <div>
           <h1 className="text-3xl font-bold">System Diagnostics</h1>
           <p className="text-muted-foreground">Comprehensive testing and troubleshooting tools</p>
@@ -562,7 +564,7 @@ export default function AdminDiagnostics() {
           </ScrollArea>
         </CardContent>
       </Card>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }

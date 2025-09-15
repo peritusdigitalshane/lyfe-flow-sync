@@ -10,7 +10,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { Navigation } from '@/components/Navigation';
+import { ImprovedNavigation } from '@/components/ImprovedNavigation';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 
 interface ClassificationResult {
   category: string;
@@ -117,9 +118,10 @@ export default function AIClassification() {
   };
 
   return (
-    <>
-      <Navigation />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="min-h-screen bg-background">
+      <ImprovedNavigation />
+      <main className="container mx-auto px-4 py-8 max-w-4xl">
+        <Breadcrumbs />
         <div className="mb-8">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Brain className="h-6 w-6" />
@@ -284,7 +286,7 @@ export default function AIClassification() {
           </CardContent>
         </Card>
       </div>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
