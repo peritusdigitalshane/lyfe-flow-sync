@@ -21,32 +21,40 @@ serve(async (req) => {
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: {
+        headers: { Authorization: req.headers.get('Authorization')! },
+      },
+    });
 
-    // Get the current user from the auth header
+    // Get the current user - JWT is already verified by Supabase
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       throw new Error('Authorization header required');
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      throw new Error('Invalid authorization');
+      throw new Error('Authentication failed: ' + (authError?.message || 'User not found'));
     }
 
-    // Get OpenAI API key from app_settings
-    const { data: openaiSettings, error: settingsError } = await supabase
+    // Get OpenAI API key from app_settings using service role for admin data
+    const adminSupabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
+    const { data: openaiSettings, error: settingsError } = await adminSupabase
       .from('app_settings')
       .select('value')
       .eq('key', 'openai_config')
       .single();
 
     if (settingsError || !openaiSettings?.value?.api_key) {
-      throw new Error('OpenAI API key not configured in Super Admin settings');
+      console.error('OpenAI settings error:', settingsError);
+      throw new Error('OpenAI API key not configured in Super Admin settings. Please configure it in the admin panel.');
     }
 
     const openaiApiKey = openaiSettings.value.api_key;
