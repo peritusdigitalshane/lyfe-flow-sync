@@ -633,7 +633,7 @@ export default function WorkflowRules() {
                               style={{ backgroundColor: suggestion.suggestion_data.category_color }}
                             />
                             <span className="text-xs text-muted-foreground">
-                              {suggestion.type.startsWith('ai_') ? 'Will categorize as:' : 'Most emails go to:'} {suggestion.suggestion_data.category_name}
+                              {suggestion.type.startsWith('ai_') ? 'Will categorise as:' : 'Most emails go to:'} {suggestion.suggestion_data.category_name}
                             </span>
                           </div>
                         )}
@@ -1005,8 +1005,14 @@ export default function WorkflowRules() {
           </Card>
         )}
 
-        {/* Rules List */}
+        {/* Existing Rules List */}
         <div className="space-y-4">
+          {rules.length > 0 && (
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold mb-2">Your Workflow Rules</h2>
+              <p className="text-muted-foreground text-sm">Manage and edit your existing workflow rules</p>
+            </div>
+          )}
           {rules.map((rule) => (
             <Card key={rule.id} className="card-neon">
               <CardHeader>
@@ -1467,7 +1473,7 @@ export default function WorkflowRules() {
                         <div className="mt-2 space-y-1">
                           {rule.actions.slice(0, 3).map((action, index) => (
                             <div key={index} className="text-sm text-muted-foreground">
-                              {action.type.replace('_', ' ')}
+                              {action.type === 'categorise' ? 'Categorise' : action.type.replace('_', ' ')}
                             </div>
                           ))}
                           {rule.actions.length > 3 && (
