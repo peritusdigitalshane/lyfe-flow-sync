@@ -265,7 +265,7 @@ Be precise and only use the exact category names provided.`;
             'threat-intelligence-checker',
             {
               body: {
-                email_id: `test-${Date.now()}`, // Use test ID for manual classification
+                email_id: 'test-email-id', // Use test ID for manual classification
                 email_content: {
                   subject: emailData.subject,
                   sender_email: emailData.sender_email,
