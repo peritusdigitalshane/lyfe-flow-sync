@@ -280,8 +280,21 @@ Be precise and only use the exact category names provided.`;
           if (threatError) {
             console.error('Threat intelligence check failed:', threatError);
           } else {
-            threatIntelligenceResult = threatData;
+            // Transform the threat intelligence result to match frontend interface
+            if (threatData?.success && threatData?.result) {
+              threatIntelligenceResult = {
+                shouldQuarantine: threatData.result.should_quarantine,
+                maxThreatScore: threatData.result.max_threat_score,
+                threshold: threatData.result.threshold || 70,
+                detectedThreats: threatData.result.threat_details?.map((threat: any) => ({
+                  indicator: threat.threat_indicator,
+                  score: threat.threat_score,
+                  details: threat.details
+                })) || []
+              };
+            }
             console.log('Threat intelligence result:', threatData);
+            console.log('Transformed threat result:', threatIntelligenceResult);
           }
         }
       } else {
