@@ -487,12 +487,12 @@ export default function AIClassification() {
                   <div>
                     <Label>Threats Found</Label>
                     <div className="text-lg font-semibold">
-                      {threatResult.detectedThreats.length}
+                      {threatResult.detectedThreats?.length || 0}
                     </div>
                   </div>
                 </div>
 
-                {threatResult.detectedThreats.length > 0 && (
+                {threatResult.detectedThreats && threatResult.detectedThreats.length > 0 && (
                   <div>
                     <Label>Detected Threats</Label>
                     <div className="mt-2 space-y-2">
