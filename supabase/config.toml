@@ -3,6 +3,12 @@ project_id = "ceasktzguzibehknbgsx"
 [functions.platform-assistant]
 verify_jwt = true
 
+[functions.create-teams-bot]
+verify_jwt = true
+
+[functions.teams-bot-webhook]
+verify_jwt = false
+
 [functions.auto-email-scheduler]
 verify_jwt = false
 

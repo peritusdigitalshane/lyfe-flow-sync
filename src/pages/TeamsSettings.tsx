@@ -141,6 +141,40 @@ export default function TeamsSettings() {
     }
   };
 
+  const createBot = async () => {
+    if (!contextUser) return;
+
+    try {
+      setSaving(true);
+
+      // Get tenant_id from profiles
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("tenant_id")
+        .eq("id", contextUser.id)
+        .single();
+
+      const { data, error } = await supabase.functions.invoke('create-teams-bot', {
+        body: {
+          botName: settings.bot_name,
+          tenantId: profile?.tenant_id
+        }
+      });
+
+      if (error) throw error;
+
+      setSettings(prev => ({ ...prev, bot_enabled: true }));
+      toast.success("Meeting bot created successfully! Check the bot configuration tab for next steps.");
+      
+      console.log('Bot created:', data);
+    } catch (error) {
+      console.error("Error creating bot:", error);
+      toast.error("Failed to create meeting bot");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const processTranscriptFile = async (file: File) => {
     try {
       const formData = new FormData();
@@ -429,11 +463,12 @@ export default function TeamsSettings() {
                           
                           {!settings.bot_enabled ? (
                             <Button 
-                              onClick={() => setSettings(prev => ({ ...prev, bot_enabled: true }))}
+                              onClick={createBot}
+                              disabled={saving}
                               className="w-full"
                             >
                               <Bot className="h-4 w-4 mr-2" />
-                              Create Meeting Bot
+                              {saving ? 'Creating Bot...' : 'Create Meeting Bot'}
                             </Button>
                           ) : (
                             <div className="space-y-3">
