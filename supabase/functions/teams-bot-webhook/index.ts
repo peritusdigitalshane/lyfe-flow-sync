@@ -20,21 +20,59 @@ serve(async (req) => {
     const body = await req.json();
     console.log('Teams Bot Webhook received:', JSON.stringify(body, null, 2));
 
-    // Helper function to get Teams settings from database using tenant_id
-    const getTeamsSettings = async (tenantId?: string) => {
-      if (!tenantId) return null;
+    // Helper function to get Teams settings from database
+    const getTeamsSettings = async (teamsOrgTenantId?: string) => {
+      if (!teamsOrgTenantId) {
+        console.log('No Teams org tenant ID provided');
+        return null;
+      }
+      
+      console.log('Looking for Teams settings with org tenant ID:', teamsOrgTenantId);
       
       try {
+        // First try to find by Teams organization tenant ID
+        // We need to check if we have a mapping or if the tenant_id matches the Teams org ID
         const { data, error } = await supabase
           .from('teams_settings')
-          .select('microsoft_app_id, microsoft_app_password')
-          .eq('tenant_id', tenantId)
+          .select('microsoft_app_id, microsoft_app_password, tenant_id, user_id')
+          .or(`tenant_id.eq.${teamsOrgTenantId},microsoft_teams_org_id.eq.${teamsOrgTenantId}`)
           .maybeSingle();
           
-        if (error) {
+        if (error && error.code !== 'PGRST116') {
           console.error('Error fetching Teams settings:', error);
           return null;
         }
+        
+        if (!data) {
+          console.log('No Teams settings found for org tenant ID:', teamsOrgTenantId);
+          // Try to find any active Teams settings as fallback
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('teams_settings')
+            .select('microsoft_app_id, microsoft_app_password, tenant_id, user_id')
+            .not('microsoft_app_id', 'is', null)
+            .not('microsoft_app_password', 'is', null)
+            .limit(1)
+            .maybeSingle();
+            
+          if (fallbackError) {
+            console.error('Error fetching fallback Teams settings:', fallbackError);
+            return null;
+          }
+          
+          if (fallbackData) {
+            console.log('Using fallback Teams settings from tenant:', fallbackData.tenant_id);
+            return fallbackData;
+          }
+          
+          return null;
+        }
+        
+        console.log('Found Teams settings:', {
+          hasAppId: !!data.microsoft_app_id,
+          hasAppPassword: !!data.microsoft_app_password,
+          tenantId: data.tenant_id,
+          userId: data.user_id
+        });
         
         return data;
       } catch (error) {
@@ -49,10 +87,13 @@ serve(async (req) => {
       const microsoftAppId = appId || Deno.env.get('MICROSOFT_APP_ID');
       const microsoftAppPassword = appPassword || Deno.env.get('MICROSOFT_APP_PASSWORD');
       
-      console.log('Auth attempt with App ID:', microsoftAppId?.substring(0, 8) + '...');
+      console.log('Auth attempt with App ID:', microsoftAppId ? microsoftAppId.substring(0, 8) + '...' : 'MISSING');
+      console.log('Has App Password:', !!microsoftAppPassword);
       
       if (!microsoftAppId || !microsoftAppPassword) {
-        throw new Error('Missing Microsoft App credentials');
+        const errorMsg = `Missing Microsoft App credentials - ID: ${!!microsoftAppId}, Password: ${!!microsoftAppPassword}`;
+        console.error(errorMsg);
+        throw new Error(errorMsg);
       }
 
       const tokenUrl = 'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token';
@@ -62,6 +103,8 @@ serve(async (req) => {
         client_secret: microsoftAppPassword,
         scope: 'https://api.botframework.com/.default'
       });
+
+      console.log('Requesting token from:', tokenUrl);
 
       const response = await fetch(tokenUrl, {
         method: 'POST',
@@ -204,34 +247,46 @@ serve(async (req) => {
         // Handle incoming messages/commands
         const text = body.text?.toLowerCase() || '';
         
-        // Get Teams settings using tenant ID from the conversation
+        // Get Teams settings using the organization tenant ID from Teams
+        console.log('Teams conversation tenant ID:', conversation.tenantId);
         const teamsSettings = await getTeamsSettings(conversation.tenantId);
         
-        let responseText = '';
-        
-        if (text.includes('start recording') || text.includes('begin recording')) {
-          responseText = 'Recording started! I\'m now capturing the meeting for transcription and analysis.';
-        } else if (text.includes('stop recording') || text.includes('end recording')) {
-          responseText = 'Recording stopped. I\'ll process the meeting transcript and send you a summary shortly.';
-        } else if (text.includes('help') || text.includes('commands')) {
-          responseText = `Available commands:
+        if (!teamsSettings) {
+          console.error('No Teams settings found for tenant:', conversation.tenantId);
+          responseText = 'Sorry, I cannot respond right now. The bot configuration is missing. Please contact your administrator.';
+        } else if (!teamsSettings.microsoft_app_id || !teamsSettings.microsoft_app_password) {
+          console.error('Incomplete Teams settings - missing credentials');
+          responseText = 'Sorry, I cannot respond right now. The bot credentials are not configured. Please contact your administrator to set up the Microsoft App ID and password.';
+        } else {
+          // Bot is properly configured, generate response based on message
+          if (text.includes('start recording') || text.includes('begin recording')) {
+            responseText = 'Recording started! I\'m now capturing the meeting for transcription and analysis.';
+          } else if (text.includes('stop recording') || text.includes('end recording')) {
+            responseText = 'Recording stopped. I\'ll process the meeting transcript and send you a summary shortly.';
+          } else if (text.includes('help') || text.includes('commands')) {
+            responseText = `Available commands:
 - "Start recording" - Begin meeting recording
 - "Stop recording" - End meeting recording  
 - "Help" - Show this message
-            
+              
 I automatically join and record meetings when invited. No manual commands needed!`;
-        } else {
-          responseText = `Hello! I'm your AI meeting assistant. I can help with:
+          } else {
+            responseText = `Hello! I'm your AI meeting assistant. I can help with:
 
 🎤 Start recording - Begin meeting transcription
 🛑 Stop recording - End transcription
 ❓ Help - Show available commands
 
 Just say "help" to see all commands, or I'll automatically assist when you start a meeting!`;
+          }
         }
         
-        // Send reply using Teams API
-        await sendReply(responseText, teamsSettings);
+        // Send reply using Teams API only if we have valid settings
+        if (teamsSettings && teamsSettings.microsoft_app_id && teamsSettings.microsoft_app_password) {
+          await sendReply(responseText, teamsSettings);
+        } else {
+          console.log('Skipping reply due to missing/invalid Teams settings');
+        }
         
         // Always return 200 OK to Teams
         return new Response('', { status: 200, headers: corsHeaders });
