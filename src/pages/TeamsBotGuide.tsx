@@ -237,6 +237,10 @@ export default function TeamsBotGuide() {
     "short": "AI-powered meeting assistant for recording and analysis",
     "full": "An intelligent meeting bot that joins Teams meetings to provide transcription, recording, and automated insights including action items and summaries."
   },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
   "accentColor": "#0078D4",
   "bots": [
     {
@@ -540,17 +544,23 @@ export default function TeamsBotGuide() {
                         <p>• Replace <code className="bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs font-mono">YOUR_GENERATED_UUID_HERE</code> with a new UUID</p>
                         <p>• Update <code className="bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs font-mono">developer</code> section with your company info</p>
                         <p>• Update <code className="bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs font-mono">validDomains</code> with your actual domains</p>
+                        <p>• Include the icon files (color.png and outline.png) in your zip package</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <Badge className="mt-0.5">3.3</Badge>
+                  <Badge className="mt-0.5">3.4</Badge>
                   <div className="flex-1">
-                    <p className="font-medium">Create App Icons</p>
+                    <p className="font-medium">Create Required App Icons</p>
+                    <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 rounded-lg mb-3">
+                      <p className="text-red-800 dark:text-red-200 text-sm font-medium">
+                        ⚠️ <strong>Critical:</strong> The icons property is required for Teams app upload. Without proper icon files, you'll get "missing required properties root" error.
+                      </p>
+                    </div>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Download template icons or create your own:
+                      Download template icons or create your own (both files are required):
                     </p>
                     <div className="grid md:grid-cols-2 gap-3 mb-3">
                       <Button
