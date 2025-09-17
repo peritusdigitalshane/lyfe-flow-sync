@@ -9,6 +9,15 @@ verify_jwt = false
 [functions.auto-process-pending-emails]
 verify_jwt = false
 
+[functions.create-mailbox]
+verify_jwt = true
+
+[functions.manage-mailbox-state]
+verify_jwt = true
+
+[functions.process-meeting-transcript]
+verify_jwt = true
+
 [functions.mailbox-api]
 verify_jwt = false
 
