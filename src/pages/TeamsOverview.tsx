@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Users, Clock, CheckCircle2, AlertCircle, Settings, Bot, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { ModuleGuard } from "@/components/ModuleGuard";
+import { ImprovedNavigation } from "@/components/ImprovedNavigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 interface MeetingSummary {
   id: string;
@@ -237,18 +239,22 @@ export default function TeamsOverview() {
   };
 
   return (
-    <ModuleGuard requiredModule="teams">
-      <div className="container mx-auto py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Teams Integration</h1>
-            <p className="text-muted-foreground">Meeting intelligence and analytics for Microsoft Teams</p>
+    <div className="min-h-screen bg-background">
+      <ImprovedNavigation />
+      
+      <ModuleGuard requiredModule="teams">
+        <main className="container mx-auto px-4 py-8">
+          <Breadcrumbs />
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold">Teams Integration</h1>
+              <p className="text-muted-foreground">Meeting intelligence and analytics for Microsoft Teams</p>
+            </div>
+            <Button onClick={() => window.location.href = '/teams-settings'} variant="outline">
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
           </div>
-          <Button onClick={() => window.location.href = '/teams-settings'} variant="outline">
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
-          </Button>
-        </div>
 
         {!teamsSettings ? (
           <Card className="mb-8">
@@ -505,10 +511,11 @@ export default function TeamsOverview() {
                   </CardContent>
                 </Card>
               </TabsContent>
-            </Tabs>
-          </>
-        )}
-      </div>
-    </ModuleGuard>
+          </Tabs>
+        </>
+      )}
+        </main>
+      </ModuleGuard>
+    </div>
   );
 }

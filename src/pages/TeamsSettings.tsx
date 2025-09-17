@@ -14,6 +14,8 @@ import { Separator } from "@/components/ui/separator";
 import { Bot, FileText, Settings, Upload, Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ModuleGuard } from "@/components/ModuleGuard";
+import { ImprovedNavigation } from "@/components/ImprovedNavigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 interface TeamsSettings {
   id?: string;
@@ -169,8 +171,12 @@ export default function TeamsSettings() {
   };
 
   return (
-    <ModuleGuard requiredModule="teams">
-      <div className="container mx-auto py-8">
+    <div className="min-h-screen bg-background">
+      <ImprovedNavigation />
+      
+      <ModuleGuard requiredModule="teams">
+        <main className="container mx-auto px-4 py-8">
+          <Breadcrumbs />
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold">Teams Settings</h1>
@@ -554,7 +560,8 @@ export default function TeamsSettings() {
             </div>
           </Tabs>
         )}
-      </div>
-    </ModuleGuard>
+        </main>
+      </ModuleGuard>
+    </div>
   );
 }

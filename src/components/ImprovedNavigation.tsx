@@ -22,7 +22,8 @@ import {
   Home,
   Lock,
   Crown,
-  ChevronRight
+  ChevronRight,
+  Video
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,15 +48,15 @@ interface NavigationSection {
     description?: string;
     badge?: string;
   }[];
-  requiresModule?: 'email_management' | 'security';
+  requiresModule?: 'email_management' | 'security' | 'teams';
   requiresRole?: string;
 }
 
 export const ImprovedNavigation = () => {
   const { user, signOut } = useAuth();
   const { isSuperAdmin, isAdmin } = useRoles();
-  const { hasEmailManagement, hasSecurity } = useModules();
-  const location = useLocation();
+  const { hasEmailManagement, hasSecurity, hasModuleAccess } = useModules();
+  const hasTeams = hasModuleAccess('teams');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
@@ -79,6 +80,14 @@ export const ImprovedNavigation = () => {
         { path: '/workflows', label: 'Workflows', icon: Workflow, description: 'Automate email processing' },
         { path: '/workflow-rules', label: 'Rules', icon: GitBranch, description: 'Configure workflow conditions' },
         { path: '/ai-classification', label: 'AI Testing', icon: Brain, description: 'Test AI email classification' },
+      ]
+    },
+    {
+      title: "Teams Integration",
+      requiresModule: 'teams',
+      items: [
+        { path: '/teams-overview', label: 'Teams Overview', icon: Video, description: 'Meeting summaries and analytics' },
+        { path: '/teams-settings', label: 'Teams Settings', icon: Settings, description: 'Configure Teams integration' },
       ]
     },
     {
@@ -108,6 +117,7 @@ export const ImprovedNavigation = () => {
   const visibleSections = navigationSections.filter(section => {
     if (section.requiresModule && !hasEmailManagement && section.requiresModule === 'email_management') return false;
     if (section.requiresModule && !hasSecurity && section.requiresModule === 'security') return false;
+    if (section.requiresModule && !hasTeams && section.requiresModule === 'teams') return false;
     if (section.requiresRole === 'admin' && !isAdmin && !isSuperAdmin) return false;
     return section.items.length > 0;
   });
@@ -115,6 +125,7 @@ export const ImprovedNavigation = () => {
   const renderNavigationItems = (section: NavigationSection, isMobile = false) => {
     const Icon = section.requiresModule === 'email_management' ? Mail : 
                  section.requiresModule === 'security' ? Shield :
+                 section.requiresModule === 'teams' ? Video :
                  section.requiresRole === 'admin' ? Crown : Activity;
 
     if (isMobile) {
@@ -125,7 +136,9 @@ export const ImprovedNavigation = () => {
             {section.title}
             {section.requiresModule && (
               <Badge variant="outline" className="text-xs">
-                {section.requiresModule === 'email_management' ? 'Standard' : 'Premium'}
+                {section.requiresModule === 'email_management' ? 'Standard' : 
+                 section.requiresModule === 'security' ? 'Premium' : 
+                 section.requiresModule === 'teams' ? 'Premium' : 'Standard'}
               </Badge>
             )}
           </div>
@@ -205,7 +218,9 @@ export const ImprovedNavigation = () => {
             {section.title}
             {section.requiresModule && (
               <Badge variant="outline" className="text-xs">
-                {section.requiresModule === 'email_management' ? 'Standard' : 'Premium'}
+                {section.requiresModule === 'email_management' ? 'Standard' : 
+                 section.requiresModule === 'security' ? 'Premium' : 
+                 section.requiresModule === 'teams' ? 'Premium' : 'Standard'}
               </Badge>
             )}
           </DropdownMenuLabel>
@@ -273,6 +288,12 @@ export const ImprovedNavigation = () => {
                 <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
                   <Shield className="h-3 w-3 mr-1" />
                   Security
+                </Badge>
+              )}
+              {hasTeams && (
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+                  <Video className="h-3 w-3 mr-1" />
+                  Teams
                 </Badge>
               )}
             </div>

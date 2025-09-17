@@ -18,13 +18,15 @@ import {
   AlertTriangle,
   Settings,
   ArrowRight,
-  Star
+  Star,
+  Video
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function PlatformOverview() {
   const { user } = useAuth();
-  const { hasEmailManagement, hasSecurity } = useModules();
+  const { hasEmailManagement, hasSecurity, hasModuleAccess } = useModules();
+  const hasTeams = hasModuleAccess('teams');
   const { isSuperAdmin, isAdmin } = useRoles();
 
   const moduleStatus = [
@@ -42,6 +44,21 @@ export default function PlatformOverview() {
         'Real-time Email Monitoring'
       ],
       color: 'primary',
+    },
+    {
+      id: 'teams',
+      name: 'Teams Integration',
+      description: 'Microsoft Teams meeting intelligence and analytics',
+      icon: Video,
+      hasAccess: hasTeams,
+      features: [
+        'Meeting Summaries & Transcription',
+        'Action Item Extraction',
+        'Speaking Time Analysis',
+        'Meeting Effectiveness Scoring',
+        'Bot Integration & Automation'
+      ],
+      color: 'blue',
     },
     {
       id: 'security',
