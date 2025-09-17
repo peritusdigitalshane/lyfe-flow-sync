@@ -15,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Navigation } from "@/components/Navigation";
 import { ImprovedNavigation } from "@/components/ImprovedNavigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { Plus, Shield, Mail, Calendar, User, Trash2, Edit, Users } from "lucide-react";
+import { Plus, Shield, Mail, Calendar, User, Trash2, Edit, Users, Video } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type UserModule = Database['public']['Enums']['user_module'];
@@ -53,6 +53,13 @@ const moduleInfo = {
     description: 'Advanced security features including threat intelligence and monitoring',
     icon: Shield,
     color: 'bg-destructive/10 text-destructive border-destructive/20',
+    defaultEnabled: false,
+  },
+  teams: {
+    name: 'Teams Integration',
+    description: 'Microsoft Teams meeting intelligence, summaries, and analytics',
+    icon: Video,
+    color: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
     defaultEnabled: false,
   },
 };

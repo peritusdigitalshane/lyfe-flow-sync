@@ -2,7 +2,7 @@ import React from 'react';
 import { useModules } from '@/hooks/useModules';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Lock, Shield, Mail } from 'lucide-react';
+import { Lock, Shield, Mail, Video } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -26,6 +26,12 @@ const moduleInfo = {
     description: 'Access threat intelligence, security monitoring, and advanced security features',
     icon: Shield,
     color: 'text-destructive',
+  },
+  teams: {
+    name: 'Teams Integration',
+    description: 'Access Microsoft Teams meeting intelligence, summaries, and analytics',
+    icon: Video,
+    color: 'text-blue-600',
   },
 };
 
