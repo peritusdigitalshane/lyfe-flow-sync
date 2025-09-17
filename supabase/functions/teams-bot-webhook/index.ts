@@ -133,7 +133,20 @@ I automatically join and record meetings when invited. No manual commands needed
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
-        break;
+        
+        // Respond to any other message
+        return new Response(JSON.stringify({
+          type: 'message',
+          text: `Hello! I'm your AI meeting assistant. I can help with:
+
+🎤 **Start recording** - Begin meeting transcription
+🛑 **Stop recording** - End transcription
+❓ **Help** - Show available commands
+
+Just say "help" to see all commands, or I'll automatically assist when you start a meeting!`
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
     }
 
     // Default response
