@@ -20,6 +20,38 @@ serve(async (req) => {
     const body = await req.json();
     console.log('Teams Bot Webhook received:', JSON.stringify(body, null, 2));
 
+    // Helper function to send reply to Teams
+    const sendReply = async (text: string) => {
+      try {
+        const replyUrl = `${body.serviceUrl}v3/conversations/${body.conversation.id}/activities`;
+        const replyPayload = {
+          type: 'message',
+          from: body.recipient,
+          conversation: body.conversation,
+          text: text
+        };
+        
+        console.log('Sending reply to Teams:', replyPayload);
+        
+        const response = await fetch(replyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('MICROSOFT_APP_PASSWORD') || 'dummy'}` // We'll need this secret
+          },
+          body: JSON.stringify(replyPayload)
+        });
+        
+        if (!response.ok) {
+          console.error('Failed to send reply:', response.status, await response.text());
+        } else {
+          console.log('Reply sent successfully');
+        }
+      } catch (error) {
+        console.error('Error sending reply:', error);
+      }
+    };
+
     // Handle different activity types
     const { type, conversation, from, channelData } = body;
 
@@ -102,51 +134,34 @@ serve(async (req) => {
         // Handle incoming messages/commands
         const text = body.text?.toLowerCase() || '';
         
+        let responseText = '';
+        
         if (text.includes('start recording') || text.includes('begin recording')) {
-          return new Response(JSON.stringify({
-            type: 'message',
-            text: 'Recording started! I\'m now capturing the meeting for transcription and analysis.'
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-        
-        if (text.includes('stop recording') || text.includes('end recording')) {
-          return new Response(JSON.stringify({
-            type: 'message',
-            text: 'Recording stopped. I\'ll process the meeting transcript and send you a summary shortly.'
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-        
-        if (text.includes('help') || text.includes('commands')) {
-          return new Response(JSON.stringify({
-            type: 'message',
-            text: `Available commands:
+          responseText = 'Recording started! I\'m now capturing the meeting for transcription and analysis.';
+        } else if (text.includes('stop recording') || text.includes('end recording')) {
+          responseText = 'Recording stopped. I\'ll process the meeting transcript and send you a summary shortly.';
+        } else if (text.includes('help') || text.includes('commands')) {
+          responseText = `Available commands:
 - "Start recording" - Begin meeting recording
 - "Stop recording" - End meeting recording  
 - "Help" - Show this message
             
-I automatically join and record meetings when invited. No manual commands needed!`
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
+I automatically join and record meetings when invited. No manual commands needed!`;
+        } else {
+          responseText = `Hello! I'm your AI meeting assistant. I can help with:
+
+🎤 Start recording - Begin meeting transcription
+🛑 Stop recording - End transcription
+❓ Help - Show available commands
+
+Just say "help" to see all commands, or I'll automatically assist when you start a meeting!`;
         }
         
-        // Respond to any other message
-        return new Response(JSON.stringify({
-          type: 'message',
-          text: `Hello! I'm your AI meeting assistant. I can help with:
-
-🎤 **Start recording** - Begin meeting transcription
-🛑 **Stop recording** - End transcription
-❓ **Help** - Show available commands
-
-Just say "help" to see all commands, or I'll automatically assist when you start a meeting!`
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        // Send reply using Teams API
+        await sendReply(responseText);
+        
+        // Always return 200 OK to Teams
+        return new Response('', { status: 200, headers: corsHeaders });
     }
 
     // Default response
