@@ -20,20 +20,44 @@ serve(async (req) => {
     const body = await req.json();
     console.log('Teams Bot Webhook received:', JSON.stringify(body, null, 2));
 
-    // Helper function to get Microsoft Bot Framework access token
-    const getAccessToken = async () => {
-      const appId = Deno.env.get('MICROSOFT_APP_ID');
-      const appPassword = Deno.env.get('MICROSOFT_APP_PASSWORD');
+    // Helper function to get Teams settings from database
+    const getTeamsSettings = async (userId?: string) => {
+      if (!userId) return null;
       
-      if (!appId || !appPassword) {
-        throw new Error('Missing MICROSOFT_APP_ID or MICROSOFT_APP_PASSWORD');
+      try {
+        const { data, error } = await supabase
+          .from('teams_settings')
+          .select('microsoft_app_id, microsoft_app_password')
+          .eq('user_id', userId)
+          .maybeSingle();
+          
+        if (error) {
+          console.error('Error fetching Teams settings:', error);
+          return null;
+        }
+        
+        return data;
+      } catch (error) {
+        console.error('Error fetching Teams settings:', error);
+        return null;
+      }
+    };
+
+    // Helper function to get Microsoft Bot Framework access token
+    const getAccessToken = async (appId?: string, appPassword?: string) => {
+      // Fallback to environment variables if not provided
+      const microsoftAppId = appId || Deno.env.get('MICROSOFT_APP_ID');
+      const microsoftAppPassword = appPassword || Deno.env.get('MICROSOFT_APP_PASSWORD');
+      
+      if (!microsoftAppId || !microsoftAppPassword) {
+        throw new Error('Missing Microsoft App credentials');
       }
 
       const tokenUrl = 'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token';
       const params = new URLSearchParams({
         grant_type: 'client_credentials',
-        client_id: appId,
-        client_secret: appPassword,
+        client_id: microsoftAppId,
+        client_secret: microsoftAppPassword,
         scope: 'https://api.botframework.com/.default'
       });
 
@@ -56,9 +80,12 @@ serve(async (req) => {
     };
 
     // Helper function to send reply to Teams
-    const sendReply = async (text: string) => {
+    const sendReply = async (text: string, teamsSettings?: any) => {
       try {
-        const accessToken = await getAccessToken();
+        const accessToken = await getAccessToken(
+          teamsSettings?.microsoft_app_id,
+          teamsSettings?.microsoft_app_password
+        );
         const replyUrl = `${body.serviceUrl}v3/conversations/${body.conversation.id}/activities`;
         const replyPayload = {
           type: 'message',
@@ -170,6 +197,9 @@ serve(async (req) => {
         // Handle incoming messages/commands
         const text = body.text?.toLowerCase() || '';
         
+        // Try to get Teams settings for this user (we'll use tenant ID later for multi-user support)
+        const teamsSettings = await getTeamsSettings(from.id);
+        
         let responseText = '';
         
         if (text.includes('start recording') || text.includes('begin recording')) {
@@ -194,7 +224,7 @@ Just say "help" to see all commands, or I'll automatically assist when you start
         }
         
         // Send reply using Teams API
-        await sendReply(responseText);
+        await sendReply(responseText, teamsSettings);
         
         // Always return 200 OK to Teams
         return new Response('', { status: 200, headers: corsHeaders });

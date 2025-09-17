@@ -711,6 +711,8 @@ export type Database = {
           id: string
           integration_type: string
           meeting_analytics_enabled: boolean | null
+          microsoft_app_id: string | null
+          microsoft_app_password: string | null
           notification_preferences: Json | null
           retention_days: number | null
           speaking_time_analysis: boolean | null
@@ -727,6 +729,8 @@ export type Database = {
           id?: string
           integration_type: string
           meeting_analytics_enabled?: boolean | null
+          microsoft_app_id?: string | null
+          microsoft_app_password?: string | null
           notification_preferences?: Json | null
           retention_days?: number | null
           speaking_time_analysis?: boolean | null
@@ -743,6 +747,8 @@ export type Database = {
           id?: string
           integration_type?: string
           meeting_analytics_enabled?: boolean | null
+          microsoft_app_id?: string | null
+          microsoft_app_password?: string | null
           notification_preferences?: Json | null
           retention_days?: number | null
           speaking_time_analysis?: boolean | null

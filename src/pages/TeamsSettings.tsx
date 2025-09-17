@@ -26,6 +26,8 @@ interface TeamsSettings {
   speaking_time_analysis: boolean;
   bot_enabled: boolean;
   bot_name: string;
+  microsoft_app_id?: string;
+  microsoft_app_password?: string;
   notification_preferences: {
     email: boolean;
     teams: boolean;
@@ -76,6 +78,8 @@ export default function TeamsSettings() {
           speaking_time_analysis: data.speaking_time_analysis,
           bot_enabled: data.bot_enabled,
           bot_name: data.bot_name,
+          microsoft_app_id: data.microsoft_app_id || '',
+          microsoft_app_password: data.microsoft_app_password || '',
           notification_preferences: typeof data.notification_preferences === 'object' && 
             data.notification_preferences !== null ? 
             data.notification_preferences as { email: boolean; teams: boolean } : 
@@ -114,6 +118,8 @@ export default function TeamsSettings() {
         speaking_time_analysis: settings.speaking_time_analysis,
         bot_enabled: settings.bot_enabled,
         bot_name: settings.bot_name,
+        microsoft_app_id: settings.microsoft_app_id,
+        microsoft_app_password: settings.microsoft_app_password,
         notification_preferences: settings.notification_preferences,
         retention_days: settings.retention_days
       };
@@ -511,6 +517,45 @@ export default function TeamsSettings() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Microsoft Bot Framework Credentials</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Enter your Azure Bot Service credentials to enable bot authentication
+                    </p>
+                    
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="microsoft-app-id">Microsoft App ID</Label>
+                        <Input
+                          id="microsoft-app-id"
+                          type="password"
+                          value={settings.microsoft_app_id || ''}
+                          onChange={(e) => setSettings(prev => ({ ...prev, microsoft_app_id: e.target.value }))}
+                          placeholder="dc4f4e25-78e1-4006-8201-cffaf7a7d6f3"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Found in Azure Portal under your Bot Service application registration
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="microsoft-app-password">Microsoft App Password</Label>
+                        <Input
+                          id="microsoft-app-password"
+                          type="password"
+                          value={settings.microsoft_app_password || ''}
+                          onChange={(e) => setSettings(prev => ({ ...prev, microsoft_app_password: e.target.value }))}
+                          placeholder="Enter your app password/secret"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Client secret from Azure Portal - Certificates & secrets section
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <Label className="text-base">Auto-Join Meetings</Label>
