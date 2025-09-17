@@ -392,17 +392,95 @@ export default function TeamsSettings() {
             <TabsContent value="bot" className="space-y-6">
               <Card>
                 <CardHeader>
+                  <CardTitle>Meeting Bot Creation</CardTitle>
+                  <CardDescription>
+                    Create and deploy your Teams meeting bot for all subscribers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="border rounded-lg p-4 bg-muted/50">
+                    <div className="flex items-start space-x-4">
+                      <Bot className="h-8 w-8 text-primary mt-1" />
+                      <div className="flex-1">
+                        <h3 className="font-medium mb-2">Meeting Assistant Bot</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Deploy a bot that automatically joins Teams meetings to record, transcribe, and analyze conversations for all your subscribers.
+                        </p>
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="bot-name">Bot Display Name</Label>
+                              <Input
+                                id="bot-name"
+                                value={settings.bot_name}
+                                onChange={(e) => setSettings(prev => ({ ...prev, bot_name: e.target.value }))}
+                                placeholder="Meeting Assistant"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="bot-description">Bot Description</Label>
+                              <Input
+                                id="bot-description"
+                                placeholder="AI-powered meeting assistant"
+                                disabled
+                              />
+                            </div>
+                          </div>
+                          
+                          {!settings.bot_enabled ? (
+                            <Button 
+                              onClick={() => setSettings(prev => ({ ...prev, bot_enabled: true }))}
+                              className="w-full"
+                            >
+                              <Bot className="h-4 w-4 mr-2" />
+                              Create Meeting Bot
+                            </Button>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="flex items-center space-x-2 text-green-600">
+                                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                                <span className="text-sm font-medium">Bot Active</span>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <Button variant="outline" size="sm">
+                                  <Settings className="h-4 w-4 mr-2" />
+                                  Configure
+                                </Button>
+                                <Button variant="outline" size="sm">
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Export Manifest
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => setSettings(prev => ({ ...prev, bot_enabled: false }))}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Bot
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle>Bot Configuration</CardTitle>
                   <CardDescription>
-                    Configure your Teams meeting assistant bot
+                    Configure bot behavior and capabilities
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label className="text-base">Enable Bot</Label>
+                      <Label className="text-base">Auto-Join Meetings</Label>
                       <p className="text-sm text-muted-foreground">
-                        Allow bot to join meetings automatically
+                        Automatically join scheduled meetings when invited
                       </p>
                     </div>
                     <Switch
@@ -410,6 +488,7 @@ export default function TeamsSettings() {
                       onCheckedChange={(checked) =>
                         setSettings(prev => ({ ...prev, bot_enabled: checked }))
                       }
+                      disabled={!settings.bot_enabled}
                     />
                   </div>
 
@@ -417,17 +496,38 @@ export default function TeamsSettings() {
                     <>
                       <Separator />
                       
-                      <div className="space-y-2">
-                        <Label htmlFor="bot-name">Bot Display Name</Label>
-                        <Input
-                          id="bot-name"
-                          value={settings.bot_name}
-                          onChange={(e) => setSettings(prev => ({ ...prev, bot_name: e.target.value }))}
-                          placeholder="Meeting Assistant"
-                        />
-                        <p className="text-sm text-muted-foreground">
-                          This name will appear when the bot joins meetings
-                        </p>
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-base">Recording Enabled</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Record meetings for transcription and analysis
+                          </p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-base">Real-time Transcription</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Provide live transcription during meetings
+                          </p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-base">Meeting Insights</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Generate action items and meeting summaries
+                          </p>
+                        </div>
+                        <Switch defaultChecked />
                       </div>
 
                       <Card className="bg-blue-50 dark:bg-blue-950/20">
