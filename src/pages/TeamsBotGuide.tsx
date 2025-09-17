@@ -418,8 +418,34 @@ export default function TeamsBotGuide() {
                   <Badge className="mt-0.5">2.2</Badge>
                   <div className="flex-1">
                     <p className="font-medium">Enable Teams Channel</p>
-                    <p className="text-sm text-muted-foreground">
-                      Go to "Channels" tab → Click "Microsoft Teams" → Click "Apply"
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Go to "Channels" tab → Click "Microsoft Teams" → Configure the following options:
+                    </p>
+                    <div className="bg-muted p-3 rounded-lg space-y-2 text-sm">
+                      <div>
+                        <p className="font-medium mb-1">📝 Messaging Configuration:</p>
+                        <p>• Enable <strong>Messaging</strong> (required for text interactions)</p>
+                        <p>• Select messaging capabilities as needed</p>
+                      </div>
+                      <div>
+                        <p className="font-medium mb-1">📞 Calling Configuration:</p>
+                        <p>• Enable <strong>Calling</strong> (required for meeting bot functionality)</p>
+                        <p>• Enable <strong>Media</strong> for audio/video recording</p>
+                        <p>• Check "Real-time media" if available</p>
+                      </div>
+                      <div>
+                        <p className="font-medium mb-1">🚀 Publishing:</p>
+                        <p>• Select your organization's scope</p>
+                        <p>• Enable for production use when ready</p>
+                      </div>
+                      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-2 rounded mt-2">
+                        <p className="text-blue-800 dark:text-blue-200 text-xs">
+                          ⚠️ <strong>Important:</strong> Calling and Media permissions are essential for the meeting bot to function properly
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Click "Apply" after configuring all options
                     </p>
                   </div>
                 </div>
