@@ -12,13 +12,16 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  console.log('=== TEAMS BOT WEBHOOK STARTING ===');
+  
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
-    console.log('Teams Bot Webhook received:', JSON.stringify(body, null, 2));
+    console.log('=== Teams Bot Webhook received ===');
+    console.log('Request body:', JSON.stringify(body, null, 2));
 
     // Helper function to get Teams settings from database
     const getTeamsSettings = async (teamsOrgTenantId?: string) => {
@@ -68,42 +71,53 @@ serve(async (req) => {
       const microsoftAppId = appId || Deno.env.get('MICROSOFT_APP_ID');
       const microsoftAppPassword = appPassword || Deno.env.get('MICROSOFT_APP_PASSWORD');
       
-      console.log('Auth attempt with App ID:', microsoftAppId ? microsoftAppId.substring(0, 8) + '...' : 'MISSING');
-      console.log('Has App Password:', !!microsoftAppPassword);
-      
-      if (!microsoftAppId || !microsoftAppPassword) {
-        const errorMsg = `Missing Microsoft App credentials - ID: ${!!microsoftAppId}, Password: ${!!microsoftAppPassword}`;
-        console.error(errorMsg);
-        throw new Error(errorMsg);
-      }
+        console.log('Auth attempt with App ID:', microsoftAppId ? microsoftAppId.substring(0, 8) + '...' : 'MISSING');
+        console.log('Has App Password:', !!microsoftAppPassword);
+        console.log('Full App ID for debugging:', microsoftAppId);
+        
+        if (!microsoftAppId || !microsoftAppPassword) {
+          const errorMsg = `Missing Microsoft App credentials - ID: ${!!microsoftAppId}, Password: ${!!microsoftAppPassword}`;
+          console.error(errorMsg);
+          throw new Error(errorMsg);
+        }
 
-      const tokenUrl = 'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token';
-      const params = new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: microsoftAppId,
-        client_secret: microsoftAppPassword,
-        scope: 'https://api.botframework.com/.default'
-      });
+        const tokenUrl = 'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token';
+        const params = new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: microsoftAppId,
+          client_secret: microsoftAppPassword,
+          scope: 'https://api.botframework.com/.default'
+        });
 
-      console.log('Requesting token from:', tokenUrl);
+        console.log('Requesting token from:', tokenUrl);
+        console.log('Request body params:', {
+          grant_type: 'client_credentials',
+          client_id: microsoftAppId,
+          scope: 'https://api.botframework.com/.default',
+          client_secret: microsoftAppPassword ? '[PRESENT]' : '[MISSING]'
+        });
 
-      const response = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: params
-      });
+        const response = await fetch(tokenUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: params
+        });
 
-      if (!response.ok) {
-        const error = await response.text();
-        console.error('Failed to get access token:', response.status, error);
-        throw new Error(`Failed to get access token: ${response.status} - ${error}`);
-      }
+        console.log('Token response status:', response.status);
+        console.log('Token response status text:', response.statusText);
 
-      const data = await response.json();
-      console.log('Successfully obtained access token');
-      return data.access_token;
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('Failed to get access token:', response.status, error);
+          console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+          throw new Error(`Failed to get access token: ${response.status} - ${error}`);
+        }
+
+        const data = await response.json();
+        console.log('Successfully obtained access token, expires in:', data.expires_in);
+        return data.access_token;
     };
 
     // Helper function to send reply to Teams
@@ -295,9 +309,16 @@ Just say "help" to see all commands, or I'll automatically assist when you start
     });
 
   } catch (error) {
-    console.error('Teams Bot Webhook error:', error);
+    console.error('=== TEAMS BOT WEBHOOK ERROR ===');
+    console.error('Error type:', typeof error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Full error object:', error);
+    console.error('=== END ERROR ===');
+    
     return new Response(JSON.stringify({ 
-      error: 'Webhook processing failed'
+      error: 'Webhook processing failed',
+      details: error.message 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
