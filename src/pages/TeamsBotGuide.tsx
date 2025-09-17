@@ -487,11 +487,14 @@ export default function TeamsBotGuide() {
                   <Badge className="mt-0.5">3.2</Badge>
                   <div className="flex-1">
                     <p className="font-medium">Update Required Fields</p>
-                    <div className="bg-yellow-50 dark:bg-yellow-950/20 p-3 rounded-lg space-y-1 text-sm">
-                      <p>• Replace <code>YOUR_AZURE_BOT_ID_HERE</code> with your Microsoft App ID</p>
-                      <p>• Replace <code>YOUR_GENERATED_UUID_HERE</code> with a new UUID</p>
-                      <p>• Update <code>developer</code> section with your company info</p>
-                      <p>• Update <code>validDomains</code> with your actual domains</p>
+                    <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 p-4 rounded-lg space-y-2 text-sm">
+                      <div className="font-semibold text-orange-800 dark:text-orange-200 mb-2">⚠️ Required Updates:</div>
+                      <div className="space-y-1 text-orange-900 dark:text-orange-100">
+                        <p>• Replace <code className="bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs font-mono">YOUR_AZURE_BOT_ID_HERE</code> with your Microsoft App ID</p>
+                        <p>• Replace <code className="bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs font-mono">YOUR_GENERATED_UUID_HERE</code> with a new UUID</p>
+                        <p>• Update <code className="bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs font-mono">developer</code> section with your company info</p>
+                        <p>• Update <code className="bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs font-mono">validDomains</code> with your actual domains</p>
+                      </div>
                     </div>
                   </div>
                 </div>
