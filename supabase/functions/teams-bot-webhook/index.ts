@@ -20,9 +20,45 @@ serve(async (req) => {
     const body = await req.json();
     console.log('Teams Bot Webhook received:', JSON.stringify(body, null, 2));
 
+    // Helper function to get Microsoft Bot Framework access token
+    const getAccessToken = async () => {
+      const appId = Deno.env.get('MICROSOFT_APP_ID');
+      const appPassword = Deno.env.get('MICROSOFT_APP_PASSWORD');
+      
+      if (!appId || !appPassword) {
+        throw new Error('Missing MICROSOFT_APP_ID or MICROSOFT_APP_PASSWORD');
+      }
+
+      const tokenUrl = 'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token';
+      const params = new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: appId,
+        client_secret: appPassword,
+        scope: 'https://api.botframework.com/.default'
+      });
+
+      const response = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: params
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('Failed to get access token:', response.status, error);
+        throw new Error(`Failed to get access token: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.access_token;
+    };
+
     // Helper function to send reply to Teams
     const sendReply = async (text: string) => {
       try {
+        const accessToken = await getAccessToken();
         const replyUrl = `${body.serviceUrl}v3/conversations/${body.conversation.id}/activities`;
         const replyPayload = {
           type: 'message',
@@ -37,7 +73,7 @@ serve(async (req) => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${Deno.env.get('MICROSOFT_APP_PASSWORD') || 'dummy'}` // We'll need this secret
+            'Authorization': `Bearer ${accessToken}`
           },
           body: JSON.stringify(replyPayload)
         });
