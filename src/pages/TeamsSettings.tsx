@@ -528,7 +528,7 @@ export default function TeamsSettings() {
                         <Label htmlFor="microsoft-app-id">Microsoft App ID</Label>
                         <Input
                           id="microsoft-app-id"
-                          type="password"
+                          type="text"
                           value={settings.microsoft_app_id || ''}
                           onChange={(e) => setSettings(prev => ({ ...prev, microsoft_app_id: e.target.value }))}
                           placeholder="dc4f4e25-78e1-4006-8201-cffaf7a7d6f3"
