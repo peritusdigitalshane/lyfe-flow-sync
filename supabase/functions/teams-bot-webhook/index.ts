@@ -22,48 +22,27 @@ serve(async (req) => {
 
     // Helper function to get Teams settings from database
     const getTeamsSettings = async (teamsOrgTenantId?: string) => {
-      if (!teamsOrgTenantId) {
-        console.log('No Teams org tenant ID provided');
-        return null;
-      }
-      
       console.log('Looking for Teams settings with org tenant ID:', teamsOrgTenantId);
       
       try {
-        // First try to find by Teams organization tenant ID
-        // We need to check if we have a mapping or if the tenant_id matches the Teams org ID
+        // Try to find any active Teams settings with proper credentials
         const { data, error } = await supabase
           .from('teams_settings')
           .select('microsoft_app_id, microsoft_app_password, tenant_id, user_id')
-          .or(`tenant_id.eq.${teamsOrgTenantId},microsoft_teams_org_id.eq.${teamsOrgTenantId}`)
+          .not('microsoft_app_id', 'is', null)
+          .not('microsoft_app_password', 'is', null)
+          .neq('microsoft_app_id', '')
+          .neq('microsoft_app_password', '')
+          .limit(1)
           .maybeSingle();
           
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
           console.error('Error fetching Teams settings:', error);
           return null;
         }
         
         if (!data) {
-          console.log('No Teams settings found for org tenant ID:', teamsOrgTenantId);
-          // Try to find any active Teams settings as fallback
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('teams_settings')
-            .select('microsoft_app_id, microsoft_app_password, tenant_id, user_id')
-            .not('microsoft_app_id', 'is', null)
-            .not('microsoft_app_password', 'is', null)
-            .limit(1)
-            .maybeSingle();
-            
-          if (fallbackError) {
-            console.error('Error fetching fallback Teams settings:', fallbackError);
-            return null;
-          }
-          
-          if (fallbackData) {
-            console.log('Using fallback Teams settings from tenant:', fallbackData.tenant_id);
-            return fallbackData;
-          }
-          
+          console.log('No Teams settings found with valid credentials');
           return null;
         }
         
@@ -246,6 +225,7 @@ serve(async (req) => {
       case 'message':
         // Handle incoming messages/commands
         const text = body.text?.toLowerCase() || '';
+        let responseText = '';
         
         // Get Teams settings using the organization tenant ID from Teams
         console.log('Teams conversation tenant ID:', conversation.tenantId);
@@ -253,10 +233,10 @@ serve(async (req) => {
         
         if (!teamsSettings) {
           console.error('No Teams settings found for tenant:', conversation.tenantId);
-          responseText = 'Sorry, I cannot respond right now. The bot configuration is missing. Please contact your administrator.';
+          responseText = 'Sorry, I cannot respond right now. The bot configuration is missing. Please contact your administrator to configure Microsoft App ID and password in Teams Settings.';
         } else if (!teamsSettings.microsoft_app_id || !teamsSettings.microsoft_app_password) {
           console.error('Incomplete Teams settings - missing credentials');
-          responseText = 'Sorry, I cannot respond right now. The bot credentials are not configured. Please contact your administrator to set up the Microsoft App ID and password.';
+          responseText = 'Sorry, I cannot respond right now. The bot credentials are not configured. Please contact your administrator to set up the Microsoft App ID and password in Teams Settings.';
         } else {
           // Bot is properly configured, generate response based on message
           if (text.includes('start recording') || text.includes('begin recording')) {
