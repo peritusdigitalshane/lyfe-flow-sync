@@ -8,9 +8,202 @@ import { Copy, ExternalLink, Bot, CheckCircle, AlertTriangle, Download, Code } f
 import { ImprovedNavigation } from "@/components/ImprovedNavigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { toast } from "sonner";
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function TeamsBotGuide() {
   const [copiedStep, setCopiedStep] = useState<string | null>(null);
+  const [botConfig, setBotConfig] = useState<any>(null);
+
+  useEffect(() => {
+    fetchBotConfig();
+  }, []);
+
+  const fetchBotConfig = async () => {
+    try {
+      // Fetch the bot configuration from the database
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'teams_bot_3134f649-152a-44a1-897e-f0eb10433384')
+        .single();
+
+      if (error) {
+        console.error('Error fetching bot config:', error);
+        return;
+      }
+
+      setBotConfig(data?.value);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const downloadManifest = async () => {
+    try {
+      let manifest = JSON.parse(manifestExample);
+      
+      // If we have bot config from database, use it
+      if (botConfig?.manifest) {
+        manifest = botConfig.manifest;
+      }
+
+      const manifestData = JSON.stringify(manifest, null, 2);
+      const blob = new Blob([manifestData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'manifest.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Manifest downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading manifest:', error);
+      toast.error('Failed to download manifest');
+    }
+  };
+
+  const downloadIcon = async (type: 'color' | 'outline') => {
+    try {
+      // Create a simple placeholder icon using canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const size = type === 'color' ? 192 : 32;
+      canvas.width = size;
+      canvas.height = size;
+
+      if (type === 'color') {
+        // Create a colorful bot icon
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#0078D4');
+        gradient.addColorStop(1, '#106EBE');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        // Add bot design
+        ctx.fillStyle = 'white';
+        ctx.font = `${size * 0.6}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🤖', size / 2, size / 2);
+      } else {
+        // Create outline icon
+        ctx.strokeStyle = '#424242';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(4, 4, size - 8, size - 8);
+        
+        ctx.fillStyle = '#424242';
+        ctx.font = `${size * 0.5}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('AI', size / 2, size / 2);
+      }
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${type}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast.success(`${type}.png downloaded successfully`);
+      }, 'image/png');
+    } catch (error) {
+      console.error('Error downloading icon:', error);
+      toast.error('Failed to download icon');
+    }
+  };
+
+  const downloadAppPackage = async () => {
+    try {
+      // Dynamic import for JSZip
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      // Add manifest
+      let manifest = JSON.parse(manifestExample);
+      if (botConfig?.manifest) {
+        manifest = botConfig.manifest;
+      }
+      zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+      // Create and add color icon
+      const colorCanvas = document.createElement('canvas');
+      const colorCtx = colorCanvas.getContext('2d');
+      if (colorCtx) {
+        colorCanvas.width = 192;
+        colorCanvas.height = 192;
+        
+        const gradient = colorCtx.createLinearGradient(0, 0, 192, 192);
+        gradient.addColorStop(0, '#0078D4');
+        gradient.addColorStop(1, '#106EBE');
+        
+        colorCtx.fillStyle = gradient;
+        colorCtx.fillRect(0, 0, 192, 192);
+        
+        colorCtx.fillStyle = 'white';
+        colorCtx.font = '120px Arial';
+        colorCtx.textAlign = 'center';
+        colorCtx.textBaseline = 'middle';
+        colorCtx.fillText('🤖', 96, 96);
+
+        const colorDataUrl = colorCanvas.toDataURL('image/png');
+        const colorData = colorDataUrl.split(',')[1];
+        zip.file('color.png', colorData, { base64: true });
+      }
+
+      // Create and add outline icon
+      const outlineCanvas = document.createElement('canvas');
+      const outlineCtx = outlineCanvas.getContext('2d');
+      if (outlineCtx) {
+        outlineCanvas.width = 32;
+        outlineCanvas.height = 32;
+        
+        outlineCtx.strokeStyle = '#424242';
+        outlineCtx.lineWidth = 2;
+        outlineCtx.strokeRect(2, 2, 28, 28);
+        
+        outlineCtx.fillStyle = '#424242';
+        outlineCtx.font = '16px Arial';
+        outlineCtx.textAlign = 'center';
+        outlineCtx.textBaseline = 'middle';
+        outlineCtx.fillText('AI', 16, 16);
+
+        const outlineDataUrl = outlineCanvas.toDataURL('image/png');
+        const outlineData = outlineDataUrl.split(',')[1];
+        zip.file('outline.png', outlineData, { base64: true });
+      }
+
+      // Generate ZIP file
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'lyfeai-meetings-assistant.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Complete app package downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading app package:', error);
+      toast.error('Failed to download app package');
+    }
+  };
 
   const copyToClipboard = async (text: string, stepId: string) => {
     try {
@@ -262,21 +455,30 @@ export default function TeamsBotGuide() {
                   <div className="flex-1">
                     <p className="font-medium">Create manifest.json</p>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Copy this manifest template and update the highlighted values:
+                      Download the pre-configured manifest or copy the template and update the highlighted values:
                     </p>
-                    <div className="relative">
-                      <pre className="bg-muted p-4 rounded-lg text-xs overflow-x-auto max-h-80">
-                        <code>{manifestExample}</code>
-                      </pre>
+                    <div className="space-y-3">
                       <Button
-                        size="sm"
-                        variant="outline"
-                        className="absolute top-2 right-2"
-                        onClick={() => copyToClipboard(manifestExample, "manifest")}
+                        onClick={() => downloadManifest()}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white"
                       >
-                        <Copy className="h-3 w-3" />
-                        {copiedStep === "manifest" ? "Copied!" : "Copy"}
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Pre-configured manifest.json
                       </Button>
+                      <div className="relative">
+                        <pre className="bg-muted p-4 rounded-lg text-xs overflow-x-auto max-h-80">
+                          <code>{manifestExample}</code>
+                        </pre>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="absolute top-2 right-2"
+                          onClick={() => copyToClipboard(manifestExample, "manifest")}
+                        >
+                          <Copy className="h-3 w-3" />
+                          {copiedStep === "manifest" ? "Copied!" : "Copy"}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -298,10 +500,28 @@ export default function TeamsBotGuide() {
                   <Badge className="mt-0.5">3.3</Badge>
                   <div className="flex-1">
                     <p className="font-medium">Create App Icons</p>
-                    <p className="text-sm text-muted-foreground">
-                      Create two PNG icons:
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Download template icons or create your own:
                     </p>
-                    <ul className="text-sm space-y-1 mt-1">
+                    <div className="grid md:grid-cols-2 gap-3 mb-3">
+                      <Button
+                        onClick={() => downloadIcon('color')}
+                        variant="outline"
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download color.png (192x192)
+                      </Button>
+                      <Button
+                        onClick={() => downloadIcon('outline')}
+                        variant="outline"
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download outline.png (32x32)
+                      </Button>
+                    </div>
+                    <ul className="text-sm space-y-1">
                       <li>• <strong>color.png:</strong> 192x192px full-color icon</li>
                       <li>• <strong>outline.png:</strong> 32x32px transparent outline</li>
                     </ul>
@@ -328,14 +548,23 @@ export default function TeamsBotGuide() {
                   <Badge className="mt-0.5">4.1</Badge>
                   <div className="flex-1">
                     <p className="font-medium">Create App Package</p>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Create a ZIP file containing these three files:
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Download the complete app package or create manually:
                     </p>
-                    <div className="bg-muted p-3 rounded-lg text-sm">
-                      <p>📦 <strong>lyfeai-meetings-assistant.zip</strong></p>
-                      <p className="ml-4">├── manifest.json</p>
-                      <p className="ml-4">├── color.png</p>
-                      <p className="ml-4">└── outline.png</p>
+                    <div className="space-y-3">
+                      <Button
+                        onClick={() => downloadAppPackage()}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Complete App Package (.zip)
+                      </Button>
+                      <div className="bg-muted p-3 rounded-lg text-sm">
+                        <p>📦 <strong>lyfeai-meetings-assistant.zip</strong></p>
+                        <p className="ml-4">├── manifest.json</p>
+                        <p className="ml-4">├── color.png</p>
+                        <p className="ml-4">└── outline.png</p>
+                      </div>
                     </div>
                   </div>
                 </div>
