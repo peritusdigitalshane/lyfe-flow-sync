@@ -20,15 +20,15 @@ serve(async (req) => {
     const body = await req.json();
     console.log('Teams Bot Webhook received:', JSON.stringify(body, null, 2));
 
-    // Helper function to get Teams settings from database
-    const getTeamsSettings = async (userId?: string) => {
-      if (!userId) return null;
+    // Helper function to get Teams settings from database using tenant_id
+    const getTeamsSettings = async (tenantId?: string) => {
+      if (!tenantId) return null;
       
       try {
         const { data, error } = await supabase
           .from('teams_settings')
           .select('microsoft_app_id, microsoft_app_password')
-          .eq('user_id', userId)
+          .eq('tenant_id', tenantId)
           .maybeSingle();
           
         if (error) {
@@ -48,6 +48,8 @@ serve(async (req) => {
       // Fallback to environment variables if not provided
       const microsoftAppId = appId || Deno.env.get('MICROSOFT_APP_ID');
       const microsoftAppPassword = appPassword || Deno.env.get('MICROSOFT_APP_PASSWORD');
+      
+      console.log('Auth attempt with App ID:', microsoftAppId?.substring(0, 8) + '...');
       
       if (!microsoftAppId || !microsoftAppPassword) {
         throw new Error('Missing Microsoft App credentials');
@@ -72,16 +74,19 @@ serve(async (req) => {
       if (!response.ok) {
         const error = await response.text();
         console.error('Failed to get access token:', response.status, error);
-        throw new Error(`Failed to get access token: ${response.status}`);
+        throw new Error(`Failed to get access token: ${response.status} - ${error}`);
       }
 
       const data = await response.json();
+      console.log('Successfully obtained access token');
       return data.access_token;
     };
 
     // Helper function to send reply to Teams
     const sendReply = async (text: string, teamsSettings?: any) => {
       try {
+        console.log('Attempting to send reply with settings:', !!teamsSettings);
+        
         const accessToken = await getAccessToken(
           teamsSettings?.microsoft_app_id,
           teamsSettings?.microsoft_app_password
@@ -94,7 +99,7 @@ serve(async (req) => {
           text: text
         };
         
-        console.log('Sending reply to Teams:', replyPayload);
+        console.log('Sending reply to Teams:', { url: replyUrl, hasToken: !!accessToken });
         
         const response = await fetch(replyUrl, {
           method: 'POST',
@@ -106,12 +111,14 @@ serve(async (req) => {
         });
         
         if (!response.ok) {
-          console.error('Failed to send reply:', response.status, await response.text());
+          const errorText = await response.text();
+          console.error('Failed to send reply:', response.status, errorText);
         } else {
           console.log('Reply sent successfully');
         }
       } catch (error) {
         console.error('Error sending reply:', error);
+        // Don't throw here, just log - we want the webhook to return 200
       }
     };
 
@@ -197,8 +204,8 @@ serve(async (req) => {
         // Handle incoming messages/commands
         const text = body.text?.toLowerCase() || '';
         
-        // Try to get Teams settings for this user (we'll use tenant ID later for multi-user support)
-        const teamsSettings = await getTeamsSettings(from.id);
+        // Get Teams settings using tenant ID from the conversation
+        const teamsSettings = await getTeamsSettings(conversation.tenantId);
         
         let responseText = '';
         
