@@ -82,27 +82,65 @@ serve(async (req) => {
       ]
     };
 
-    // Store bot configuration
-    const { data: botConfig, error: insertError } = await supabase
+    // Check if bot already exists
+    const botKey = `teams_bot_${tenantId}`;
+    const { data: existingBot } = await supabase
       .from('app_settings')
-      .insert({
-        tenant_id: tenantId,
-        key: `teams_bot_${tenantId}`,
-        value: {
-          manifest,
-          botName,
-          status: 'created',
-          createdAt: new Date().toISOString(),
-          webhookUrl: `${supabaseUrl}/functions/v1/teams-bot-webhook`
-        },
-        description: `Teams bot configuration for ${botName}`
-      })
-      .select()
+      .select('*')
+      .eq('key', botKey)
       .single();
 
-    if (insertError) {
-      console.error('Database insert error:', insertError);
-      throw new Error('Failed to store bot configuration');
+    let botConfig;
+    
+    if (existingBot) {
+      // Update existing bot configuration
+      const { data: updatedBot, error: updateError } = await supabase
+        .from('app_settings')
+        .update({
+          value: {
+            manifest,
+            botName,
+            status: 'updated',
+            lastUpdated: new Date().toISOString(),
+            webhookUrl: `${supabaseUrl}/functions/v1/teams-bot-webhook`
+          },
+          description: `Teams bot configuration for ${botName}`
+        })
+        .eq('key', botKey)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        throw new Error('Failed to update bot configuration');
+      }
+      
+      botConfig = updatedBot;
+    } else {
+      // Create new bot configuration
+      const { data: newBot, error: insertError } = await supabase
+        .from('app_settings')
+        .insert({
+          tenant_id: tenantId,
+          key: botKey,
+          value: {
+            manifest,
+            botName,
+            status: 'created',
+            createdAt: new Date().toISOString(),
+            webhookUrl: `${supabaseUrl}/functions/v1/teams-bot-webhook`
+          },
+          description: `Teams bot configuration for ${botName}`
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Database insert error:', insertError);
+        throw new Error('Failed to store bot configuration');
+      }
+      
+      botConfig = newBot;
     }
 
     return new Response(JSON.stringify({
