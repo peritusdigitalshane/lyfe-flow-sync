@@ -25,14 +25,15 @@ serve(async (req) => {
       console.log('Looking for Teams settings with org tenant ID:', teamsOrgTenantId);
       
       try {
-        // Try to find any active Teams settings with proper credentials
+        // Try to find any active Teams settings with proper credentials and bot enabled
         const { data, error } = await supabase
           .from('teams_settings')
-          .select('microsoft_app_id, microsoft_app_password, tenant_id, user_id')
+          .select('microsoft_app_id, microsoft_app_password, tenant_id, user_id, bot_enabled')
           .not('microsoft_app_id', 'is', null)
           .not('microsoft_app_password', 'is', null)
           .neq('microsoft_app_id', '')
           .neq('microsoft_app_password', '')
+          .eq('bot_enabled', true)
           .limit(1)
           .maybeSingle();
           
@@ -42,13 +43,14 @@ serve(async (req) => {
         }
         
         if (!data) {
-          console.log('No Teams settings found with valid credentials');
+          console.log('No Teams settings found with valid credentials and bot enabled');
           return null;
         }
         
         console.log('Found Teams settings:', {
           hasAppId: !!data.microsoft_app_id,
           hasAppPassword: !!data.microsoft_app_password,
+          botEnabled: data.bot_enabled,
           tenantId: data.tenant_id,
           userId: data.user_id
         });
@@ -227,9 +229,17 @@ serve(async (req) => {
         const text = body.text?.toLowerCase() || '';
         let responseText = '';
         
-        // Get Teams settings using the organization tenant ID from Teams
+        console.log('Processing message with text:', text);
         console.log('Teams conversation tenant ID:', conversation.tenantId);
+        
+        // Get Teams settings using the organization tenant ID from Teams
         const teamsSettings = await getTeamsSettings(conversation.tenantId);
+        
+        console.log('Teams settings result:', {
+          found: !!teamsSettings,
+          hasAppId: !!teamsSettings?.microsoft_app_id, 
+          botEnabled: teamsSettings?.bot_enabled
+        });
         
         if (!teamsSettings) {
           console.error('No Teams settings found for tenant:', conversation.tenantId);
@@ -238,6 +248,7 @@ serve(async (req) => {
           console.error('Incomplete Teams settings - missing credentials');
           responseText = 'Sorry, I cannot respond right now. The bot credentials are not configured. Please contact your administrator to set up the Microsoft App ID and password in Teams Settings.';
         } else {
+          console.log('Bot is properly configured, generating response...');
           // Bot is properly configured, generate response based on message
           if (text.includes('start recording') || text.includes('begin recording')) {
             responseText = 'Recording started! I\'m now capturing the meeting for transcription and analysis.';
@@ -261,8 +272,11 @@ Just say "help" to see all commands, or I'll automatically assist when you start
           }
         }
         
+        console.log('Generated response text:', responseText);
+        
         // Send reply using Teams API only if we have valid settings
         if (teamsSettings && teamsSettings.microsoft_app_id && teamsSettings.microsoft_app_password) {
+          console.log('Attempting to send reply to Teams...');
           await sendReply(responseText, teamsSettings);
         } else {
           console.log('Skipping reply due to missing/invalid Teams settings');
