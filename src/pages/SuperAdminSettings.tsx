@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Eye, EyeOff, Save, TestTube, Loader2, BookOpen, Settings, AlertTriangle, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Save, TestTube, Loader2, BookOpen, Settings, AlertTriangle, Trash2, Bot } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -1257,6 +1257,45 @@ Respond with JSON format:
                     </>
                   )}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Teams Bot Deployment Guide */}
+          <Card className="border-blue-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-700">
+                <BookOpen className="h-5 w-5" />
+                Teams Bot Deployment Guide
+              </CardTitle>
+              <CardDescription>
+                Complete step-by-step guide for deploying the LyfeAI Meetings Assistant bot to Microsoft Teams
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Bot className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-blue-900">Deployment Guide</h4>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Follow our comprehensive guide to deploy the Teams meeting bot to Azure and register it in your Teams organization. 
+                      Includes Azure Bot Service setup, webhook configuration, and Teams app manifest creation.
+                    </p>
+                    <div className="flex flex-wrap gap-2 mt-3 text-xs text-blue-600">
+                      <span className="bg-blue-100 px-2 py-1 rounded">• Azure Bot Service</span>
+                      <span className="bg-blue-100 px-2 py-1 rounded">• Webhook Configuration</span>
+                      <span className="bg-blue-100 px-2 py-1 rounded">• Teams App Manifest</span>
+                      <span className="bg-blue-100 px-2 py-1 rounded">• Testing & Deployment</span>
+                    </div>
+                  </div>
+                </div>
+                <Link to="/teams-bot-guide">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="lg">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Open Teams Bot Deployment Guide
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>

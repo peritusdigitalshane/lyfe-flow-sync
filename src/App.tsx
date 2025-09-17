@@ -32,6 +32,7 @@ import PlatformOverview from "./pages/PlatformOverview";
 import PerformanceMetrics from "./pages/PerformanceMetrics";
 import TeamsOverview from "./pages/TeamsOverview";
 import TeamsSettings from "./pages/TeamsSettings";
+import TeamsBotGuide from "./pages/TeamsBotGuide";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ModuleGuard } from "./components/ModuleGuard";
@@ -197,6 +198,16 @@ const App = () => (
                 <TeamsSettings />
               </AccountStatusCheck>
             } />
+            <Route 
+              path="/teams-bot-guide" 
+              element={
+                <ProtectedRoute requireSuperAdmin>
+                  <AccountStatusCheck>
+                    <TeamsBotGuide />
+                  </AccountStatusCheck>
+                </ProtectedRoute>
+              } 
+            />
             <Route 
               path="/module-management" 
               element={
