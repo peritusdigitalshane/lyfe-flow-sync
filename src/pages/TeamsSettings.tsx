@@ -568,7 +568,6 @@ export default function TeamsSettings() {
                       onCheckedChange={(checked) =>
                         setSettings(prev => ({ ...prev, bot_enabled: checked }))
                       }
-                      disabled={!settings.bot_enabled}
                     />
                   </div>
 
