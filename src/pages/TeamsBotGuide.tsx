@@ -512,6 +512,26 @@ export default function TeamsBotGuide() {
                 <div className="flex items-start gap-3">
                   <Badge className="mt-0.5">3.2</Badge>
                   <div className="flex-1">
+                    <p className="font-medium">Generate Required UUID</p>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      First, generate a unique UUID for your Teams app:
+                    </p>
+                    <div className="bg-muted p-3 rounded-lg space-y-2">
+                      <p className="text-sm">1. Visit <a href="https://www.uuidgenerator.net/" target="_blank" rel="noopener" className="text-primary underline">uuidgenerator.net</a> or use PowerShell</p>
+                      <p className="text-sm">2. Click "Generate UUID" or run: <code className="bg-background px-2 py-1 rounded text-xs">[guid]::NewGuid()</code></p>
+                      <p className="text-sm">3. Copy the generated UUID (example: 3134f649-152a-44a1-897e-f0eb10433384)</p>
+                      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-2 rounded mt-2">
+                        <p className="text-blue-800 dark:text-blue-200 text-xs">
+                          💡 <strong>Important:</strong> This UUID must be unique and will identify your app in Teams
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Badge className="mt-0.5">3.3</Badge>
+                  <div className="flex-1">
                     <p className="font-medium">Update Required Fields</p>
                     <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 p-4 rounded-lg space-y-2 text-sm">
                       <div className="font-semibold text-orange-800 dark:text-orange-200 mb-2">⚠️ Required Updates:</div>
