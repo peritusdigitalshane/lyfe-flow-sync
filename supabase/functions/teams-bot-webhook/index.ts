@@ -8,20 +8,32 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('=== WEBHOOK ENTRY POINT ===');
+  
   if (req.method === 'OPTIONS') {
+    console.log('OPTIONS request received');
     return new Response('ok', { headers: corsHeaders });
   }
 
   console.log('=== TEAMS BOT WEBHOOK STARTING ===');
+  console.log('Request method:', req.method);
+  console.log('Request headers:', Object.fromEntries(req.headers.entries()));
   
   try {
+    console.log('Attempting to parse JSON body...');
+    const body = await req.json();
+    console.log('=== JSON PARSED SUCCESSFULLY ===');
+    console.log('Body type:', typeof body);
+    console.log('Body keys:', Object.keys(body || {}));
+    console.log('Request body sample:', JSON.stringify(body).substring(0, 500) + '...');
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    console.log('Supabase URL:', supabaseUrl ? 'Present' : 'Missing');
+    console.log('Service key:', supabaseServiceKey ? 'Present' : 'Missing');
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const body = await req.json();
-    console.log('=== Teams Bot Webhook received ===');
-    console.log('Request body:', JSON.stringify(body, null, 2));
+    console.log('Supabase client created successfully');
 
     // Helper function to get Teams settings from database
     const getTeamsSettings = async (teamsOrgTenantId?: string) => {
