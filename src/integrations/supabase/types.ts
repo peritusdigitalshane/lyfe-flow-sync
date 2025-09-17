@@ -471,6 +471,116 @@ export type Database = {
         }
         Relationships: []
       }
+      meeting_action_items: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          description: string
+          due_date: string | null
+          id: string
+          meeting_summary_id: string
+          priority: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          description: string
+          due_date?: string | null
+          id?: string
+          meeting_summary_id: string
+          priority?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          description?: string
+          due_date?: string | null
+          id?: string
+          meeting_summary_id?: string
+          priority?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_action_items_meeting_summary_id_fkey"
+            columns: ["meeting_summary_id"]
+            isOneToOne: false
+            referencedRelation: "meeting_summaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_summaries: {
+        Row: {
+          action_items: Json | null
+          created_at: string
+          duration_minutes: number | null
+          effectiveness_score: number | null
+          id: string
+          integration_type: string
+          key_decisions: Json | null
+          meeting_date: string
+          meeting_id: string
+          meeting_title: string
+          participants: Json | null
+          source_data: Json | null
+          speaking_time_analysis: Json | null
+          summary: string | null
+          tenant_id: string
+          transcript: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_items?: Json | null
+          created_at?: string
+          duration_minutes?: number | null
+          effectiveness_score?: number | null
+          id?: string
+          integration_type: string
+          key_decisions?: Json | null
+          meeting_date: string
+          meeting_id: string
+          meeting_title: string
+          participants?: Json | null
+          source_data?: Json | null
+          speaking_time_analysis?: Json | null
+          summary?: string | null
+          tenant_id: string
+          transcript?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_items?: Json | null
+          created_at?: string
+          duration_minutes?: number | null
+          effectiveness_score?: number | null
+          id?: string
+          integration_type?: string
+          key_decisions?: Json | null
+          meeting_date?: string
+          meeting_id?: string
+          meeting_title?: string
+          participants?: Json | null
+          source_data?: Json | null
+          speaking_time_analysis?: Json | null
+          summary?: string | null
+          tenant_id?: string
+          transcript?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           account_status: string | null
@@ -534,6 +644,111 @@ export type Database = {
           subscription_tier?: string | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      teams_analytics: {
+        Row: {
+          average_effectiveness_score: number | null
+          average_meeting_duration: number | null
+          completed_action_items: number | null
+          created_at: string
+          id: string
+          insights: Json | null
+          meeting_patterns: Json | null
+          most_active_participants: Json | null
+          period_end: string
+          period_start: string
+          tenant_id: string
+          total_action_items: number | null
+          total_meeting_time_minutes: number | null
+          total_meetings: number | null
+          user_id: string
+        }
+        Insert: {
+          average_effectiveness_score?: number | null
+          average_meeting_duration?: number | null
+          completed_action_items?: number | null
+          created_at?: string
+          id?: string
+          insights?: Json | null
+          meeting_patterns?: Json | null
+          most_active_participants?: Json | null
+          period_end: string
+          period_start: string
+          tenant_id: string
+          total_action_items?: number | null
+          total_meeting_time_minutes?: number | null
+          total_meetings?: number | null
+          user_id: string
+        }
+        Update: {
+          average_effectiveness_score?: number | null
+          average_meeting_duration?: number | null
+          completed_action_items?: number | null
+          created_at?: string
+          id?: string
+          insights?: Json | null
+          meeting_patterns?: Json | null
+          most_active_participants?: Json | null
+          period_end?: string
+          period_start?: string
+          tenant_id?: string
+          total_action_items?: number | null
+          total_meeting_time_minutes?: number | null
+          total_meetings?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      teams_settings: {
+        Row: {
+          action_item_extraction: boolean | null
+          auto_transcription_enabled: boolean | null
+          bot_enabled: boolean | null
+          bot_name: string | null
+          created_at: string
+          id: string
+          integration_type: string
+          meeting_analytics_enabled: boolean | null
+          notification_preferences: Json | null
+          retention_days: number | null
+          speaking_time_analysis: boolean | null
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_item_extraction?: boolean | null
+          auto_transcription_enabled?: boolean | null
+          bot_enabled?: boolean | null
+          bot_name?: string | null
+          created_at?: string
+          id?: string
+          integration_type: string
+          meeting_analytics_enabled?: boolean | null
+          notification_preferences?: Json | null
+          retention_days?: number | null
+          speaking_time_analysis?: boolean | null
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_item_extraction?: boolean | null
+          auto_transcription_enabled?: boolean | null
+          bot_enabled?: boolean | null
+          bot_name?: string | null
+          created_at?: string
+          id?: string
+          integration_type?: string
+          meeting_analytics_enabled?: boolean | null
+          notification_preferences?: Json | null
+          retention_days?: number | null
+          speaking_time_analysis?: boolean | null
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -892,7 +1107,7 @@ export type Database = {
         | "bulk_processing"
         | "manual_processing"
       mailbox_status: "pending" | "connected" | "error" | "paused"
-      user_module: "email_management" | "security"
+      user_module: "email_management" | "security" | "teams"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1046,7 +1261,7 @@ export const Constants = {
         "manual_processing",
       ],
       mailbox_status: ["pending", "connected", "error", "paused"],
-      user_module: ["email_management", "security"],
+      user_module: ["email_management", "security", "teams"],
     },
   },
 } as const

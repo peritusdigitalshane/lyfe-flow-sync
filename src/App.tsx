@@ -30,6 +30,8 @@ import ThreatMonitor from "./pages/ThreatMonitor";
 import ModuleManagement from "./pages/ModuleManagement";
 import PlatformOverview from "./pages/PlatformOverview";
 import PerformanceMetrics from "./pages/PerformanceMetrics";
+import TeamsOverview from "./pages/TeamsOverview";
+import TeamsSettings from "./pages/TeamsSettings";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ModuleGuard } from "./components/ModuleGuard";
@@ -183,6 +185,16 @@ const App = () => (
                 <ModuleGuard requiredModule="security">
                   <ThreatMonitor />
                 </ModuleGuard>
+              </AccountStatusCheck>
+            } />
+            <Route path="/teams-overview" element={
+              <AccountStatusCheck>
+                <TeamsOverview />
+              </AccountStatusCheck>
+            } />
+            <Route path="/teams-settings" element={
+              <AccountStatusCheck>
+                <TeamsSettings />
               </AccountStatusCheck>
             } />
             <Route 
