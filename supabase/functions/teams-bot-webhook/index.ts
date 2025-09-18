@@ -1,4 +1,7 @@
+// Force fresh deployment - v2.0
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+console.log('🔥 FUNCTION MODULE LOADED - v2.0');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,54 +9,62 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log('🚀 MINIMAL WEBHOOK TEST - FUNCTION STARTED');
-  console.log('Method:', req.method);
-  console.log('URL:', req.url);
+  console.log('🚀 WEBHOOK HIT - EXECUTION STARTED v2.0');
+  console.log('📞 Method:', req.method);
+  console.log('🌐 URL:', req.url);
+  console.log('⏰ Timestamp:', new Date().toISOString());
   
   if (req.method === 'OPTIONS') {
-    console.log('📋 OPTIONS request - returning CORS headers');
+    console.log('📋 CORS preflight - returning OK');
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    console.log('📥 Processing request...');
-    const body = await req.json();
+    console.log('📥 Reading request body...');
+    const text = await req.text();
+    console.log('📊 Raw body length:', text.length);
+    console.log('📝 Raw body preview:', text.substring(0, 200));
+    
+    const body = JSON.parse(text);
     console.log('✅ JSON parsed successfully');
-    console.log('📊 Body type:', typeof body);
     console.log('🔍 Activity type:', body?.type);
     console.log('💬 Message text:', body?.text);
+    console.log('👤 From:', body?.from?.name);
     
-    // Simple response for any message
+    // ALWAYS return a test response for messages
     if (body?.type === 'message') {
-      console.log('🤖 Received message, sending simple response');
-      return new Response(JSON.stringify({
+      console.log('🤖 MESSAGE DETECTED - Sending test response');
+      const testResponse = {
         type: 'message',
-        text: 'Hello! I received your message: ' + (body?.text || 'no text')
-      }), {
+        text: `TEST RESPONSE v2.0: I received "${body?.text || 'no text'}" at ${new Date().toLocaleTimeString()}`
+      };
+      
+      return new Response(JSON.stringify(testResponse), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
     
-    console.log('📤 Non-message activity, returning default response');
-    return new Response('OK', { 
+    console.log('📤 Non-message activity - returning 200');
+    return new Response('OK v2.0', { 
       status: 200, 
       headers: corsHeaders 
     });
     
   } catch (error) {
-    console.error('❌ ERROR in webhook:', error);
-    console.error('📋 Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
+    console.error('❌ CRITICAL ERROR:', error);
+    console.error('🔍 Error name:', error.name);
+    console.error('📋 Error message:', error.message);
+    console.error('📚 Error stack:', error.stack);
     
     return new Response(JSON.stringify({ 
-      error: 'Webhook failed',
-      details: error.message 
+      error: 'Webhook failed v2.0',
+      details: error.message,
+      timestamp: new Date().toISOString()
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });
+
+console.log('🎯 WEBHOOK FUNCTION READY - v2.0');
