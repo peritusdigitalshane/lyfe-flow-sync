@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-console.log("=== TEAMS BOT WEBHOOK v10.0 - SINGLE TENANT WITH PROPER AUTH ===");
+console.log("=== TEAMS BOT WEBHOOK v10.1 - SINGLE TENANT WITH PROPER AUTH ===");
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -204,4 +204,4 @@ serve(async (req) => {
   }
 });
 
-console.log("=== SINGLE TENANT BOT WEBHOOK v10.0 READY ===");
+console.log("=== SINGLE TENANT BOT WEBHOOK v10.1 READY ===");
