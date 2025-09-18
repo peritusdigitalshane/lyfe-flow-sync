@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-console.log("=== TEAMS BOT WEBHOOK v9.0 - SINGLE TENANT DIAGNOSTIC ===");
+console.log("=== TEAMS BOT WEBHOOK v10.0 - SINGLE TENANT WITH PROPER AUTH ===");
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -104,57 +104,77 @@ serve(async (req) => {
       // Generate a simple response
       const responseText = `Hello! I received your message: "${parsedBody.text}". I'm your meeting assistant bot and I'm working correctly!`;
       
-      // Extract authentication token for sending response
-      const authHeader = req.headers.get('Authorization');
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
+      try {
+        // Step 1: Get access token for outbound requests
+        console.log("🔑 Getting access token for Bot Framework Connector API...");
         
-        try {
-          // Send response back using Bot Framework Connector API
-          const serviceUrl = parsedBody.serviceUrl;
-          const conversationId = parsedBody.conversation.id;
-          const botId = parsedBody.recipient.id;
-          const userId = parsedBody.from.id;
-          
-          const sendUrl = `${serviceUrl}v3/conversations/${conversationId}/activities`;
-          
-          console.log(`📤 Sending response to: ${sendUrl}`);
-          
-          const responsePayload = {
-            type: 'message',
-            from: { 
-              id: botId, 
-              name: 'Meeting Assistant' 
-            },
-            recipient: { 
-              id: userId,
-              name: parsedBody.from.name || ''
-            },
-            text: responseText,
-            replyToId: parsedBody.id
-          };
-          
-          console.log("📨 Response payload:", responsePayload);
-          
-          const sendResponse = await fetch(sendUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(responsePayload)
-          });
-          
-          if (sendResponse.ok) {
-            const responseData = await sendResponse.json();
-            console.log("✅ Response sent successfully:", responseData);
-          } else {
-            const errorText = await sendResponse.text();
-            console.error(`❌ Failed to send response: ${sendResponse.status} - ${errorText}`);
-          }
-        } catch (sendError) {
-          console.error("❌ Error sending response:", sendError);
+        const tokenResponse = await fetch('https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: new URLSearchParams({
+            grant_type: 'client_credentials',
+            client_id: MICROSOFT_APP_ID!,
+            client_secret: MICROSOFT_APP_PASSWORD!,
+            scope: 'https://api.botframework.com/.default'
+          })
+        });
+
+        if (!tokenResponse.ok) {
+          const errorText = await tokenResponse.text();
+          console.error(`❌ Failed to get access token: ${tokenResponse.status} - ${errorText}`);
+          throw new Error(`Token request failed: ${tokenResponse.status}`);
         }
+
+        const tokenData = await tokenResponse.json();
+        const accessToken = tokenData.access_token;
+        console.log("✅ Got access token successfully");
+
+        // Step 2: Send response back using Bot Framework Connector API
+        const serviceUrl = parsedBody.serviceUrl;
+        const conversationId = parsedBody.conversation.id;
+        const botId = parsedBody.recipient.id;
+        const userId = parsedBody.from.id;
+        
+        const sendUrl = `${serviceUrl}v3/conversations/${conversationId}/activities`;
+        
+        console.log(`📤 Sending response to: ${sendUrl}`);
+        
+        const responsePayload = {
+          type: 'message',
+          from: { 
+            id: botId, 
+            name: 'Meeting Assistant' 
+          },
+          recipient: { 
+            id: userId,
+            name: parsedBody.from.name || ''
+          },
+          text: responseText,
+          replyToId: parsedBody.id
+        };
+        
+        console.log("📨 Response payload:", responsePayload);
+        
+        const sendResponse = await fetch(sendUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify(responsePayload)
+        });
+        
+        if (sendResponse.ok) {
+          const responseData = await sendResponse.json();
+          console.log("✅ Response sent successfully:", responseData);
+        } else {
+          const errorText = await sendResponse.text();
+          console.error(`❌ Failed to send response: ${sendResponse.status} - ${errorText}`);
+        }
+      } catch (sendError) {
+        console.error("❌ Error in response handling:", sendError);
       }
     }
 
@@ -184,4 +204,4 @@ serve(async (req) => {
   }
 });
 
-console.log("=== SINGLE TENANT BOT WEBHOOK v9.0 READY ===");
+console.log("=== SINGLE TENANT BOT WEBHOOK v10.0 READY ===");
