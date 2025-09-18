@@ -1,7 +1,5 @@
-// Force fresh deployment - v2.0
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-console.log('🔥 FUNCTION MODULE LOADED - v2.0');
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,62 +7,79 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log('🚀 WEBHOOK HIT - EXECUTION STARTED v2.0');
-  console.log('📞 Method:', req.method);
-  console.log('🌐 URL:', req.url);
-  console.log('⏰ Timestamp:', new Date().toISOString());
-  
   if (req.method === 'OPTIONS') {
-    console.log('📋 CORS preflight - returning OK');
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    console.log('📥 Reading request body...');
-    const text = await req.text();
-    console.log('📊 Raw body length:', text.length);
-    console.log('📝 Raw body preview:', text.substring(0, 200));
-    
-    const body = JSON.parse(text);
-    console.log('✅ JSON parsed successfully');
-    console.log('🔍 Activity type:', body?.type);
-    console.log('💬 Message text:', body?.text);
-    console.log('👤 From:', body?.from?.name);
-    
-    // ALWAYS return a test response for messages
-    if (body?.type === 'message') {
-      console.log('🤖 MESSAGE DETECTED - Sending test response');
-      const testResponse = {
-        type: 'message',
-        text: `TEST RESPONSE v2.0: I received "${body?.text || 'no text'}" at ${new Date().toLocaleTimeString()}`
-      };
-      
-      return new Response(JSON.stringify(testResponse), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const body = await req.json();
+    const { type, conversation, from, recipient, serviceUrl, text } = body;
+
+    // Get bot credentials from database
+    const { data: settings } = await supabase
+      .from('teams_settings')
+      .select('microsoft_app_id, microsoft_app_password, bot_enabled')
+      .eq('bot_enabled', true)
+      .not('microsoft_app_id', 'is', null)
+      .not('microsoft_app_password', 'is', null)
+      .neq('microsoft_app_id', '')
+      .neq('microsoft_app_password', '')
+      .limit(1)
+      .maybeSingle();
+
+    if (type === 'message' && settings?.microsoft_app_id && settings?.microsoft_app_password) {
+      // Get Bot Framework access token
+      const tokenResponse = await fetch('https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: settings.microsoft_app_id,
+          client_secret: settings.microsoft_app_password,
+          scope: 'https://api.botframework.com/.default'
+        })
       });
+
+      if (tokenResponse.ok) {
+        const tokenData = await tokenResponse.json();
+        const accessToken = tokenData.access_token;
+
+        // Send reply to Teams
+        const replyUrl = `${serviceUrl}v3/conversations/${conversation.id}/activities`;
+        const replyPayload = {
+          type: 'message',
+          from: recipient,
+          conversation: conversation,
+          recipient: from,
+          text: `🤖 Hello! I received your message: "${text}"\n\nBot is working! Time: ${new Date().toLocaleTimeString()}\n\nAvailable commands:\n• Type "help" for assistance\n• Type "hello" for a greeting`
+        };
+
+        await fetch(replyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify(replyPayload)
+        });
+      }
     }
-    
-    console.log('📤 Non-message activity - returning 200');
-    return new Response('OK v2.0', { 
+
+    // Always return 200 to Teams
+    return new Response('', { 
       status: 200, 
       headers: corsHeaders 
     });
-    
+
   } catch (error) {
-    console.error('❌ CRITICAL ERROR:', error);
-    console.error('🔍 Error name:', error.name);
-    console.error('📋 Error message:', error.message);
-    console.error('📚 Error stack:', error.stack);
-    
-    return new Response(JSON.stringify({ 
-      error: 'Webhook failed v2.0',
-      details: error.message,
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    // Always return 200 to avoid Teams retry loops
+    return new Response('', { 
+      status: 200, 
+      headers: corsHeaders 
     });
   }
 });
-
-console.log('🎯 WEBHOOK FUNCTION READY - v2.0');
