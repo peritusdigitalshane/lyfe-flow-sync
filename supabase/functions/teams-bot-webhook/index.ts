@@ -1,6 +1,4 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,328 +6,50 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log('=== WEBHOOK ENTRY POINT ===');
+  console.log('🚀 MINIMAL WEBHOOK TEST - FUNCTION STARTED');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
   
   if (req.method === 'OPTIONS') {
-    console.log('OPTIONS request received');
+    console.log('📋 OPTIONS request - returning CORS headers');
     return new Response('ok', { headers: corsHeaders });
   }
 
-  console.log('=== TEAMS BOT WEBHOOK STARTING ===');
-  console.log('Request method:', req.method);
-  console.log('Request headers:', Object.fromEntries(req.headers.entries()));
-  
   try {
-    console.log('Attempting to parse JSON body...');
+    console.log('📥 Processing request...');
     const body = await req.json();
-    console.log('=== JSON PARSED SUCCESSFULLY ===');
-    console.log('Body type:', typeof body);
-    console.log('Body keys:', Object.keys(body || {}));
-    console.log('Request body sample:', JSON.stringify(body).substring(0, 500) + '...');
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    console.log('Supabase URL:', supabaseUrl ? 'Present' : 'Missing');
-    console.log('Service key:', supabaseServiceKey ? 'Present' : 'Missing');
+    console.log('✅ JSON parsed successfully');
+    console.log('📊 Body type:', typeof body);
+    console.log('🔍 Activity type:', body?.type);
+    console.log('💬 Message text:', body?.text);
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    console.log('Supabase client created successfully');
-
-    // Helper function to get Teams settings from database
-    const getTeamsSettings = async (teamsOrgTenantId?: string) => {
-      console.log('Looking for Teams settings with org tenant ID:', teamsOrgTenantId);
-      
-      try {
-        // Try to find any active Teams settings with proper credentials and bot enabled
-        const { data, error } = await supabase
-          .from('teams_settings')
-          .select('microsoft_app_id, microsoft_app_password, tenant_id, user_id, bot_enabled')
-          .not('microsoft_app_id', 'is', null)
-          .not('microsoft_app_password', 'is', null)
-          .neq('microsoft_app_id', '')
-          .neq('microsoft_app_password', '')
-          .eq('bot_enabled', true)
-          .limit(1)
-          .maybeSingle();
-          
-        if (error) {
-          console.error('Error fetching Teams settings:', error);
-          return null;
-        }
-        
-        if (!data) {
-          console.log('No Teams settings found with valid credentials and bot enabled');
-          return null;
-        }
-        
-        console.log('Found Teams settings:', {
-          hasAppId: !!data.microsoft_app_id,
-          hasAppPassword: !!data.microsoft_app_password,
-          botEnabled: data.bot_enabled,
-          tenantId: data.tenant_id,
-          userId: data.user_id
-        });
-        
-        return data;
-      } catch (error) {
-        console.error('Error fetching Teams settings:', error);
-        return null;
-      }
-    };
-
-    // Helper function to get Microsoft Bot Framework access token
-    const getAccessToken = async (appId?: string, appPassword?: string) => {
-      // Fallback to environment variables if not provided
-      const microsoftAppId = appId || Deno.env.get('MICROSOFT_APP_ID');
-      const microsoftAppPassword = appPassword || Deno.env.get('MICROSOFT_APP_PASSWORD');
-      
-        console.log('Auth attempt with App ID:', microsoftAppId ? microsoftAppId.substring(0, 8) + '...' : 'MISSING');
-        console.log('Has App Password:', !!microsoftAppPassword);
-        console.log('Full App ID for debugging:', microsoftAppId);
-        
-        if (!microsoftAppId || !microsoftAppPassword) {
-          const errorMsg = `Missing Microsoft App credentials - ID: ${!!microsoftAppId}, Password: ${!!microsoftAppPassword}`;
-          console.error(errorMsg);
-          throw new Error(errorMsg);
-        }
-
-        const tokenUrl = 'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token';
-        const params = new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: microsoftAppId,
-          client_secret: microsoftAppPassword,
-          scope: 'https://api.botframework.com/.default'
-        });
-
-        console.log('Requesting token from:', tokenUrl);
-        console.log('Request body params:', {
-          grant_type: 'client_credentials',
-          client_id: microsoftAppId,
-          scope: 'https://api.botframework.com/.default',
-          client_secret: microsoftAppPassword ? '[PRESENT]' : '[MISSING]'
-        });
-
-        const response = await fetch(tokenUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: params
-        });
-
-        console.log('Token response status:', response.status);
-        console.log('Token response status text:', response.statusText);
-
-        if (!response.ok) {
-          const error = await response.text();
-          console.error('Failed to get access token:', response.status, error);
-          console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-          throw new Error(`Failed to get access token: ${response.status} - ${error}`);
-        }
-
-        const data = await response.json();
-        console.log('Successfully obtained access token, expires in:', data.expires_in);
-        return data.access_token;
-    };
-
-    // Helper function to send reply to Teams
-    const sendReply = async (text: string, teamsSettings?: any) => {
-      try {
-        console.log('Attempting to send reply with settings:', !!teamsSettings);
-        
-        const accessToken = await getAccessToken(
-          teamsSettings?.microsoft_app_id,
-          teamsSettings?.microsoft_app_password
-        );
-        const replyUrl = `${body.serviceUrl}v3/conversations/${body.conversation.id}/activities`;
-        const replyPayload = {
-          type: 'message',
-          from: body.recipient,
-          conversation: body.conversation,
-          text: text
-        };
-        
-        console.log('Sending reply to Teams:', { url: replyUrl, hasToken: !!accessToken });
-        
-        const response = await fetch(replyUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: JSON.stringify(replyPayload)
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Failed to send reply:', response.status, errorText);
-        } else {
-          console.log('Reply sent successfully');
-        }
-      } catch (error) {
-        console.error('Error sending reply:', error);
-        // Don't throw here, just log - we want the webhook to return 200
-      }
-    };
-
-    // Handle different activity types
-    const { type, conversation, from, channelData } = body;
-
-    switch (type) {
-      case 'conversationUpdate':
-        // Bot was added to a conversation/meeting
-        if (body.membersAdded) {
-          const botAdded = body.membersAdded.some((member: any) => 
-            member.id === body.recipient.id
-          );
-          
-          if (botAdded) {
-            console.log('Bot added to conversation:', conversation.id);
-            
-            // Send welcome message
-            const welcomeMessage = {
-              type: 'message',
-              text: `Hello! I'm your meeting assistant. I'll help record and analyze this meeting. You can start the meeting and I'll automatically begin transcription.`,
-            };
-            
-            return new Response(JSON.stringify(welcomeMessage), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-          }
-        }
-        break;
-
-      case 'invoke':
-        // Handle meeting events
-        if (body.name === 'application/vnd.microsoft.meetingStart') {
-          console.log('Meeting started:', body.value);
-          
-          // Log meeting start
-          await supabase
-            .from('meeting_summaries')
-            .insert({
-              tenant_id: conversation.tenantId || 'default',
-              user_id: from.id,
-              meeting_id: body.value.meetingId || conversation.id,
-              meeting_title: body.value.title || 'Teams Meeting',
-              meeting_date: new Date().toISOString(),
-              integration_type: 'bot',
-              participants: [from.name],
-              source_data: {
-                conversationId: conversation.id,
-                meetingDetails: body.value
-              }
-            });
-
-          return new Response(JSON.stringify({
-            type: 'invoke',
-            value: { status: 200 }
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-
-        if (body.name === 'application/vnd.microsoft.meetingEnd') {
-          console.log('Meeting ended:', body.value);
-          
-          // Update meeting record
-          await supabase
-            .from('meeting_summaries')
-            .update({
-              duration_minutes: body.value.duration || null,
-              updated_at: new Date().toISOString()
-            })
-            .eq('meeting_id', body.value.meetingId || conversation.id);
-
-          return new Response(JSON.stringify({
-            type: 'invoke',
-            value: { status: 200 }
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-        break;
-
-      case 'message':
-        // Handle incoming messages/commands
-        const text = body.text?.toLowerCase() || '';
-        let responseText = '';
-        
-        console.log('Processing message with text:', text);
-        console.log('Teams conversation tenant ID:', conversation.tenantId);
-        
-        // Get Teams settings using the organization tenant ID from Teams
-        const teamsSettings = await getTeamsSettings(conversation.tenantId);
-        
-        console.log('Teams settings result:', {
-          found: !!teamsSettings,
-          hasAppId: !!teamsSettings?.microsoft_app_id, 
-          botEnabled: teamsSettings?.bot_enabled
-        });
-        
-        if (!teamsSettings) {
-          console.error('No Teams settings found for tenant:', conversation.tenantId);
-          responseText = 'Sorry, I cannot respond right now. The bot configuration is missing. Please contact your administrator to configure Microsoft App ID and password in Teams Settings.';
-        } else if (!teamsSettings.microsoft_app_id || !teamsSettings.microsoft_app_password) {
-          console.error('Incomplete Teams settings - missing credentials');
-          responseText = 'Sorry, I cannot respond right now. The bot credentials are not configured. Please contact your administrator to set up the Microsoft App ID and password in Teams Settings.';
-        } else {
-          console.log('Bot is properly configured, generating response...');
-          // Bot is properly configured, generate response based on message
-          if (text.includes('start recording') || text.includes('begin recording')) {
-            responseText = 'Recording started! I\'m now capturing the meeting for transcription and analysis.';
-          } else if (text.includes('stop recording') || text.includes('end recording')) {
-            responseText = 'Recording stopped. I\'ll process the meeting transcript and send you a summary shortly.';
-          } else if (text.includes('help') || text.includes('commands')) {
-            responseText = `Available commands:
-- "Start recording" - Begin meeting recording
-- "Stop recording" - End meeting recording  
-- "Help" - Show this message
-              
-I automatically join and record meetings when invited. No manual commands needed!`;
-          } else {
-            responseText = `Hello! I'm your AI meeting assistant. I can help with:
-
-🎤 Start recording - Begin meeting transcription
-🛑 Stop recording - End transcription
-❓ Help - Show available commands
-
-Just say "help" to see all commands, or I'll automatically assist when you start a meeting!`;
-          }
-        }
-        
-        console.log('Generated response text:', responseText);
-        
-        // Send reply using Teams API only if we have valid settings
-        if (teamsSettings && teamsSettings.microsoft_app_id && teamsSettings.microsoft_app_password) {
-          console.log('Attempting to send reply to Teams...');
-          await sendReply(responseText, teamsSettings);
-        } else {
-          console.log('Skipping reply due to missing/invalid Teams settings');
-        }
-        
-        // Always return 200 OK to Teams
-        return new Response('', { status: 200, headers: corsHeaders });
+    // Simple response for any message
+    if (body?.type === 'message') {
+      console.log('🤖 Received message, sending simple response');
+      return new Response(JSON.stringify({
+        type: 'message',
+        text: 'Hello! I received your message: ' + (body?.text || 'no text')
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
-
-    // Default response
-    return new Response(JSON.stringify({
-      type: 'message',
-      text: 'I\'m here and ready to assist with your meeting!'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    
+    console.log('📤 Non-message activity, returning default response');
+    return new Response('OK', { 
+      status: 200, 
+      headers: corsHeaders 
     });
-
+    
   } catch (error) {
-    console.error('=== TEAMS BOT WEBHOOK ERROR ===');
-    console.error('Error type:', typeof error);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    console.error('Full error object:', error);
-    console.error('=== END ERROR ===');
+    console.error('❌ ERROR in webhook:', error);
+    console.error('📋 Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     
     return new Response(JSON.stringify({ 
-      error: 'Webhook processing failed',
+      error: 'Webhook failed',
       details: error.message 
     }), {
       status: 500,
