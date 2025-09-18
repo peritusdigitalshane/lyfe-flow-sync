@@ -97,15 +97,76 @@ serve(async (req) => {
       console.log("Could not parse as JSON:", e.message);
     }
 
-    // For now, accept all requests to debug the issue
-    console.log("✅ Returning successful response (auth temporarily bypassed for debugging)");
+    // Handle message activities - send responses back to the user
+    if (parsedBody && parsedBody.type === 'message' && parsedBody.text) {
+      console.log(`🤖 Generating response for message: "${parsedBody.text}"`);
+      
+      // Generate a simple response
+      const responseText = `Hello! I received your message: "${parsedBody.text}". I'm your meeting assistant bot and I'm working correctly!`;
+      
+      // Extract authentication token for sending response
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        
+        try {
+          // Send response back using Bot Framework Connector API
+          const serviceUrl = parsedBody.serviceUrl;
+          const conversationId = parsedBody.conversation.id;
+          const botId = parsedBody.recipient.id;
+          const userId = parsedBody.from.id;
+          
+          const sendUrl = `${serviceUrl}v3/conversations/${conversationId}/activities`;
+          
+          console.log(`📤 Sending response to: ${sendUrl}`);
+          
+          const responsePayload = {
+            type: 'message',
+            from: { 
+              id: botId, 
+              name: 'Meeting Assistant' 
+            },
+            recipient: { 
+              id: userId,
+              name: parsedBody.from.name || ''
+            },
+            text: responseText,
+            replyToId: parsedBody.id
+          };
+          
+          console.log("📨 Response payload:", responsePayload);
+          
+          const sendResponse = await fetch(sendUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(responsePayload)
+          });
+          
+          if (sendResponse.ok) {
+            const responseData = await sendResponse.json();
+            console.log("✅ Response sent successfully:", responseData);
+          } else {
+            const errorText = await sendResponse.text();
+            console.error(`❌ Failed to send response: ${sendResponse.status} - ${errorText}`);
+          }
+        } catch (sendError) {
+          console.error("❌ Error sending response:", sendError);
+        }
+      }
+    }
+
+    // Return acknowledgment to Bot Framework
+    console.log("✅ Returning successful acknowledgment");
     return new Response(JSON.stringify({
       received: true,
       timestamp: timestamp,
       method: req.method,
       bodyLength: body.length,
-      debug: "Authentication temporarily bypassed",
-      message: "Single Tenant Bot Framework webhook received successfully"
+      activityType: parsedBody?.type || 'unknown',
+      message: "Activity processed successfully"
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
