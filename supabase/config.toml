@@ -9,6 +9,9 @@ verify_jwt = true
 [functions.teams-bot-webhook]
 verify_jwt = false
 
+[functions.bot-endpoint-test]
+verify_jwt = false
+
 [functions.auto-email-scheduler]
 verify_jwt = false
 
