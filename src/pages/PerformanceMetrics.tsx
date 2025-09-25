@@ -66,6 +66,7 @@ export default function PerformanceMetrics() {
   useEffect(() => {
     const loadData = async () => {
       console.log("Loading data for user:", contextUser?.id);
+      console.log("hasSecurity:", hasSecurity);
       await fetchMetrics();
       await fetchEmailIntelligence();
       console.log("Data loaded");
@@ -74,7 +75,7 @@ export default function PerformanceMetrics() {
     if (contextUser) {
       loadData();
     }
-  }, [contextUser]);
+  }, [contextUser, hasSecurity]);
 
   const fetchEmailIntelligence = async () => {
     if (!contextUser) return;
@@ -255,10 +256,17 @@ export default function PerformanceMetrics() {
       // Fetch threat intelligence results (if security module is available)
       let threatData = null;
       if (hasSecurity) {
-        const { data } = await supabase
+        console.log("Fetching threat data for tenant:", profile.tenant_id);
+        const { data, error } = await supabase
           .from("threat_intelligence_results")
           .select("id")
           .eq("tenant_id", profile.tenant_id);
+        
+        if (error) {
+          console.error("Error fetching threat data:", error);
+        } else {
+          console.log("Threat data fetched:", data?.length || 0, "results");
+        }
         threatData = data;
       }
 
@@ -277,10 +285,19 @@ export default function PerformanceMetrics() {
         ? Math.round(workflowData.reduce((acc, w) => acc + w.execution_time_ms, 0) / workflowData.length / 1000)
         : 0;
 
+      console.log("Metrics calculation:", {
+        totalEmails,
+        processedEmails, 
+        totalWorkflows,
+        totalCategories,
+        totalThreats: threatData?.length || 0,
+        hasSecurity
+      });
+
       setMetrics({
         totalEmailsProcessed: processedEmails,
         timesSaved: timeSavedMinutes,
-        threatsBlocked: totalThreats,
+        threatsBlocked: threatData?.length || 0,
         categoriesCreated: totalCategories,
         workflowsExecuted: totalWorkflows,
         avgProcessingTime: avgTime
