@@ -15,7 +15,7 @@ export default function Index() {
 
         {/* Tagline */}
         <p className="text-xl text-muted-foreground max-w-lg mx-auto">
-          AI-driven control of your inbox and M365 flow.
+          Smarter email. Less noise. More focus.
         </p>
 
         {/* Login Button */}
