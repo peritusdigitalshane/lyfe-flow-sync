@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserContext } from '@/hooks/useUserContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { useLocation } from 'react-router-dom';
 
 interface Message {
   id: string;
@@ -32,8 +33,14 @@ const PlatformAssistant: React.FC = () => {
   const { user } = useAuth();
   const { contextUser } = useUserContext();
   const { toast } = useToast();
+  const location = useLocation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Hide assistant on login pages
+  if (location.pathname === '/' || location.pathname === '/auth') {
+    return null;
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
