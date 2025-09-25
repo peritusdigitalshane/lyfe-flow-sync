@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Settings, Mail, Shield, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { VipEmailManagement } from '@/components/VipEmailManagement';
+import { VipEmailPreview } from '@/components/VipEmailPreview';
 
 interface MailboxConfig {
   id: string;
@@ -543,6 +545,12 @@ export default function MailboxSettings() {
             )}
           </CardContent>
         </Card>
+
+        {/* VIP Email Management */}
+        <VipEmailManagement mailboxId={mailboxId} />
+
+        {/* VIP Email Preview */}
+        <VipEmailPreview />
 
         {/* Custom Rules */}
         <Card>

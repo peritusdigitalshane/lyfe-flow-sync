@@ -319,6 +319,7 @@ export type Database = {
           importance: string | null
           internet_message_id: string | null
           is_read: boolean | null
+          is_vip: boolean | null
           mailbox_id: string
           microsoft_id: string
           processed_at: string | null
@@ -344,6 +345,7 @@ export type Database = {
           importance?: string | null
           internet_message_id?: string | null
           is_read?: boolean | null
+          is_vip?: boolean | null
           mailbox_id: string
           microsoft_id: string
           processed_at?: string | null
@@ -369,6 +371,7 @@ export type Database = {
           importance?: string | null
           internet_message_id?: string | null
           is_read?: boolean | null
+          is_vip?: boolean | null
           mailbox_id?: string
           microsoft_id?: string
           processed_at?: string | null
@@ -933,6 +936,42 @@ export type Database = {
           created_by?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vip_email_addresses: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email_address: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email_address: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email_address?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          tenant_id?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
