@@ -29,6 +29,7 @@ import ThreatIntelligence from "./pages/ThreatIntelligence";
 import ThreatMonitor from "./pages/ThreatMonitor";
 import ModuleManagement from "./pages/ModuleManagement";
 import PlatformOverview from "./pages/PlatformOverview";
+// Performance and VIP management imports
 import PerformanceMetrics from "./pages/PerformanceMetrics";
 import VipManagement from "./pages/VipManagement";
 import TeamsOverview from "./pages/TeamsOverview";
