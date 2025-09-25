@@ -23,7 +23,8 @@ import {
   Lock,
   Crown,
   ChevronRight,
-  Video
+  Video,
+  Star
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -77,6 +78,7 @@ export const ImprovedNavigation = () => {
       requiresModule: 'email_management',
       items: [
         { path: '/email-categories', label: 'Categories', icon: FolderOpen, description: 'Organize and classify emails' },
+        { path: '/vip-management', label: 'VIP Management', icon: Star, description: 'Manage important email addresses' },
         { path: '/workflows', label: 'Workflows', icon: Workflow, description: 'Automate email processing' },
         { path: '/workflow-rules', label: 'Rules', icon: GitBranch, description: 'Configure workflow conditions' },
         { path: '/ai-classification', label: 'AI Testing', icon: Brain, description: 'Test AI email classification' },

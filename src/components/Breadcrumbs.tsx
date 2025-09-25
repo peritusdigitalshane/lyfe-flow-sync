@@ -32,6 +32,7 @@ const routeLabels: Record<string, string> = {
   'user-guide': 'User Guide',
   'super-admin-guide': 'Admin Guide',
   'performance-metrics': 'Performance Metrics',
+  'vip-management': 'VIP Management',
 };
 
 export const Breadcrumbs: React.FC = () => {

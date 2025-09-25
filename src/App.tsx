@@ -30,6 +30,7 @@ import ThreatMonitor from "./pages/ThreatMonitor";
 import ModuleManagement from "./pages/ModuleManagement";
 import PlatformOverview from "./pages/PlatformOverview";
 import PerformanceMetrics from "./pages/PerformanceMetrics";
+import VipManagement from "./pages/VipManagement";
 import TeamsOverview from "./pages/TeamsOverview";
 import TeamsSettings from "./pages/TeamsSettings";
 import TeamsBotGuide from "./pages/TeamsBotGuide";
@@ -119,6 +120,13 @@ const App = () => (
               <AccountStatusCheck>
                 <ModuleGuard requiredModule="email_management">
                   <AIClassification />
+                </ModuleGuard>
+              </AccountStatusCheck>
+            } />
+            <Route path="/vip-management" element={
+              <AccountStatusCheck>
+                <ModuleGuard requiredModule="email_management">
+                  <VipManagement />
                 </ModuleGuard>
               </AccountStatusCheck>
             } />
