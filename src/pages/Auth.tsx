@@ -86,7 +86,7 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Lyfe Email Management</CardTitle>
+          <CardTitle className="text-2xl font-bold">LyfeFlow</CardTitle>
           <CardDescription>
             Streamline your email workflows with AI-powered automation
           </CardDescription>

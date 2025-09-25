@@ -65,7 +65,7 @@ export default function AccountStatusCheck({ children }: AccountStatusCheckProps
       }
 
       if (data.subscribed) {
-        toast.success("Payment confirmed! Welcome to Lyfe Email Management!");
+        toast.success("Payment confirmed! Welcome to LyfeFlow!");
         setAccountStatus('active');
       } else {
         toast.error("Payment not yet confirmed. Please try again in a moment.");

@@ -96,7 +96,7 @@ export default function SuperAdminGuide() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="h-5 w-5 text-primary" />
-                Welcome to Lyfe Email Management - Super Admin Center
+                Welcome to LyfeFlow - Super Admin Center
               </CardTitle>
               <CardDescription>
                 Your comprehensive guide to managing the email automation platform as a Super Administrator

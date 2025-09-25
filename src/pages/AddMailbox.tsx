@@ -239,7 +239,7 @@ export default function AddMailbox() {
               <div className="text-xs text-muted-foreground text-center space-y-2">
                 <p>
                   By clicking "Connect to Microsoft", you'll be redirected to Microsoft to grant 
-                  permission for Lyfe Email Management to access your mailbox.
+                  permission for LyfeFlow to access your mailbox.
                 </p>
                 <p>
                   Required permissions: Read and write access to your mail and shared mailboxes.

@@ -265,7 +265,7 @@ export const ImprovedNavigation = () => {
           <Link to="/platform-overview" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 bg-gradient-primary rounded-lg shadow-glow-primary"></div>
             <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Lyfe Email Management
+              LyfeFlow
             </h1>
           </Link>
 

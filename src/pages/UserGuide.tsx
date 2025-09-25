@@ -75,7 +75,7 @@ export default function UserGuide() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="h-5 w-5 text-primary" />
-                Welcome to Lyfe Email Management
+                Welcome to LyfeFlow
               </CardTitle>
               <CardDescription>
                 Your complete guide to automating and organizing your email workflow
@@ -83,7 +83,7 @@ export default function UserGuide() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-muted-foreground">
-                Lyfe Email Management is an AI-powered platform that helps you automatically categorize, 
+                LyfeFlow is an AI-powered platform that helps you automatically categorize, 
                 organize, and manage your emails. This guide will walk you through all the features 
                 and help you get the most out of your email automation.
               </p>
