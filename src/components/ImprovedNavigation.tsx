@@ -77,6 +77,7 @@ export const ImprovedNavigation = () => {
       title: "Email Management",
       requiresModule: 'email_management',
       items: [
+        { path: '/email-monitoring', label: 'Email Monitoring', icon: Mail, description: 'Monitor emails with AI reply assistant' },
         { path: '/email-categories', label: 'Categories', icon: FolderOpen, description: 'Organize and classify emails' },
         { path: '/vip-management', label: 'VIP Management', icon: Star, description: 'Manage important email addresses' },
         { path: '/workflows', label: 'Workflows', icon: Workflow, description: 'Automate email processing' },
