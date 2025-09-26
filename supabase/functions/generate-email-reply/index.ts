@@ -33,20 +33,20 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
-    // Initialize Supabase clients
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
+    // Initialize Supabase admin client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) {
+    // Extract JWT token and verify user
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+    
+    console.log('User verification result:', { userId: user?.id, error: userError?.message });
+    
+    if (userError || !user) {
+      console.error('User authentication failed:', userError?.message);
       throw new Error('User not authenticated');
     }
 
@@ -65,14 +65,14 @@ serve(async (req) => {
     const { originalEmail, replyType, additionalContext }: EmailReplyRequest = await req.json();
 
     // Get user's writing style profile
-    const { data: profile } = await supabaseClient
+    const { data: profile } = await supabaseAdmin
       .from('user_writing_profiles')
       .select('writing_style, signature')
       .eq('user_id', user.id)
       .maybeSingle();
 
     // Get user's profile for tenant info
-    const { data: userProfile } = await supabaseClient
+    const { data: userProfile } = await supabaseAdmin
       .from('profiles')
       .select('tenant_id, full_name')
       .eq('id', user.id)
@@ -158,7 +158,7 @@ Reply:`;
     console.log('Reply generated successfully');
 
     // Log the generated reply
-    await supabaseClient
+    await supabaseAdmin
       .from('generated_replies')
       .insert({
         user_id: user.id,
