@@ -79,14 +79,23 @@ export default function AuthCallback() {
         const state = searchParams.get('state');
         
         // Get OAuth configuration from Supabase
+        console.log('AuthCallback: Fetching OAuth configuration...');
         const { data: oauthConfigData, error: oauthError } = await supabase
           .from('app_settings')
           .select('value')
           .eq('key', 'microsoft_oauth')
-          .single();
+          .maybeSingle();
 
-        if (oauthError || !oauthConfigData?.value) {
-          throw new Error('OAuth configuration not found');
+        console.log('AuthCallback: OAuth config result:', { oauthConfigData, oauthError });
+
+        if (oauthError) {
+          console.error('AuthCallback: Error fetching OAuth config:', oauthError);
+          throw new Error(`OAuth configuration error: ${oauthError.message}`);
+        }
+
+        if (!oauthConfigData?.value) {
+          console.error('AuthCallback: No OAuth configuration found');
+          throw new Error('OAuth configuration not found in database');
         }
 
         const oauthConfig = oauthConfigData.value as {
@@ -97,6 +106,7 @@ export default function AuthCallback() {
         };
 
         // Exchange authorization code for access token
+        console.log('AuthCallback: Exchanging code for token with redirect URI:', redirectUri);
         const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
           method: 'POST',
           headers: {
@@ -114,7 +124,12 @@ export default function AuthCallback() {
 
         if (!tokenResponse.ok) {
           const errorText = await tokenResponse.text();
-          throw new Error(`Token exchange failed: ${errorText}`);
+          console.error('AuthCallback: Token exchange failed:', {
+            status: tokenResponse.status,
+            statusText: tokenResponse.statusText,
+            errorText
+          });
+          throw new Error(`Token exchange failed (${tokenResponse.status}): ${errorText}`);
         }
 
         const tokenData = await tokenResponse.json();
