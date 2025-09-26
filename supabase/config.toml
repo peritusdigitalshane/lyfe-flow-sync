@@ -1,5 +1,11 @@
 project_id = "ceasktzguzibehknbgsx"
 
+[functions.generate-email-reply]
+verify_jwt = false
+
+[functions.send-email-reply]
+verify_jwt = false
+
 [functions.backup-system]
 verify_jwt = true
 
