@@ -77,6 +77,9 @@ serve(async (req) => {
     };
 
     console.log(`Sending reply to ${originalEmail.senderEmail} from ${mailbox.email_address}`);
+    console.log('Microsoft Graph token present:', !!mailbox.microsoft_graph_token);
+    console.log('Mailbox ID:', mailboxId);
+    console.log('Original email Microsoft ID:', originalEmail.microsoftId);
 
     // Send the reply using Microsoft Graph API
     const graphResponse = await fetch(
@@ -91,12 +94,17 @@ serve(async (req) => {
       }
     );
 
+    console.log('Microsoft Graph API response status:', graphResponse.status);
+    console.log('Microsoft Graph API response status text:', graphResponse.statusText);
+
     if (!graphResponse.ok) {
       const errorText = await graphResponse.text();
-      console.error('Microsoft Graph API error:', errorText);
+      console.error('Microsoft Graph API error response:', errorText);
+      console.error('Microsoft Graph API error status:', graphResponse.status);
       
       // Try to refresh token if it's expired
       if (graphResponse.status === 401) {
+        console.log('Microsoft Graph token appears to be expired');
         throw new Error('Token expired. Please reconnect your mailbox.');
       }
       
