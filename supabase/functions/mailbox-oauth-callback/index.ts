@@ -156,7 +156,9 @@ serve(async (req) => {
 
     // Instead of trying to redirect with JavaScript, return a proper HTTP redirect
     // The redirect should go back to the mailbox settings page
-    const redirectUrl = `${req.headers.get('origin') || 'https://74583761-ea55-4459-9556-1f0b360c2bab.lovableproject.com'}/mailbox/${mailboxId}/settings`;
+    // Get the origin from the request headers, or use localhost:8080 for Docker deployments
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 'http://localhost:8080';
+    const redirectUrl = `${origin}/mailbox/${mailboxId}/settings`;
     
     console.log('Redirecting to:', redirectUrl);
 
