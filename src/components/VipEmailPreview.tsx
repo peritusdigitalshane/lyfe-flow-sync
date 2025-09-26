@@ -62,7 +62,7 @@ export function VipEmailPreview() {
           VIP Email Preview
         </CardTitle>
         <CardDescription>
-          See how VIP emails will be highlighted in your email lists. VIP emails stand out with golden styling and star icons.
+          Preview of how VIP emails appear in Outlook with the gold "VIP Important" category and high importance flags.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -82,11 +82,11 @@ export function VipEmailPreview() {
             <span className="font-medium text-sm">VIP Email Features:</span>
           </div>
           <ul className="text-xs text-muted-foreground space-y-1">
-            <li>• <Star className="h-3 w-3 text-yellow-500 inline mr-1" /> Golden star icon for instant recognition</li>
-            <li>• Enhanced border and background highlighting</li>
-            <li>• <Badge variant="secondary" className="text-xs bg-yellow-200 text-yellow-800">VIP</Badge> Special VIP badge</li>
-            <li>• Priority placement in email lists</li>
-            <li>• Never miss important communications</li>
+            <li>• <Star className="h-3 w-3 text-yellow-500 inline mr-1" /> Gold "VIP Important" category in Outlook</li>
+            <li>• High importance flag (red exclamation mark)</li>
+            <li>• <Badge variant="secondary" className="text-xs bg-yellow-200 text-yellow-800">VIP</Badge> Colored category bar visible in email list</li>
+            <li>• Works across all your Outlook devices</li>
+            <li>• Automatically applied to existing and new emails</li>
           </ul>
         </div>
       </CardContent>

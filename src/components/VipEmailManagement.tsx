@@ -127,6 +127,27 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
 
       if (error) throw error;
 
+      // Call the edge function to update Outlook mailboxes
+      try {
+        const { error: updateError } = await supabase.functions.invoke('update-vip-status', {
+          body: {
+            action: 'add',
+            email_address: newEmail.trim().toLowerCase(),
+            tenant_id: profileData.tenant_id
+          }
+        });
+
+        if (updateError) {
+          console.error('Error updating Outlook VIP status:', updateError);
+          toast.warning('VIP email added, but there was an issue updating your Outlook mailbox. Existing emails may not be highlighted yet.');
+        } else {
+          toast.success('VIP email added and Outlook mailbox updated! Existing emails from this sender will now show a gold "VIP Important" category in Outlook.');
+        }
+      } catch (outlookError) {
+        console.error('Error calling VIP update function:', outlookError);
+        toast.warning('VIP email added, but Outlook integration encountered an issue.');
+      }
+
       // Clear form and reload list
       setNewEmail('');
       setNewDisplayName('');
@@ -134,7 +155,6 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
       setShowAddForm(false);
       await loadVipEmails();
       
-      toast.success('VIP email added successfully');
     } catch (error) {
       console.error('Error adding VIP email:', error);
       toast.error('Failed to add VIP email');
@@ -143,8 +163,17 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
     }
   };
 
-  const removeVipEmail = async (vipId: string) => {
+  const removeVipEmail = async (vipId: string, emailAddress: string) => {
     try {
+      // Get user's tenant_id first
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (profileError) throw profileError;
+
       const { error } = await supabase
         .from('vip_email_addresses')
         .update({ is_active: false })
@@ -152,8 +181,28 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
 
       if (error) throw error;
 
+      // Call the edge function to update Outlook mailboxes
+      try {
+        const { error: updateError } = await supabase.functions.invoke('update-vip-status', {
+          body: {
+            action: 'remove',
+            email_address: emailAddress.toLowerCase(),
+            tenant_id: profileData.tenant_id
+          }
+        });
+
+        if (updateError) {
+          console.error('Error updating Outlook VIP status:', updateError);
+          toast.warning('VIP email removed, but there was an issue updating your Outlook mailbox.');
+        } else {
+          toast.success('VIP email removed and Outlook mailbox updated! The "VIP Important" category has been removed from existing emails.');
+        }
+      } catch (outlookError) {
+        console.error('Error calling VIP update function:', outlookError);
+        toast.warning('VIP email removed, but Outlook integration encountered an issue.');
+      }
+
       await loadVipEmails();
-      toast.success('VIP email removed successfully');
     } catch (error) {
       console.error('Error removing VIP email:', error);
       toast.error('Failed to remove VIP email');
@@ -187,7 +236,7 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
           VIP Email Management
         </CardTitle>
         <CardDescription>
-          Add important email addresses that will be highlighted and prioritized. VIP emails will be easily identifiable and won't be missed.
+          Add important email addresses that will be highlighted directly in your Outlook mailbox. VIP emails get a gold "VIP Important" category and high importance flag, making them impossible to miss.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -232,7 +281,7 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction 
-                        onClick={() => removeVipEmail(vip.id)}
+                        onClick={() => removeVipEmail(vip.id, vip.email_address)}
                         className="bg-red-600 hover:bg-red-700"
                       >
                         Remove
@@ -302,12 +351,13 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
         )}
 
         <div className="text-xs text-muted-foreground mt-4 p-3 bg-muted/30 rounded-lg">
-          <p className="font-medium mb-1">How VIP emails work:</p>
+          <p className="font-medium mb-1">How VIP emails work in Outlook:</p>
           <ul className="space-y-1">
-            <li>• VIP emails are highlighted with a star icon and special styling</li>
-            <li>• They appear prominently in your email lists and notifications</li>
-            <li>• VIP status is automatically detected when processing emails</li>
-            <li>• Perfect for important clients, executives, or priority contacts</li>
+            <li>• VIP emails get a gold "VIP Important" category directly in Outlook</li>
+            <li>• High importance flag makes them stand out in your inbox</li>
+            <li>• Existing emails from VIP senders are automatically updated</li>
+            <li>• New emails are processed automatically as they arrive</li>
+            <li>• Works across all your devices where Outlook is signed in</li>
           </ul>
         </div>
       </CardContent>
