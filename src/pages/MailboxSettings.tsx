@@ -270,10 +270,14 @@ export default function MailboxSettings() {
         throw new Error(error.message || "Failed to initiate re-authentication");
       }
 
-      const { authUrl } = data;
+      const { redirect_url } = data;
+      
+      if (!redirect_url) {
+        throw new Error('No redirect URL received from server');
+      }
       
       // Redirect to Microsoft OAuth for re-authentication
-      window.location.href = authUrl;
+      window.location.href = redirect_url;
     } catch (error) {
       console.error("Error during re-authentication:", error);
       toast.error(error instanceof Error ? error.message : "Failed to re-authenticate");
