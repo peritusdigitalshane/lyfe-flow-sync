@@ -75,50 +75,86 @@ export default function AuthCallback() {
         
         console.log('AuthCallback: Using dynamic redirect URI:', redirectUri);
 
-        // Call edge function to exchange code for tokens
-        const { data, error: exchangeError } = await supabase.functions.invoke('mailbox-oauth-callback', {
-          body: {
-            code,
-            redirectUri,
-          },
+        // For Docker deployment, handle OAuth callback directly
+        const state = searchParams.get('state');
+        
+        // Get OAuth configuration from Supabase
+        const { data: oauthConfigData, error: oauthError } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'microsoft_oauth')
+          .single();
+
+        if (oauthError || !oauthConfigData?.value) {
+          throw new Error('OAuth configuration not found');
+        }
+
+        const oauthConfig = oauthConfigData.value as {
+          client_id: string;
+          client_secret: string;
+          redirect_uri: string;
+          tenant_id?: string;
+        };
+
+        // Exchange authorization code for access token
+        const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+          method: 'POST',
           headers: {
-            Authorization: `Bearer ${currentSession.access_token}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
+          body: new URLSearchParams({
+            client_id: oauthConfig.client_id,
+            client_secret: oauthConfig.client_secret,
+            code: code,
+            redirect_uri: redirectUri,
+            grant_type: 'authorization_code',
+            scope: 'https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access',
+          }),
         });
+
+        if (!tokenResponse.ok) {
+          const errorText = await tokenResponse.text();
+          throw new Error(`Token exchange failed: ${errorText}`);
+        }
+
+        const tokenData = await tokenResponse.json();
+
+        // Add expiration timestamp to token data
+        const tokenWithExpiry = {
+          ...tokenData,
+          expires_at: Date.now() + (tokenData.expires_in * 1000)
+        };
+
+        // Update mailbox with new token
+        const { error: updateError } = await supabase
+          .from('mailboxes')
+          .update({
+            status: 'connected',
+            microsoft_graph_token: JSON.stringify(tokenWithExpiry),
+            error_message: null,
+            last_sync_at: new Date().toISOString()
+          })
+          .eq('id', state);
+
+        if (updateError) {
+          throw new Error('Failed to update mailbox with new token');
+        }
+
+        const data = { success: true };
+        const exchangeError = null;
 
         // Log the full response for debugging
         console.log('Edge function response:', { data, error: exchangeError });
 
-        // Check if the response indicates an error (even with 200 status)
-        if (exchangeError || (data && !data.success)) {
+        // Check if the response indicates an error
+        if (exchangeError) {
           console.error("Token exchange error:", exchangeError);
           setStatus("error");
           
-          // Get detailed error information
-          let errorMessage = "Failed to exchange authorization code";
-          let errorDetails = "";
-          
-          if (data && !data.success) {
-            // Error returned in response body
-            errorMessage = data.error || errorMessage;
-            errorDetails = data.details || "";
-            
-            console.error("Microsoft error details:", data.microsoft_error);
-          } else if (exchangeError) {
-            // Network or other error
-            errorMessage = exchangeError.message || errorMessage;
-          }
-          
-          let displayMessage = errorMessage;
-          if (errorDetails) {
-            displayMessage += `\n\nDetails: ${errorDetails}`;
-          }
-          
-          console.error("Full error details:", { errorMessage, errorDetails, data, exchangeError });
-          
-          setMessage(displayMessage);
+          const errorMessage = exchangeError instanceof Error ? exchangeError.message : "Failed to exchange authorization code";
+          setMessage(errorMessage);
           toast.error("Authentication failed");
-          setTimeout(() => navigate("/dashboard"), 5000); // Increased timeout to read error
+          setTimeout(() => navigate("/dashboard"), 5000);
           return;
         }
 
