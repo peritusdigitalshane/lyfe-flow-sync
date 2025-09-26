@@ -62,11 +62,11 @@ export function EmailReplyAssistant({ open, onClose, email }: EmailReplyAssistan
       }
     } catch (error) {
       console.error('Error generating reply:', error);
-      toast({
-        title: "Generation Failed",
-        description: error.message || "Failed to generate reply. Please try again.",
-        variant: "destructive",
-      });
+        toast({
+          title: "Generation Failed",
+          description: error.message || "Failed to generate reply. Please try again.",
+          variant: "destructive",
+        });
     } finally {
       setIsGenerating(false);
     }
