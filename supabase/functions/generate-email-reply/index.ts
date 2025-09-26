@@ -50,16 +50,10 @@ serve(async (req) => {
       throw new Error('User not authenticated');
     }
 
-    // Get OpenAI API key from app_settings
-    const { data: openAISettings } = await supabaseAdmin
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'openai_api_key')
-      .maybeSingle();
-
-    const openAIApiKey = openAISettings?.value;
+    // Get OpenAI API key from environment variables (Supabase secrets)
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured in app settings');
+      throw new Error('OpenAI API key not configured in environment variables');
     }
 
     const { originalEmail, replyType, additionalContext }: EmailReplyRequest = await req.json();
