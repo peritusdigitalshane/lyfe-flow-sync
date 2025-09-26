@@ -178,7 +178,7 @@ serve(async (req) => {
           // Add threat intelligence results to analysis
           if (threatResult.threats_detected > 0) {
             analysis.risk_score = Math.max(analysis.risk_score, threatResult.max_threat_score);
-            analysis.analysis_details.suspicious_patterns.push(...(threatResult.threat_details?.map(t => t.threat_indicator) || []));
+            analysis.analysis_details.suspicious_patterns.push(...(threatResult.threat_details?.map((t: any) => t.threat_indicator) || []));
             analysis.analysis_details.risk_factors.push({
               factor: 'threat_intelligence',
               score: threatResult.max_threat_score,
@@ -211,7 +211,7 @@ serve(async (req) => {
           console.warn('Threat intelligence check failed, continuing with basic analysis:', threatIntelResponse?.error || 'No results');
         }
       } catch (error) {
-        console.warn('Threat intelligence check failed (timeout or error), continuing with basic analysis:', error.message);
+        console.warn('Threat intelligence check failed (timeout or error), continuing with basic analysis:', error instanceof Error ? error.message : String(error));
         // Continue processing - don't let threat intelligence failures block email processing
         if (analysis && analysis.analysis_details) {
           analysis.analysis_details.risk_factors.push({
@@ -378,7 +378,7 @@ serve(async (req) => {
     console.error('Error in email workflow processor:', error);
     
     return new Response(JSON.stringify({ 
-      error: error.message || 'Internal server error',
+      error: error instanceof Error ? error.message : 'Internal server error',
       success: false 
     }), {
       status: 500,
@@ -673,7 +673,7 @@ async function categorizeEmail(email: any, categoryId: string, supabase: any): P
     console.log(`✅ [M365] Successfully synced category to M365 for email ${email.id}`);
   } catch (m365Error) {
     console.error('❌ [M365] Critical error applying category to email in M365:', m365Error);
-    console.error('❌ [M365] Error stack:', m365Error.stack);
+    console.error('❌ [M365] Error stack:', m365Error instanceof Error ? m365Error.stack : String(m365Error));
     
     // Log the error to audit logs for debugging
     await supabase
@@ -686,8 +686,8 @@ async function categorizeEmail(email: any, categoryId: string, supabase: any): P
           email_id: email.id,
           subject: email.subject,
           category_id: categoryId,
-          m365_error: m365Error.message,
-          m365_error_stack: m365Error.stack,
+          m365_error: m365Error instanceof Error ? m365Error.message : String(m365Error),
+          m365_error_stack: m365Error instanceof Error ? m365Error.stack : String(m365Error),
           status: 'm365_sync_failed'
         }
       });
@@ -926,7 +926,7 @@ async function quarantineEmail(email: any, supabase: any, reason?: string): Prom
     console.log(`✅ [QUARANTINE] Successfully moved email to Junk folder in M365`);
   } catch (m365Error) {
     console.error('❌ [QUARANTINE] Failed to move email to Junk folder in M365:', m365Error);
-    console.error('❌ [QUARANTINE] Error stack:', m365Error.stack);
+    console.error('❌ [QUARANTINE] Error stack:', m365Error instanceof Error ? m365Error.stack : String(m365Error));
     
     // Log M365 quarantine error
     await supabase
@@ -939,8 +939,8 @@ async function quarantineEmail(email: any, supabase: any, reason?: string): Prom
           email_id: email.id,
           subject: email.subject,
           quarantine_db_success: true,
-          m365_junk_move_error: m365Error.message,
-          m365_error_stack: m365Error.stack,
+          m365_junk_move_error: m365Error instanceof Error ? m365Error.message : String(m365Error),
+          m365_error_stack: m365Error instanceof Error ? m365Error.stack : String(m365Error),
           status: 'm365_quarantine_failed'
         }
       });
@@ -1193,7 +1193,7 @@ async function moveEmailToFolder(email: any, folderId: string, mailboxId: string
           email_id: email.id,
           action_type: 'move_to_folder',
           folder_id: folderId,
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
           timestamp: new Date().toISOString()
         }
       });

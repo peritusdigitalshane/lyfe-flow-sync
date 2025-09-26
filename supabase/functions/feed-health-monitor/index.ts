@@ -100,7 +100,7 @@ serve(async (req) => {
                   entriesCount = 0;
                 }
               } catch (error) {
-                lastError = `OTX API connection failed: ${error.message}`;
+                lastError = `OTX API connection failed: ${error instanceof Error ? error.message : String(error)}`;
                 isHealthy = false;
                 entriesCount = 0;
               }
@@ -145,7 +145,7 @@ serve(async (req) => {
 
       } catch (error) {
         const responseTime = Date.now() - startTime;
-        const errorMessage = error.message || 'Unknown error';
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         
         healthResults.push({
           feed_id: feed.id,
@@ -189,7 +189,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in feed health monitor:', error);
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       success: false 
     }), {
       status: 500,
