@@ -54,6 +54,23 @@ serve(async (req) => {
       throw new Error('Mailbox not found or access denied');
     }
 
+    if (!mailbox.microsoft_graph_token) {
+      throw new Error('Microsoft Graph token not found for mailbox');
+    }
+
+    // Parse the Microsoft Graph token (it's stored as JSON)
+    let parsedToken;
+    try {
+      parsedToken = JSON.parse(mailbox.microsoft_graph_token);
+    } catch (error) {
+      console.error('Failed to parse Microsoft Graph token:', error);
+      throw new Error('Invalid Microsoft Graph token format');
+    }
+
+    if (!parsedToken.access_token) {
+      throw new Error('Access token not found in Microsoft Graph token data');
+    }
+
     // Prepare the reply email
     const replySubject = originalEmail.subject.startsWith('Re:') 
       ? originalEmail.subject 
@@ -87,7 +104,7 @@ serve(async (req) => {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${mailbox.microsoft_graph_token}`,
+          'Authorization': `Bearer ${parsedToken.access_token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(emailMessage)
