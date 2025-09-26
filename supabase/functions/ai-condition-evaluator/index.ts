@@ -195,8 +195,8 @@ ${email.body_content ? `Content: ${email.body_content.substring(0, 2000)}...` : 
         }
         
       } catch (fetchError) {
-        lastError = fetchError.message;
-        console.warn(`Network error with model ${modelToTry}: ${fetchError.message}`);
+        lastError = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        console.warn(`Network error with model ${modelToTry}: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
       }
     }
 
@@ -260,7 +260,7 @@ ${email.body_content ? `Content: ${email.body_content.substring(0, 2000)}...` : 
   } catch (error) {
     console.error('Error in ai-condition-evaluator function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -129,7 +129,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: false,
       error: 'Critical function error',
-      details: error.message,
+      details: error instanceof Error ? error.message : String(error),
       timestamp: new Date().toISOString()
     }), {
       status: 500,

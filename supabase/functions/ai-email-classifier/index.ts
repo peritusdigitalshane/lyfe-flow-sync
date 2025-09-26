@@ -210,7 +210,7 @@ Be precise and only use the exact category names provided.`;
       console.log('Successfully parsed classification result:', classificationResult);
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', content);
-      console.error('Cleaned content was:', cleanContent);
+      console.error('Parse error occurred during classification');
       console.error('Parse error:', parseError);
       // Fallback classification
       classificationResult = {
@@ -321,9 +321,9 @@ Be precise and only use the exact category names provided.`;
     return new Response(
       JSON.stringify({ 
         error: 'Classification failed', 
-        details: error.message,
+        details: error instanceof Error ? error.message : String(error),
         classification: {
-          category: categories && categories.length > 0 ? categories[0].name : "Misc",
+          category: "Misc",
           confidence: 0.1,
           reasoning: "Error occurred during classification"
         }

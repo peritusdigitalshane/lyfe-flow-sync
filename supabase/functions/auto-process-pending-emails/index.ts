@@ -97,7 +97,7 @@ serve(async (req) => {
           email_id: email.id,
           subject: email.subject,
           success: false,
-          error: error.message || 'Processing exception'
+          error: error instanceof Error ? error.message : 'Processing exception'
         });
       }
     }
@@ -118,7 +118,7 @@ serve(async (req) => {
     console.error('Auto-process pending emails error:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      details: error.message 
+      details: error instanceof Error ? error.message : String(error) 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

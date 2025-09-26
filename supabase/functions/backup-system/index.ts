@@ -112,7 +112,7 @@ serve(async (req) => {
       } catch (err) {
         console.error(`Exception backing up ${tableName}:`, err);
         backupData.tables[tableName] = { 
-          error: err.message, 
+          error: err instanceof Error ? err.message : String(err), 
           count: 0 
         };
       }
@@ -202,7 +202,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: false, 
         error: 'Backup failed',
-        message: error.message 
+        message: error instanceof Error ? error.message : String(error) 
       }), 
       { 
         status: 500, 

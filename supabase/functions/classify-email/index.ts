@@ -133,7 +133,8 @@ const handler = async (req: Request): Promise<Response> => {
         category_id: defaultCategory.id,
         rule_id: '',
         confidence: 0.3,
-        method: 'default'
+        method: 'default',
+        priority: defaultCategory.priority || 0
       };
     }
 

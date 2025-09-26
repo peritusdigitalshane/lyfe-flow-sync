@@ -58,7 +58,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Parse request body for custom parameters
     let maxEmails = 50; // Default
     let hoursBack = null; // Default: only new emails since last poll
-    let requestBody = {};
+    let requestBody: any = {};
     
     if (req.method === 'POST') {
       try {
@@ -325,7 +325,7 @@ const handler = async (req: Request): Promise<Response> => {
             mailbox_id: mailbox.id,
             last_poll_at: new Date().toISOString(),
             errors_count: (pollingStatus?.errors_count || 0) + 1,
-            last_error_message: mailboxError.message,
+            last_error_message: mailboxError instanceof Error ? mailboxError.message : String(mailboxError),
             is_polling_active: true
           }, { 
             onConflict: 'tenant_id,mailbox_id',
@@ -338,7 +338,7 @@ const handler = async (req: Request): Promise<Response> => {
 
         results.push({
           mailbox: mailbox.email_address,
-          error: mailboxError.message
+          error: mailboxError instanceof Error ? mailboxError.message : String(mailboxError)
         });
       }
     }
