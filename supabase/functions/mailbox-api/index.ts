@@ -214,7 +214,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: false,
           error: 'Authentication failed',
-          details: error.message || 'Failed to verify token'
+          details: error instanceof Error ? error.message : 'Failed to verify token'
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -253,7 +253,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: false,
           error: 'Failed to fetch user profile',
-          details: error.message || 'Database error'
+          details: error instanceof Error ? error.message : 'Database error'
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -271,7 +271,7 @@ serve(async (req) => {
       );
     }
 
-    const tenantId = profile.tenant_id;
+    const tenantId = (profile as any)?.tenant_id;
     console.log('User authenticated:', { userId: user.id, tenantId });
 
     // Route handling
@@ -306,7 +306,7 @@ serve(async (req) => {
           JSON.stringify({ 
             success: false,
             error: 'Invalid request body',
-            details: error.message || 'Failed to parse JSON'
+            details: error instanceof Error ? error.message : 'Failed to parse JSON'
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -331,7 +331,7 @@ serve(async (req) => {
           JSON.stringify({ 
             success: false,
             error: 'Failed to fetch OAuth configuration',
-            details: error.message || 'Database error'
+            details: error instanceof Error ? error.message : 'Database error'
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -339,13 +339,13 @@ serve(async (req) => {
 
       console.log('OAuth config result:', {
         hasConfig: !!oauthConfig,
-        hasValue: !!oauthConfig?.value,
+        hasValue: !!(oauthConfig as any)?.value,
         error: oauthError?.message
       });
 
       let authUrl = "";
-      if (oauthConfig?.value) {
-        const config = oauthConfig.value as any;
+      if ((oauthConfig as any)?.value) {
+        const config = (oauthConfig as any).value as any;
         console.log('OAuth config details:', {
           hasClientId: !!config.client_id,
           hasClientSecret: !!config.client_secret,
@@ -415,8 +415,7 @@ serve(async (req) => {
         console.log('Re-authentication: updating existing mailbox to pending');
         
         try {
-          const result = await supabaseClient
-            .from('mailboxes')
+          const result = await (supabaseClient.from('mailboxes') as any)
             .update({
               status: 'pending',
               error_message: null,
@@ -442,14 +441,14 @@ serve(async (req) => {
             );
           }
           
-          console.log('Mailbox updated for re-authentication:', mailbox.id);
+          console.log('Mailbox updated for re-authentication:', (mailbox as any)?.id);
         } catch (error) {
           console.error('Database update error:', error);
           return new Response(
             JSON.stringify({ 
               success: false,
               error: 'Failed to update mailbox',
-              details: error.message || 'Database update failed'
+              details: error instanceof Error ? error.message : 'Database update failed'
             }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
@@ -459,8 +458,7 @@ serve(async (req) => {
         console.log('Creating new mailbox record...');
         
         try {
-          const result = await supabaseClient
-            .from('mailboxes')
+          const result = await (supabaseClient.from('mailboxes') as any)
             .insert({
               tenant_id: tenantId,
               user_id: user.id,
@@ -479,7 +477,7 @@ serve(async (req) => {
             JSON.stringify({ 
               success: false,
               error: 'Failed to create mailbox',
-              details: error.message || 'Database insert failed'
+              details: error instanceof Error ? error.message : 'Database insert failed'
             }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
@@ -497,7 +495,7 @@ serve(async (req) => {
           );
         }
 
-        console.log('Mailbox created successfully:', mailbox.id);
+        console.log('Mailbox created successfully:', (mailbox as any)?.id);
       }
 
       // Log audit trail
@@ -540,7 +538,7 @@ serve(async (req) => {
           JSON.stringify({ 
             success: false,
             error: 'Invalid request body',
-            details: error.message || 'Failed to parse JSON'
+            details: error instanceof Error ? error.message : 'Failed to parse JSON'
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -564,7 +562,7 @@ serve(async (req) => {
           JSON.stringify({ 
             success: false,
             error: 'Failed to fetch mailbox',
-            details: error.message || 'Database error'
+            details: error instanceof Error ? error.message : 'Database error'
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -598,7 +596,7 @@ serve(async (req) => {
           JSON.stringify({ 
             success: false,
             error: 'Failed to update mailbox status',
-            details: error.message || 'Database update failed'
+            details: error instanceof Error ? error.message : 'Database update failed'
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -634,7 +632,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: false,
         error: 'Internal server error',
-        details: error.message || 'Unknown error occurred'
+        details: error instanceof Error ? error.message : 'Unknown error occurred'
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
