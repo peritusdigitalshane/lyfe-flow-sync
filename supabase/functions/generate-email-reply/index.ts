@@ -30,15 +30,33 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
+    // Initialize Supabase clients
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
 
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) {
       throw new Error('User not authenticated');
+    }
+
+    // Get OpenAI API key from app_settings
+    const { data: openAISettings } = await supabaseAdmin
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'openai_api_key')
+      .maybeSingle();
+
+    const openAIApiKey = openAISettings?.value;
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured in app settings');
     }
 
     const { originalEmail, replyType, additionalContext }: EmailReplyRequest = await req.json();
@@ -111,7 +129,7 @@ Reply:`;
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
