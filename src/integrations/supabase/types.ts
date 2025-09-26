@@ -394,6 +394,42 @@ export type Database = {
           },
         ]
       }
+      generated_replies: {
+        Row: {
+          created_at: string | null
+          generated_content: string | null
+          id: string
+          original_email_id: string | null
+          reply_type: string | null
+          tenant_id: string
+          user_id: string
+          was_edited: boolean | null
+          was_sent: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          generated_content?: string | null
+          id?: string
+          original_email_id?: string | null
+          reply_type?: string | null
+          tenant_id: string
+          user_id: string
+          was_edited?: boolean | null
+          was_sent?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          generated_content?: string | null
+          id?: string
+          original_email_id?: string | null
+          reply_type?: string | null
+          tenant_id?: string
+          user_id?: string
+          was_edited?: boolean | null
+          was_sent?: boolean | null
+        }
+        Relationships: []
+      }
       mailbox_configs: {
         Row: {
           config: Json
@@ -937,6 +973,42 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_writing_profiles: {
+        Row: {
+          created_at: string | null
+          emails_analyzed: number | null
+          id: string
+          last_analyzed_at: string | null
+          signature: string | null
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+          writing_style: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          emails_analyzed?: number | null
+          id?: string
+          last_analyzed_at?: string | null
+          signature?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+          writing_style?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          emails_analyzed?: number | null
+          id?: string
+          last_analyzed_at?: string | null
+          signature?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+          writing_style?: Json | null
         }
         Relationships: []
       }

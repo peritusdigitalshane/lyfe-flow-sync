@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from "@/hooks/use-toast";
 import { emailPollingService, EmailPollingStatus, Email } from "@/services/emailPollingService";
 import { useAuth } from "@/hooks/useAuth";
+import { EmailReplyAssistant } from "@/components/EmailReplyAssistant";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Mail, RefreshCw, Play, Pause, AlertCircle, CheckCircle, Settings } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -42,6 +43,8 @@ const EmailMonitoring = () => {
   const [pollingDialogOpen, setPollingDialogOpen] = useState(false);
   const [maxEmails, setMaxEmails] = useState(50);
   const [hoursBack, setHoursBack] = useState<number | ''>('');
+  const [selectedEmailForReply, setSelectedEmailForReply] = useState<Email | null>(null);
+  const [showReplyAssistant, setShowReplyAssistant] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -191,6 +194,16 @@ const EmailMonitoring = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleReplyClick = (email: Email) => {
+    setSelectedEmailForReply(email);
+    setShowReplyAssistant(true);
+  };
+
+  const closeReplyAssistant = () => {
+    setShowReplyAssistant(false);
+    setSelectedEmailForReply(null);
   };
 
   if (loading) {
@@ -435,11 +448,20 @@ const EmailMonitoring = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {email.processing_status === 'pending' && (
-                          <Button size="sm" variant="outline">
-                            Process
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleReplyClick(email)}
+                          >
+                            Reply
                           </Button>
-                        )}
+                          {email.processing_status === 'pending' && (
+                            <Button size="sm" variant="outline">
+                              Process
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -448,6 +470,15 @@ const EmailMonitoring = () => {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Email Reply Assistant Modal */}
+      {selectedEmailForReply && (
+        <EmailReplyAssistant
+          open={showReplyAssistant}
+          onClose={closeReplyAssistant}
+          email={selectedEmailForReply}
+        />
       )}
     </div>
   );
