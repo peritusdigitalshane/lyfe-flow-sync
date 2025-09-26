@@ -132,6 +132,72 @@ export const BackupManagement = () => {
             <Download className="h-4 w-4" />
             Download Latest
           </Button>
+
+          <Button
+            variant="destructive"
+            onClick={async () => {
+              const fileName = prompt('Enter backup file name to restore (e.g., backup-2025-01-20-1234567890.json):');
+              if (!fileName) return;
+              
+              const confirmed = confirm(
+                '⚠️ WARNING: This will replace ALL your current data with the backup data. This cannot be undone. Continue?'
+              );
+              
+              if (!confirmed) return;
+              
+              toast.promise(
+                supabase.functions.invoke('restore-backup', {
+                  body: { backup_file_name: fileName }
+                }),
+                {
+                  loading: 'Restoring backup... This may take a few minutes.',
+                  success: (data: any) => {
+                    if (data.data?.success) {
+                      return `Restored ${data.data.results.total_records_restored} records across ${data.data.results.restored_tables.length} tables`;
+                    }
+                    throw new Error(data.data?.error || 'Restore failed');
+                  },
+                  error: 'Failed to restore backup'
+                }
+              );
+            }}
+            className="flex items-center gap-2 text-xs"
+          >
+            🔄 Restore Backup
+          </Button>
+
+          <Button
+            variant="destructive"
+            onClick={async () => {
+              const fileName = prompt('Enter backup file name to restore (e.g., backup-2025-01-20-1234567890.json):');
+              if (!fileName) return;
+              
+              const confirmed = confirm(
+                '⚠️ WARNING: This will replace ALL your current data with the backup data. This cannot be undone. Continue?'
+              );
+              
+              if (!confirmed) return;
+              
+              toast.promise(
+                supabase.functions.invoke('restore-backup', {
+                  body: { backup_file_name: fileName }
+                }),
+                {
+                  loading: 'Restoring backup... This may take a few minutes.',
+                  success: (data: any) => {
+                    if (data.data?.success) {
+                      return `Restored ${data.data.results.total_records_restored} records across ${data.data.results.restored_tables.length} tables`;
+                    }
+                    throw new Error(data.data?.error || 'Restore failed');
+                  },
+                  error: 'Failed to restore backup'
+                }
+              );
+            }}
+            className="flex items-center gap-2 text-xs"
+          >
+            🔄 Restore Backup
+          </Button>
         </div>
 
         <Separator />

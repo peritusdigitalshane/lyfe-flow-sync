@@ -3,6 +3,9 @@ project_id = "ceasktzguzibehknbgsx"
 [functions.backup-system]
 verify_jwt = true
 
+[functions.restore-backup]
+verify_jwt = true
+
 [functions.platform-assistant]
 verify_jwt = true
 
