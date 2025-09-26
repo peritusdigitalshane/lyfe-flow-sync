@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getErrorMessage } from "../_shared/utils.ts";
 
 console.log("=== TEAMS BOT WEBHOOK v10.1 - SINGLE TENANT WITH PROPER AUTH ===");
 
@@ -74,7 +75,7 @@ serve(async (req) => {
             });
           }
         } catch (decodeError) {
-          console.log("❌ Could not decode JWT:", decodeError.message);
+          console.log("❌ Could not decode JWT:", getErrorMessage(decodeError));
         }
       }
     } else {
@@ -94,7 +95,7 @@ serve(async (req) => {
         }
       }
     } catch (e) {
-      console.log("Could not parse as JSON:", e.message);
+      console.log("Could not parse as JSON:", getErrorMessage(e));
     }
 
     // Handle message activities - send responses back to the user
@@ -195,7 +196,7 @@ serve(async (req) => {
   } catch (error) {
     console.error(`[${timestamp}] ERROR:`, error);
     return new Response(JSON.stringify({
-      error: error.message,
+      error: getErrorMessage(error),
       timestamp: timestamp
     }), {
       status: 500,

@@ -1,11 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, getErrorMessage } from "../_shared/utils.ts";
 
 interface ThreatCheckRequest {
   email_id: string;
@@ -267,7 +263,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in threat intelligence checker:', error);
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: getErrorMessage(error),
       success: false 
     }), {
       status: 500,
@@ -480,7 +476,7 @@ async function fetchFeedData(feed: any): Promise<Set<string>> {
       }
     }
   } catch (error) {
-    console.error(`Error fetching feed data for ${feed.name}:`, error.message || error);
+    console.error(`Error fetching feed data for ${feed.name}:`, getErrorMessage(error) || error);
     
     // Return cached data even if expired, better than nothing
     if (cached) {

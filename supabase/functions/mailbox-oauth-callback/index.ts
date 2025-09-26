@@ -187,7 +187,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: false,
           error: 'Failed to exchange authorization code for token',
-          details: errorDetails.error_description || errorDetails.error || 'Unknown Microsoft error',
+          details: (errorDetails as any)?.error_description || (errorDetails as any)?.error || 'Unknown Microsoft error',
           microsoft_error: errorDetails,
           status_code: tokenResponse.status
         }),

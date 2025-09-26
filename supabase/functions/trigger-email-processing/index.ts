@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, getErrorMessage } from "../_shared/utils.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -78,7 +74,7 @@ serve(async (req) => {
             emailId: email.id,
             subject: email.subject,
             success: false,
-            error: error.message
+            error: getErrorMessage(error)
           });
         }
       }
@@ -93,7 +89,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in trigger-email-processing function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: getErrorMessage(error) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

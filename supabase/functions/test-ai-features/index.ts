@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { getErrorMessage } from "../_shared/utils.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,7 +21,16 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const results = {
+    interface TestResult {
+      name: string;
+      status: string;
+      details: any;
+    }
+
+    const results: {
+      timestamp: string;
+      tests: TestResult[];
+    } = {
       timestamp: new Date().toISOString(),
       tests: []
     };
@@ -83,7 +93,7 @@ serve(async (req) => {
         }
       } catch (error) {
         test2.status = 'failed';
-        test2.details = { error: error.message };
+        test2.details = { error: getErrorMessage(error) };
       }
     } else {
       test2.status = 'failed';
@@ -125,7 +135,7 @@ serve(async (req) => {
       }
     } catch (error) {
       test3.status = 'failed';
-      test3.details = { error: error.message };
+      test3.details = { error: getErrorMessage(error) };
     }
     results.tests.push(test3);
 
@@ -165,7 +175,7 @@ serve(async (req) => {
       }
     } catch (error) {
       test4.status = 'failed';
-      test4.details = { error: error.message };
+      test4.details = { error: getErrorMessage(error) };
     }
     results.tests.push(test4);
 
@@ -178,7 +188,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in test-ai-features function:', error);
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: getErrorMessage(error),
       timestamp: new Date().toISOString()
     }), {
       status: 500,

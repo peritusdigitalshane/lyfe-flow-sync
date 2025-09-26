@@ -114,7 +114,7 @@ export interface Database {
 
 export interface HealthCheckResult {
   timestamp: string;
-  status: 'healthy' | 'unhealthy';
+  status: 'healthy' | 'unhealthy' | 'warning';
   checks: {
     database?: { status: 'ok' | 'error'; message: string };
     [key: string]: any;

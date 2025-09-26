@@ -57,8 +57,9 @@ serve(async (req) => {
         healthCheck.errors.push(`High pending email count: ${count}`);
       }
     } catch (error) {
-      healthCheck.checks.email_queue = { status: 'error', message: error.message };
-      healthCheck.errors.push(`Email queue: ${error.message}`);
+      const errorMessage = getErrorMessage(error);
+      healthCheck.checks.email_queue = { status: 'error', message: errorMessage };
+      healthCheck.errors.push(`Email queue: ${errorMessage}`);
       healthCheck.status = 'unhealthy';
     }
 
@@ -82,8 +83,9 @@ serve(async (req) => {
         last_activity: recentActivity?.[0]?.created_at || null
       };
     } catch (error) {
-      healthCheck.checks.recent_activity = { status: 'error', message: error.message };
-      healthCheck.errors.push(`Activity check: ${error.message}`);
+      const errorMessage = getErrorMessage(error);
+      healthCheck.checks.recent_activity = { status: 'error', message: errorMessage };
+      healthCheck.errors.push(`Activity check: ${errorMessage}`);
     }
 
     // Check 4: Edge functions status
@@ -105,8 +107,9 @@ serve(async (req) => {
         healthCheck.errors.push('Edge functions not accessible');
       }
     } catch (error) {
-      healthCheck.checks.edge_functions = { status: 'error', message: error.message };
-      healthCheck.errors.push(`Edge functions: ${error.message}`);
+      const errorMessage = getErrorMessage(error);
+      healthCheck.checks.edge_functions = { status: 'error', message: errorMessage };
+      healthCheck.errors.push(`Edge functions: ${errorMessage}`);
       healthCheck.status = 'unhealthy';
     }
 
@@ -120,7 +123,7 @@ serve(async (req) => {
       timestamp: new Date().toISOString(),
       status: 'unhealthy',
       error: 'Health check failed',
-      details: error.message
+      details: getErrorMessage(error)
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
+import { getErrorMessage } from "../_shared/utils.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,9 +60,9 @@ const handler = async (req: Request): Promise<Response> => {
       
       return new Response(JSON.stringify({
         success: false,
-        message: `Failed to move email to Junk folder: ${m365Error.message}`,
+        message: `Failed to move email to Junk folder: ${getErrorMessage(m365Error)}`,
         email_id: email.id,
-        error: m365Error.message
+        error: getErrorMessage(m365Error)
       }), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
         status: 500
@@ -72,7 +73,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.error('❌ [TEST] Test quarantine failed:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: getErrorMessage(error)
     }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
       status: 500
