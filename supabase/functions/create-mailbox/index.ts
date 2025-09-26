@@ -170,7 +170,7 @@ serve(async (req) => {
       `client_id=${encodeURIComponent(config.client_id)}&` +
       `response_type=code&` +
       `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `scope=openid%20profile%20email%20User.Read%20Mail.ReadWrite%20MailboxSettings.ReadWrite%20offline_access&` +
+      `scope=openid%20profile%20email%20User.Read%20Mail.ReadWrite%20Mail.Send%20MailboxSettings.ReadWrite%20offline_access&` +
       `prompt=consent&` +
       `state=${Date.now()}`;
 
