@@ -165,7 +165,7 @@ serve(async (req) => {
       }
     }
     
-    const redirectUri = `${origin}/auth/callback`;
+    const redirectUri = `https://ceasktzguzibehknbgsx.supabase.co/functions/v1/mailbox-oauth-callback`;
     const authUrl = `https://login.microsoftonline.com/${config.tenant_id || 'common'}/oauth2/v2.0/authorize?` +
       `client_id=${encodeURIComponent(config.client_id)}&` +
       `response_type=code&` +
