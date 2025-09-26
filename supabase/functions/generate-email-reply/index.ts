@@ -26,7 +26,10 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
+    console.log('Authorization header present:', !!authHeader);
+    
     if (!authHeader) {
+      console.error('Missing authorization header');
       throw new Error('No authorization header');
     }
 

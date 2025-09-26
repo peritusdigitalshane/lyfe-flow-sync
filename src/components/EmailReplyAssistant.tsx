@@ -35,6 +35,12 @@ export function EmailReplyAssistant({ open, onClose, email }: EmailReplyAssistan
   const generateReply = async () => {
     setIsGenerating(true);
     try {
+      // Get the current session to ensure we have a valid token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Please sign in to generate replies');
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-email-reply', {
         body: {
           originalEmail: {
