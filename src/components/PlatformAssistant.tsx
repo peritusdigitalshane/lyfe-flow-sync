@@ -25,6 +25,13 @@ interface Message {
 }
 
 const PlatformAssistant: React.FC = () => {
+  const location = useLocation();
+  
+  // Hide assistant on login pages - check this BEFORE any other hooks
+  if (location.pathname === '/' || location.pathname === '/auth') {
+    return null;
+  }
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -33,14 +40,8 @@ const PlatformAssistant: React.FC = () => {
   const { user } = useAuth();
   const { contextUser } = useUserContext();
   const { toast } = useToast();
-  const location = useLocation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Hide assistant on login pages
-  if (location.pathname === '/' || location.pathname === '/auth') {
-    return null;
-  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
