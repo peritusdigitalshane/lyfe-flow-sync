@@ -129,6 +129,7 @@ export default function MailboxSettings() {
       toast.error('Failed to load mailbox settings');
     } finally {
       setLoading(false);
+      setReAuthenticating(false); // Reset re-authentication state
     }
   };
 
