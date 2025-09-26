@@ -154,35 +154,20 @@ serve(async (req) => {
 
     console.log('Mailbox updated successfully:', mailboxId);
 
-    // Get the redirect URL from localStorage or default to dashboard
-    const redirectScript = `
-      <script>
-        try {
-          const redirectPath = localStorage.getItem('post_auth_redirect') || '/dashboard';
-          localStorage.removeItem('post_auth_redirect');
-          console.log('Redirecting to:', redirectPath);
-          window.location.href = redirectPath;
-        } catch (error) {
-          console.error('Redirect error:', error);
-          window.location.href = '/dashboard';
-        }
-      </script>
-    `;
+    // Instead of trying to redirect with JavaScript, return a proper HTTP redirect
+    // The redirect should go back to the mailbox settings page
+    const redirectUrl = `${req.headers.get('origin') || 'https://74583761-ea55-4459-9556-1f0b360c2bab.lovableproject.com'}/mailbox/${mailboxId}/settings`;
+    
+    console.log('Redirecting to:', redirectUrl);
 
-    // Return success response with redirect
-    return new Response(
-      `<html>
-        <body>
-          <h1>Authentication Successful!</h1>
-          <p>Your mailbox has been successfully connected. Redirecting...</p>
-          ${redirectScript}
-        </body>
-      </html>`,
-      { 
-        status: 200, 
-        headers: { 'Content-Type': 'text/html', ...corsHeaders } 
+    // Return HTTP redirect response
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': redirectUrl,
+        ...corsHeaders
       }
-    );
+    });
 
   } catch (error) {
     console.error('OAuth callback error:', error);
