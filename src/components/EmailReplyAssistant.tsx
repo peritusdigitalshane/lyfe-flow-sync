@@ -42,6 +42,9 @@ export function EmailReplyAssistant({ open, onClose, email }: EmailReplyAssistan
       }
 
       const { data, error } = await supabase.functions.invoke('generate-email-reply', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: {
           originalEmail: {
             subject: email.subject,
