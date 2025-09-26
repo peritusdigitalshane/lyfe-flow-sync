@@ -196,7 +196,7 @@ serve(async (req) => {
                 JSON.stringify({ 
                   success: true,
                   oauth_configured: true,
-                  redirect_url: `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${config.client_id}&response_type=code&redirect_uri=${encodeURIComponent(config.redirect_uri)}&scope=${encodeURIComponent('https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/User.Read offline_access')}&state=${mailboxData.id}&prompt=consent`
+                  redirect_url: `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${config.client_id}&response_type=code&redirect_uri=${encodeURIComponent(config.redirect_uri)}&scope=${encodeURIComponent('https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access')}&state=${mailboxData.id}&prompt=consent`
                 }),
                 { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
               );
@@ -212,7 +212,7 @@ serve(async (req) => {
             success: true,
             oauth_configured: !!oauthConfig?.value,
             redirect_url: oauthConfig?.value ? 
-              `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${oauthConfig.value.client_id}&response_type=code&redirect_uri=${encodeURIComponent(oauthConfig.value.redirect_uri)}&scope=${encodeURIComponent('https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/User.Read offline_access')}&state=new&prompt=consent`
+              `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${oauthConfig.value.client_id}&response_type=code&redirect_uri=${encodeURIComponent(oauthConfig.value.redirect_uri)}&scope=${encodeURIComponent('https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access')}&state=new&prompt=consent`
               : null
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
