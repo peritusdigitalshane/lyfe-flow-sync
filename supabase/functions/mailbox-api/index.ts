@@ -135,8 +135,70 @@ serve(async (req) => {
         return createErrorResponse(error, 'Invalid request format', 200);
       }
 
-      const { action } = requestData;
+      const { action, preset, mailboxId } = requestData;
       console.log('Action from request:', action);
+      console.log('Preset from request:', preset);
+
+      // Handle re-authentication for existing mailbox
+      if (preset === 'existing' && mailboxId) {
+        console.log('Handling re-authentication for existing mailbox:', mailboxId);
+        
+        // Get OAuth configuration
+        let oauthConfig: { value?: any } | null = null;
+        try {
+          const oauthResult = await supabaseClient
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'microsoft_oauth')
+            .single();
+
+          oauthConfig = oauthResult.data as { value?: any } | null;
+        } catch (error) {
+          console.error('Failed to get OAuth config:', error);
+          return createErrorResponse(error, 'Failed to get OAuth configuration', 200);
+        }
+
+        if (!oauthConfig?.value) {
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: 'OAuth not configured',
+              details: 'Microsoft OAuth configuration not found'
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const config = oauthConfig.value as any;
+
+        // Update mailbox to pending status for re-authentication
+        try {
+          const updateData: Database['public']['Tables']['mailboxes']['Update'] = { 
+            status: 'pending',
+            error_message: null 
+          };
+          
+          await supabaseClient
+            .from('mailboxes')
+            .update(updateData)
+            .eq('id', mailboxId)
+            .eq('user_id', user.id);
+          
+          console.log('Mailbox updated for re-authentication:', mailboxId);
+          
+          return new Response(
+            JSON.stringify({ 
+              success: true,
+              oauth_configured: true,
+              redirect_url: `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${config.client_id}&response_type=code&redirect_uri=${encodeURIComponent(config.redirect_uri)}&scope=${encodeURIComponent('https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access')}&state=${mailboxId}&prompt=consent`
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (error) {
+          console.error('Failed to update mailbox for re-authentication:', error);
+          return createErrorResponse(error, 'Failed to prepare mailbox for re-authentication', 200);
+        }
+      }
 
       if (action === 'check_oauth') {
         console.log('Checking OAuth configuration...');
