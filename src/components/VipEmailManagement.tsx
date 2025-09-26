@@ -129,13 +129,21 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
 
       // Call the edge function to update Outlook mailboxes
       try {
-        const { error: updateError } = await supabase.functions.invoke('update-vip-status', {
+        console.log('Calling VIP update function with:', {
+          action: 'add',
+          email_address: newEmail.trim().toLowerCase(),
+          tenant_id: profileData.tenant_id
+        });
+
+        const { data, error: updateError } = await supabase.functions.invoke('update-vip-status', {
           body: {
             action: 'add',
             email_address: newEmail.trim().toLowerCase(),
             tenant_id: profileData.tenant_id
           }
         });
+
+        console.log('VIP update function response:', { data, error: updateError });
 
         if (updateError) {
           console.error('Error updating Outlook VIP status:', updateError);
@@ -359,6 +367,46 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
             <li>• New emails are processed automatically as they arrive</li>
             <li>• Works across all your devices where Outlook is signed in</li>
           </ul>
+          
+          {/* Test Button */}
+          <div className="mt-3 pt-3 border-t border-muted">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                if (!user) return;
+                
+                const { data: profileData } = await supabase
+                  .from('profiles')
+                  .select('tenant_id')
+                  .eq('id', user.id)
+                  .single();
+                
+                if (!profileData) return;
+                
+                toast.promise(
+                  supabase.functions.invoke('update-vip-status', {
+                    body: {
+                      action: 'process_mailbox',
+                      mailbox_id: null, // Will find all mailboxes
+                      tenant_id: profileData.tenant_id
+                    }
+                  }),
+                  {
+                    loading: 'Updating Outlook mailbox with VIP categories...',
+                    success: 'Outlook mailbox updated! Check your emails for gold "VIP Important" categories.',
+                    error: 'Failed to update Outlook mailbox. Check the function logs.'
+                  }
+                );
+              }}
+              className="text-xs"
+            >
+              🔄 Update Outlook Now
+            </Button>
+            <p className="text-xs text-muted-foreground mt-1">
+              Manually applies VIP categories to all existing emails in your mailbox
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>
