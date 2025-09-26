@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ImprovedNavigation } from "@/components/ImprovedNavigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { BackupManagement } from "@/components/BackupManagement";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1354,6 +1355,9 @@ Respond with JSON format:
               </Button>
             </CardContent>
           </Card>
+
+          {/* Backup Management */}
+          <BackupManagement />
         </div>
       </main>
     </div>
