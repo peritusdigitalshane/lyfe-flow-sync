@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import type { Database, HealthCheckResult } from "../_shared/types.ts";
+import { corsHeaders, getErrorMessage } from "../_shared/utils.ts";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -20,7 +17,7 @@ serve(async (req) => {
 
     console.log('Running system health check...');
 
-    const healthCheck = {
+    const healthCheck: HealthCheckResult = {
       timestamp: new Date().toISOString(),
       status: 'healthy',
       checks: {},
@@ -33,8 +30,9 @@ serve(async (req) => {
       if (error) throw error;
       healthCheck.checks.database = { status: 'ok', message: 'Database connected' };
     } catch (error) {
-      healthCheck.checks.database = { status: 'error', message: error.message };
-      healthCheck.errors.push(`Database: ${error.message}`);
+      const errorMessage = getErrorMessage(error);
+      healthCheck.checks.database = { status: 'error', message: errorMessage };
+      healthCheck.errors.push(`Database: ${errorMessage}`);
       healthCheck.status = 'unhealthy';
     }
 

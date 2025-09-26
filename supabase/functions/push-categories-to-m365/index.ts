@@ -283,7 +283,7 @@ Deno.serve(async (req) => {
           errors.push(errorMsg);
         }
       } catch (error) {
-        const errorMsg = `Error creating ${category.name}: ${error.message}`;
+        const errorMsg = `Error creating ${category.name}: ${getErrorMessage(error)}`;
         console.error(errorMsg);
         errors.push(errorMsg);
       }
@@ -306,7 +306,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Push categories to M365 error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ error: 'Internal server error', details: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

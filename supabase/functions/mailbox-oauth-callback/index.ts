@@ -1,59 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import type { Database, MicrosoftErrorDetails } from "../_shared/types.ts";
+import { corsHeaders, getErrorMessage, createErrorResponse } from "../_shared/utils.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface Database {
-  public: {
-    Tables: {
-      profiles: {
-        Row: { id: string; tenant_id: string; email: string; full_name: string | null; created_at: string; updated_at: string };
-        Insert: { id: string; tenant_id?: string; email: string; full_name?: string | null };
-        Update: { id?: string; tenant_id?: string; email?: string; full_name?: string | null };
-      };
-      mailboxes: {
-        Row: {
-          id: string;
-          tenant_id: string;
-          user_id: string;
-          email_address: string;
-          display_name: string;
-          status: 'pending' | 'connected' | 'error' | 'paused';
-          microsoft_graph_token: string | null;
-          last_sync_at: string | null;
-          error_message: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          tenant_id: string;
-          user_id: string;
-          email_address: string;
-          display_name: string;
-          status?: 'pending' | 'connected' | 'error' | 'paused';
-          microsoft_graph_token?: string | null;
-          last_sync_at?: string | null;
-          error_message?: string | null;
-        };
-        Update: {
-          id?: string;
-          tenant_id?: string;
-          user_id?: string;
-          email_address?: string;
-          display_name?: string;
-          status?: 'pending' | 'connected' | 'error' | 'paused';
-          microsoft_graph_token?: string | null;
-          last_sync_at?: string | null;
-          error_message?: string | null;
-        };
-      };
-    };
-  };
-}
+// Database and error types now imported from shared types
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -271,7 +221,7 @@ serve(async (req) => {
         });
       }
     } catch (e) {
-      console.log('Could not decode access token:', e.message);
+      console.log('Could not decode access token:', getErrorMessage(e));
     }
 
     // Get user info from Microsoft Graph
@@ -420,7 +370,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: false,
         error: 'Internal server error',
-        details: error.message || 'An unexpected error occurred'
+        details: getErrorMessage(error, 'An unexpected error occurred')
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
