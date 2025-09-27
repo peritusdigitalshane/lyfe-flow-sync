@@ -18,7 +18,9 @@ import {
   Smartphone,
   Zap,
   CheckCircle2,
-  Target
+  Target,
+  X,
+  RotateCcw
 } from "lucide-react";
 import { formatDistanceToNow, startOfDay, startOfWeek } from "date-fns";
 
@@ -63,6 +65,7 @@ const MobileEmailBriefing = () => {
   const [insights, setInsights] = useState<string[]>([]);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [vipEmails, setVipEmails] = useState<ImportantEmail[]>([]);
+  const [hiddenInsights, setHiddenInsights] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (user) {
@@ -275,6 +278,14 @@ const MobileEmailBriefing = () => {
     return email.split('@')[0].slice(0, 2).toUpperCase();
   };
 
+  const hideInsight = (index: number) => {
+    setHiddenInsights(prev => new Set(prev).add(index));
+  };
+
+  const showAllInsights = () => {
+    setHiddenInsights(new Set());
+  };
+
   const getImportanceColor = (email: ImportantEmail) => {
     if (email.is_vip) return "text-yellow-600";
     if (email.importance === 'high') return "text-red-600";
@@ -317,10 +328,23 @@ const MobileEmailBriefing = () => {
         {/* Today's Focus */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Target className="h-5 w-5 text-blue-600" />
-              Today's Focus
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-lg">Today's Focus</CardTitle>
+              </div>
+              {hiddenInsights.size > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={showAllInsights}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Show hidden ({hiddenInsights.size})
+                </Button>
+              )}
+            </div>
             <CardDescription>
               Key actions to maximize your productivity today
             </CardDescription>
@@ -335,19 +359,37 @@ const MobileEmailBriefing = () => {
                   </div>
                 ))}
               </div>
-            ) : insights.length === 0 ? (
+            ) : insights.filter((_, index) => !hiddenInsights.has(index)).length === 0 ? (
               <div className="text-center py-6">
                 <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-500" />
-                <p className="text-sm font-medium">Great job!</p>
-                <p className="text-xs text-muted-foreground">No urgent actions needed right now</p>
+                <p className="text-sm font-medium">
+                  {insights.length === 0 ? "Great job!" : "All insights handled!"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {insights.length === 0 
+                    ? "No urgent actions needed right now" 
+                    : "You've dismissed all insights for now"
+                  }
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {insights.map((insight, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <Zap className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-blue-800 leading-relaxed font-medium">{insight}</p>
-                  </div>
+                  !hiddenInsights.has(index) && (
+                    <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg group">
+                      <Zap className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-blue-800 leading-relaxed font-medium flex-1">{insight}</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => hideInsight(index)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+                        title="Hide this insight"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )
                 ))}
               </div>
             )}
