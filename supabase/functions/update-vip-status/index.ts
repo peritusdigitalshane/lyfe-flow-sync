@@ -184,7 +184,7 @@ async function processAllMailboxesForAllVips(tenantId: string) {
     }
   }
 
-  // Then process Outlook integration for each mailbox
+  // Then process Outlook integration for each mailbox (but don't let failures stop database updates)
   for (const mailbox of mailboxes) {
     console.log(`🔄 Processing Outlook integration for mailbox: ${mailbox.email_address}`);
     for (const vip of vipEmails) {
@@ -192,6 +192,7 @@ async function processAllMailboxesForAllVips(tenantId: string) {
         await updateEmailsInMailbox(mailbox, vip.email_address, true);
       } catch (error) {
         console.error(`❌ Error processing VIP ${vip.email_address} in mailbox ${mailbox.email_address}:`, error);
+        console.log(`⚠️ Continuing despite Outlook integration failure...`);
       }
     }
   }
@@ -247,6 +248,40 @@ async function processMailboxForAllVips(mailboxId: string, tenantId: string) {
 async function updateEmailsInMailbox(mailbox: MailboxToken, senderEmail: string, isVip: boolean) {
   console.log(`🔄 Updating emails from ${senderEmail} in ${mailbox.email_address} - VIP: ${isVip}`);
 
+  // Always update the database first, regardless of Microsoft Graph API status
+  console.log(`💾 Updating database VIP status for emails from ${senderEmail}...`);
+  
+  if (isVip) {
+    const { data: dbUpdateResult, error: dbError } = await supabase
+      .from('emails')
+      .update({ is_vip: true })
+      .eq('mailbox_id', mailbox.id)
+      .eq('sender_email', senderEmail)
+      .eq('is_vip', false) // Only update those not already VIP
+      .select('id');
+
+    if (dbError) {
+      console.error(`❌ Database update error for ${senderEmail}:`, dbError);
+    } else {
+      console.log(`✅ Database: Updated ${dbUpdateResult?.length || 0} emails to VIP status`);
+    }
+  } else {
+    const { data: dbUpdateResult, error: dbError } = await supabase
+      .from('emails')
+      .update({ is_vip: false })
+      .eq('mailbox_id', mailbox.id)
+      .eq('sender_email', senderEmail)
+      .eq('is_vip', true) // Only update those currently VIP
+      .select('id');
+
+    if (dbError) {
+      console.error(`❌ Database update error for ${senderEmail}:`, dbError);
+    } else {
+      console.log(`✅ Database: Removed VIP status from ${dbUpdateResult?.length || 0} emails`);
+    }
+  }
+
+  // Now try Microsoft Graph integration (but don't let failures stop the process)
   try {
     // First, ensure the VIP category exists in Outlook
     console.log(`🏷️ Ensuring VIP category exists in Outlook...`);
