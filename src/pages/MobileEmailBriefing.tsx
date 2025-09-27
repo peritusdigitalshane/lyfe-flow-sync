@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { EmailReplyAssistant } from "@/components/EmailReplyAssistant";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -20,7 +21,8 @@ import {
   CheckCircle2,
   Target,
   X,
-  RotateCcw
+  RotateCcw,
+  Home
 } from "lucide-react";
 import { formatDistanceToNow, startOfDay, startOfWeek } from "date-fns";
 
@@ -48,6 +50,7 @@ interface ImportantEmail {
 const MobileEmailBriefing = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const [emailSummary, setEmailSummary] = useState<EmailSummary>({
     total: 0,
@@ -312,6 +315,14 @@ const MobileEmailBriefing = () => {
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="p-4">
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+              className="p-2 hover:bg-muted"
+            >
+              <Home className="h-5 w-5" />
+            </Button>
             <div className="flex items-center gap-2">
               <Smartphone className="h-6 w-6 text-primary" />
               <h1 className="text-xl font-semibold">Email Briefing</h1>
