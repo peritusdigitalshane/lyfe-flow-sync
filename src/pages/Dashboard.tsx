@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Activity, Settings, Play, Pause, Trash2, Plus, User, LogOut, Loader2, BookOpen } from "lucide-react";
+import { Activity, Settings, Play, Pause, Trash2, Plus, User, LogOut, Loader2, BookOpen, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -169,6 +169,27 @@ export default function Dashboard() {
             </Link>
           </Button>
         </div>
+
+        {/* Quick Access Card */}
+        <Card className="mb-6 card-neon">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5" />
+              Quick Mobile Access
+            </CardTitle>
+            <CardDescription>
+              Access your email briefing optimized for mobile devices
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="premium" size="lg" className="w-full gap-2">
+              <Link to="/mobile-briefing">
+                <Smartphone className="h-5 w-5" />
+                Open Mobile Email Briefing
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         {mailboxes.length === 0 ? (
           <Card>
