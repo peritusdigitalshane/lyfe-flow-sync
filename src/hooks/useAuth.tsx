@@ -35,9 +35,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [originalUser, setOriginalUser] = useState<User | null>(null);
 
   useEffect(() => {
+    console.log('AuthProvider: Initializing auth state...');
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('AuthProvider: Auth state changed:', { event, hasSession: !!session });
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -47,15 +50,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Check for existing session with error handling
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
-        console.error('Error getting session:', error);
-        // Clear any corrupted session data
-        supabase.auth.signOut();
+        console.error('AuthProvider: Error getting session:', error);
+        // Clear any corrupted session data but don't call signOut as it might cause loops
+        setSession(null);
+        setUser(null);
+      } else {
+        console.log('AuthProvider: Initial session check:', { hasSession: !!session });
+        setSession(session);
+        setUser(session?.user ?? null);
       }
-      setSession(session);
-      setUser(session?.user ?? null);
       setLoading(false);
     }).catch((error) => {
-      console.error('Failed to get session:', error);
+      console.error('AuthProvider: Failed to get session:', error);
+      setSession(null);
+      setUser(null);
       setLoading(false);
     });
 
