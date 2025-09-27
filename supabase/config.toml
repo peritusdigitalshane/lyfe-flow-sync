@@ -98,3 +98,6 @@ verify_jwt = true
 
 [functions.reprocess-emails]
 verify_jwt = true
+
+[functions.calendar-meeting-assistant]
+verify_jwt = true

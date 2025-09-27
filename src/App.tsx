@@ -36,6 +36,7 @@ import TeamsOverview from "./pages/TeamsOverview";
 import TeamsSettings from "./pages/TeamsSettings";
 import TeamsBotGuide from "./pages/TeamsBotGuide";
 import MobileEmailBriefing from "./pages/MobileEmailBriefing";
+import CalendarIntegration from "./pages/CalendarIntegration";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ModuleGuard } from "./components/ModuleGuard";
@@ -232,6 +233,13 @@ const App = () => (
               <AccountStatusCheck>
                 <ModuleGuard requiredModule="email_management">
                   <MobileEmailBriefing />
+                </ModuleGuard>
+              </AccountStatusCheck>
+            } />
+            <Route path="/calendar-integration" element={
+              <AccountStatusCheck>
+                <ModuleGuard requiredModule="email_management">
+                  <CalendarIntegration />
                 </ModuleGuard>
               </AccountStatusCheck>
             } />

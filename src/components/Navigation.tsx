@@ -14,7 +14,8 @@ import {
   ChevronDown,
   Brain,
   Mail,
-  Smartphone
+  Smartphone,
+  Calendar
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -48,6 +49,7 @@ export const Navigation = () => {
   const emailManagementItems = [
     { path: '/mobile-briefing', label: 'Mobile Briefing', icon: Smartphone },
     { path: '/email-monitoring', label: 'Email Monitoring', icon: Mail },
+    { path: '/calendar-integration', label: 'Calendar Integration', icon: Calendar },
     { path: '/email-categories', label: 'Categories', icon: FolderOpen },
     { path: '/workflows', label: 'Workflows', icon: Workflow },
     { path: '/workflow-rules', label: 'Rules', icon: GitBranch },
