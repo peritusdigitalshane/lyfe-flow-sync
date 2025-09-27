@@ -27,8 +27,127 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     console.log('Starting OAuth callback processing...');
+    
+    // Check if this is a direct browser redirect from Microsoft (GET request with query params)
+    if (req.method === 'GET') {
+      const url = new URL(req.url);
+      const code = url.searchParams.get('code');
+      const error = url.searchParams.get('error');
+      const errorDescription = url.searchParams.get('error_description');
+      const state = url.searchParams.get('state');
+      
+      // Determine the app origin for redirecting back
+      const refererHeader = req.headers.get('referer');
+      let appOrigin = 'https://preview--lyfe-flow-sync.lovable.app';
+      
+      if (refererHeader) {
+        try {
+          const refererUrl = new URL(refererHeader);
+          appOrigin = refererUrl.origin;
+        } catch (e) {
+          // Use default if parsing fails
+        }
+      }
 
-    // Get the authorization header
+      if (error) {
+        console.error('OAuth error from Microsoft:', error, errorDescription);
+        const errorUrl = `${appOrigin}/auth/callback?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`;
+        return Response.redirect(errorUrl, 302);
+      }
+
+      if (!code || !state) {
+        console.error('Missing code or state in OAuth callback');
+        const errorUrl = `${appOrigin}/auth/callback?error=invalid_request&error_description=${encodeURIComponent('Missing authorization code or state')}`;
+        return Response.redirect(errorUrl, 302);
+      }
+
+      // Process the OAuth callback
+      console.log('Processing OAuth callback for state:', state);
+
+      // Initialize Supabase client
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Get OAuth configuration from database
+      const { data: oauthConfigData, error: oauthError } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'microsoft_oauth')
+        .maybeSingle();
+
+      if (oauthError || !oauthConfigData?.value) {
+        console.error('Failed to fetch OAuth config:', oauthError);
+        const errorUrl = `${appOrigin}/auth/callback?error=server_error&error_description=${encodeURIComponent('OAuth configuration not found')}`;
+        return Response.redirect(errorUrl, 302);
+      }
+
+      const oauthConfig = oauthConfigData.value as OAuthConfig;
+      const redirectUri = `https://ceasktzguzibehknbgsx.supabase.co/functions/v1/mailbox-oauth-callback`;
+
+      // Exchange authorization code for access token
+      console.log('Exchanging authorization code for tokens...');
+      const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: oauthConfig.client_id,
+          client_secret: oauthConfig.client_secret,
+          code: code,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+          scope: 'https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access',
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.error('Token exchange failed:', {
+          status: tokenResponse.status,
+          statusText: tokenResponse.statusText,
+          errorText,
+        });
+        const errorUrl = `${appOrigin}/auth/callback?error=token_exchange_failed&error_description=${encodeURIComponent('Failed to exchange authorization code')}`;
+        return Response.redirect(errorUrl, 302);
+      }
+
+      const tokenData = await tokenResponse.json();
+      console.log('Token exchange successful');
+
+      // Add expiration timestamp to token data
+      const tokenWithExpiry = {
+        ...tokenData,
+        expires_at: Date.now() + (tokenData.expires_in * 1000)
+      };
+
+      // Update mailbox with new token
+      const { error: updateError } = await supabase
+        .from('mailboxes')
+        .update({
+          status: 'connected',
+          microsoft_graph_token: JSON.stringify(tokenWithExpiry),
+          error_message: null,
+          last_sync_at: new Date().toISOString()
+        })
+        .eq('id', state);
+
+      if (updateError) {
+        console.error('Failed to update mailbox:', updateError);
+        const errorUrl = `${appOrigin}/auth/callback?error=database_error&error_description=${encodeURIComponent('Failed to save mailbox credentials')}`;
+        return Response.redirect(errorUrl, 302);
+      }
+
+      console.log('Mailbox updated successfully for state:', state);
+      
+      // Redirect back to the application with success
+      const successUrl = `${appOrigin}/auth/callback?success=true&mailbox_id=${state}`;
+      return Response.redirect(successUrl, 302);
+    }
+
+    // Handle POST requests (for programmatic API calls)
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.error('Missing or invalid authorization header');
