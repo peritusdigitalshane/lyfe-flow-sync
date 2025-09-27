@@ -68,6 +68,7 @@ const MobileEmailBriefing = () => {
   const fetchEmailBriefing = async () => {
     try {
       setLoading(true);
+      console.log('Fetching email briefing for user:', user?.id);
       
       // Get user's tenant
       const { data: profile } = await supabase
@@ -76,11 +77,24 @@ const MobileEmailBriefing = () => {
         .eq('id', user?.id)
         .single();
 
-      if (!profile) return;
+      if (!profile) {
+        console.log('No profile found');
+        return;
+      }
+
+      console.log('User tenant_id:', profile.tenant_id);
 
       const now = new Date();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const todayStart = startOfDay(now);
       const weekStart = startOfWeek(now);
+
+      console.log('Date filters:', {
+        now: now.toISOString(),
+        yesterday: yesterday.toISOString(),
+        todayStart: todayStart.toISOString(),
+        weekStart: weekStart.toISOString()
+      });
 
       // Fetch email summary
       const { data: emails, error: emailsError } = await supabase
@@ -89,31 +103,62 @@ const MobileEmailBriefing = () => {
         .eq('tenant_id', profile.tenant_id)
         .order('received_at', { ascending: false });
 
-      if (emailsError) throw emailsError;
+      if (emailsError) {
+        console.error('Error fetching emails:', emailsError);
+        throw emailsError;
+      }
 
-      // Calculate summary stats
+      console.log('Fetched emails:', emails?.length || 0);
+      
+      if (emails && emails.length > 0) {
+        console.log('Sample email dates:', emails.slice(0, 3).map(e => ({
+          subject: e.subject,
+          received_at: e.received_at,
+          is_read: e.is_read,
+          is_vip: e.is_vip,
+          importance: e.importance
+        })));
+      }
+
+      // Calculate summary stats - using last 24 hours for more relevant data
       const total = emails?.length || 0;
       const unread = emails?.filter(e => !e.is_read).length || 0;
       const vip = emails?.filter(e => e.is_vip).length || 0;
       const urgent = emails?.filter(e => e.importance === 'high').length || 0;
-      const todayCount = emails?.filter(e => new Date(e.received_at) >= todayStart).length || 0;
+      
+      // Filter for last 24 hours instead of just today
+      const last24Hours = emails?.filter(e => new Date(e.received_at) >= yesterday).length || 0;
       const thisWeekCount = emails?.filter(e => new Date(e.received_at) >= weekStart).length || 0;
+
+      console.log('Calculated stats:', {
+        total,
+        unread,
+        vip,
+        urgent,
+        last24Hours,
+        thisWeekCount
+      });
 
       setEmailSummary({
         total,
         unread,
         vip,
         urgent,
-        todayCount,
+        todayCount: last24Hours, // Show last 24 hours instead of just today
         thisWeekCount
       });
 
-      // Get important emails (VIP, high importance, or recent and unread)
-      const important = emails?.filter(email => 
-        email.is_vip || 
-        email.importance === 'high' || 
-        (!email.is_read && new Date(email.received_at) >= todayStart)
-      ).slice(0, 10) || [];
+      // Get important emails (VIP, high importance, or recent and unread within last 24 hours)
+      const important = emails?.filter(email => {
+        const emailDate = new Date(email.received_at);
+        const isRecent = emailDate >= yesterday;
+        
+        return email.is_vip || 
+               email.importance === 'high' || 
+               (!email.is_read && isRecent);
+      }).slice(0, 10) || [];
+
+      console.log('Important emails found:', important.length);
 
       setImportantEmails(important);
 
@@ -227,7 +272,7 @@ const MobileEmailBriefing = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{emailSummary.todayCount}</p>
-                <p className="text-sm text-muted-foreground">Today</p>
+                <p className="text-sm text-muted-foreground">Last 24h</p>
               </div>
             </div>
           </Card>
