@@ -35,37 +35,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [originalUser, setOriginalUser] = useState<User | null>(null);
 
   useEffect(() => {
-    console.log('AuthProvider: Initializing auth state...');
+    console.log('AuthProvider: Initializing auth state...', { 
+      hostname: window.location.hostname,
+      origin: window.location.origin 
+    });
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('AuthProvider: Auth state changed:', { event, hasSession: !!session });
-        setSession(session);
-        setUser(session?.user ?? null);
+      async (event, session) => {
+        console.log('AuthProvider: Auth state changed:', { 
+          event, 
+          hasSession: !!session,
+          hostname: window.location.hostname 
+        });
+        
+        // Handle session cleanup for domain switches
+        if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+          console.log('AuthProvider: Clearing session state');
+          setSession(null);
+          setUser(null);
+          setImpersonatedUser(null);
+          setOriginalUser(null);
+        } else if (session) {
+          setSession(session);
+          setUser(session.user);
+        }
+        
         setLoading(false);
       }
     );
 
-    // Check for existing session with error handling
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error('AuthProvider: Error getting session:', error);
-        // Clear any corrupted session data but don't call signOut as it might cause loops
+    // Check for existing session with enhanced error handling
+    const initializeSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('AuthProvider: Error getting session:', error);
+          // For token errors, attempt to refresh
+          if (error.message?.includes('refresh_token_not_found') || error.message?.includes('Invalid Refresh Token')) {
+            console.log('AuthProvider: Attempting to clear invalid session');
+            await supabase.auth.signOut({ scope: 'local' });
+          }
+          setSession(null);
+          setUser(null);
+        } else {
+          console.log('AuthProvider: Initial session check:', { 
+            hasSession: !!session,
+            hostname: window.location.hostname 
+          });
+          setSession(session);
+          setUser(session?.user ?? null);
+        }
+      } catch (error) {
+        console.error('AuthProvider: Failed to get session:', error);
         setSession(null);
         setUser(null);
-      } else {
-        console.log('AuthProvider: Initial session check:', { hasSession: !!session });
-        setSession(session);
-        setUser(session?.user ?? null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    }).catch((error) => {
-      console.error('AuthProvider: Failed to get session:', error);
-      setSession(null);
-      setUser(null);
-      setLoading(false);
-    });
+    };
+
+    initializeSession();
 
     return () => subscription.unsubscribe();
   }, []);
@@ -79,7 +110,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, fullName?: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    // Use current domain for redirect URL to support Docker deployments
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     
     const { error } = await supabase.auth.signUp({
       email,

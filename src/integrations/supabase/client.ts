@@ -5,6 +5,9 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://ceasktzguzibehknbgsx.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNlYXNrdHpndXppYmVoa25iZ3N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxMjg2OTAsImV4cCI6MjA3MDcwNDY5MH0.wUUytPNjVDFc0uGlhxnSmp0fw_VIdGPK2kHGft9lfso";
 
+// Docker deployment detection
+const isDockerDeployment = window.location.hostname === 'emailmanagement.lyfeai.com.au';
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
@@ -13,6 +16,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false, // Prevent URL-based session detection
+    detectSessionInUrl: false,
+    // Docker deployment specific configuration
+    storageKey: isDockerDeployment ? 'sb-docker-auth-token' : 'sb-ceasktzguzibehknbgsx-auth-token',
+    flowType: 'pkce'
   }
 });
