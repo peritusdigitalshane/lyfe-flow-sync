@@ -36,6 +36,7 @@ import TeamsOverview from "./pages/TeamsOverview";
 import TeamsSettings from "./pages/TeamsSettings";
 import TeamsBotGuide from "./pages/TeamsBotGuide";
 import MobileEmailBriefing from "./pages/MobileEmailBriefing";
+import FeatureShowcase from "./pages/FeatureShowcase";
 import CalendarIntegration from "./pages/CalendarIntegration";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -53,7 +54,9 @@ const App = () => (
         <BrowserRouter>
           <ImpersonationBanner />
           <Routes>
+            {/* Public routes */}
             <Route path="/" element={<Index />} />
+            <Route path="/features" element={<FeatureShowcase />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={
               <AccountStatusCheck>
