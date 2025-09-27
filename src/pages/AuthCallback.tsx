@@ -69,52 +69,17 @@ export default function AuthCallback() {
         console.log("Valid session found, proceeding with token exchange");
         setMessage("Exchanging authorization code for tokens...");
 
-        // Check if this is a success callback from the edge function
-        const successParam = searchParams.get('success');
-        const mailboxId = searchParams.get('mailbox_id');
-        
-        if (successParam === 'true' && mailboxId) {
-          setStatus("success");
-          setMessage("Authentication successful! Redirecting...");
-          toast.success("Mailbox connected successfully!");
-          
-          // Check if there's a stored redirect URL (from re-authentication)
-          const postAuthRedirect = localStorage.getItem('post_auth_redirect');
-          console.log('AuthCallback: Retrieved stored URL:', postAuthRedirect);
-          
-          if (postAuthRedirect) {
-            console.log('AuthCallback: Redirecting to stored URL:', postAuthRedirect);
-            localStorage.removeItem('post_auth_redirect');
-            
-            // Validate the URL before navigating
-            if (postAuthRedirect.includes('/undefined')) {
-              console.error('AuthCallback: Detected undefined in URL, redirecting to dashboard instead');
-              setTimeout(() => navigate("/dashboard"), 2000);
-            } else {
-              console.log('AuthCallback: Valid URL, navigating to:', postAuthRedirect);
-              setTimeout(() => navigate(postAuthRedirect), 2000);
-            }
-          } else {
-            console.log('AuthCallback: No stored URL, redirecting to dashboard');
-            setTimeout(() => navigate("/dashboard"), 2000);
-          }
-          return;
-        }
-
         // Use dynamic redirect URI based on current domain
         const currentOrigin = window.location.origin;
         const redirectUri = `${currentOrigin}/auth/callback`;
         
-        console.log('AuthCallback: Using Docker deployment redirect URI:', redirectUri);
+        console.log('AuthCallback: Using redirect URI:', redirectUri);
         console.log('AuthCallback: Current URL params:', window.location.search);
         console.log('AuthCallback: Code parameter:', code);
 
-        // For Docker deployment, handle OAuth callback directly
+        // Get state parameter from URL
         const state = searchParams.get('state');
         console.log('AuthCallback: State parameter:', state);
-        
-        // No need to fetch OAuth config on client side anymore since 
-        // the server-side edge function will handle it
 
         // Exchange authorization code for access token using server-side edge function
         console.log('AuthCallback: Calling server-side OAuth exchange...');
