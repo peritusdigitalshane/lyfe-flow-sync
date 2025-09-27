@@ -369,25 +369,23 @@ const MobileEmailBriefing = () => {
                   if (!profileData) return;
                   
                   toast({
-                    title: "Processing VIP emails...",
-                    description: "Check logs for detailed progress"
+                    title: "Fixing VIP database...",
+                    description: "Updating VIP status directly in database"
                   });
                   
-                  const { data, error } = await supabase.functions.invoke('update-vip-status', {
+                  const { data, error } = await supabase.functions.invoke('fix-vip-database', {
                     body: {
-                      action: 'process_mailbox',
-                      mailbox_id: null,
                       tenant_id: profileData.tenant_id
                     }
                   });
                   
-                  console.log('VIP update response:', { data, error });
+                  console.log('VIP database fix response:', { data, error });
                   
                   if (error) {
-                    console.error('VIP update error:', error);
+                    console.error('VIP database fix error:', error);
                     toast({
                       title: "Error",
-                      description: `Failed to process VIP emails: ${error.message}`,
+                      description: `Failed to fix VIP database: ${error.message}`,
                       variant: "destructive"
                     });
                     return;
@@ -397,23 +395,23 @@ const MobileEmailBriefing = () => {
                   setTimeout(async () => {
                     await fetchEmailBriefing();
                     toast({
-                      title: "VIP processing complete",
-                      description: "Check function logs for details. Emails should now be updated."
+                      title: "VIP database fixed!",
+                      description: `Updated ${data?.updated || 0} emails. VIP emails should now appear.`
                     });
-                  }, 2000);
+                  }, 1000);
                   
                 } catch (error) {
-                  console.error('Error processing VIPs:', error);
+                  console.error('Error fixing VIP database:', error);
                   toast({
                     title: "Error",
-                    description: "Failed to process VIP emails",
+                    description: "Failed to fix VIP database",
                     variant: "destructive"
                   });
                 }
               }}
               className="text-xs"
             >
-              🔄 Update VIPs
+              🔧 Fix VIP DB
             </Button>
             <Badge variant="outline">
               <Clock className="h-3 w-3 mr-1" />
