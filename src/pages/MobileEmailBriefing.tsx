@@ -97,22 +97,36 @@ const MobileEmailBriefing = () => {
         weekStart: weekStart.toISOString()
       });
 
-      // Fetch email summary
-      const { data: emails, error: emailsError } = await supabase
-        .from('emails')
-        .select('*')
-        .eq('tenant_id', profile.tenant_id)
-        .order('received_at', { ascending: false });
+      // Fetch email counts efficiently with separate queries
+      const [emailCountsResult, recentEmailsResult] = await Promise.all([
+        // Get total counts
+        supabase
+          .from('emails')
+          .select('id, is_read, is_vip, importance, received_at', { count: 'exact' })
+          .eq('tenant_id', profile.tenant_id),
+        
+        // Get recent important emails only (last 50 for processing)
+        supabase
+          .from('emails')
+          .select('id, subject, sender_email, sender_name, received_at, is_vip, importance, body_preview, microsoft_id, is_read')
+          .eq('tenant_id', profile.tenant_id)
+          .order('received_at', { ascending: false })
+          .limit(50)
+      ]);
 
-      if (emailsError) {
-        console.error('Error fetching emails:', emailsError);
-        throw emailsError;
+      const { data: emailCounts, error: emailCountsError } = emailCountsResult;
+      const { data: recentEmails, error: recentEmailsError } = recentEmailsResult;
+
+      if (emailCountsError || recentEmailsError) {
+        console.error('Error fetching emails:', emailCountsError || recentEmailsError);
+        throw emailCountsError || recentEmailsError;
       }
 
-      console.log('Fetched emails:', emails?.length || 0);
+      console.log('Fetched email counts:', emailCounts?.length || 0);
+      console.log('Fetched recent emails:', recentEmails?.length || 0);
       
-      if (emails && emails.length > 0) {
-        console.log('Sample email dates:', emails.slice(0, 3).map(e => ({
+      if (recentEmails && recentEmails.length > 0) {
+        console.log('Sample recent email dates:', recentEmails.slice(0, 3).map(e => ({
           subject: e.subject,
           received_at: e.received_at,
           is_read: e.is_read,
@@ -121,15 +135,15 @@ const MobileEmailBriefing = () => {
         })));
       }
 
-      // Calculate summary stats - using last 24 hours for more relevant data
-      const total = emails?.length || 0;
-      const unread = emails?.filter(e => !e.is_read).length || 0;
-      const vip = emails?.filter(e => e.is_vip).length || 0;
-      const urgent = emails?.filter(e => e.importance === 'high').length || 0;
+      // Calculate summary stats efficiently
+      const total = emailCounts?.length || 0;
+      const unread = emailCounts?.filter(e => !e.is_read).length || 0;
+      const vip = emailCounts?.filter(e => e.is_vip).length || 0;
+      const urgent = emailCounts?.filter(e => e.importance === 'high').length || 0;
       
-      // Filter for last 24 hours instead of just today
-      const last24Hours = emails?.filter(e => new Date(e.received_at) >= yesterday).length || 0;
-      const thisWeekCount = emails?.filter(e => new Date(e.received_at) >= weekStart).length || 0;
+      // Filter for last 24 hours instead of just today (using counts data)
+      const last24Hours = emailCounts?.filter(e => new Date(e.received_at) >= yesterday).length || 0;
+      const thisWeekCount = emailCounts?.filter(e => new Date(e.received_at) >= weekStart).length || 0;
 
       console.log('Calculated stats:', {
         total,
@@ -149,8 +163,8 @@ const MobileEmailBriefing = () => {
         thisWeekCount
       });
 
-      // Get important emails (VIP, high importance, or recent and unread within last 24 hours)
-      const important = emails?.filter(email => {
+      // Get important emails from recent emails (VIP, high importance, or recent and unread within last 24 hours)
+      const important = recentEmails?.filter(email => {
         const emailDate = new Date(email.received_at);
         const isRecent = emailDate >= yesterday;
         
