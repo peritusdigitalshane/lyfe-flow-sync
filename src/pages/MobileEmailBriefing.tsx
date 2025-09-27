@@ -488,46 +488,6 @@ const MobileEmailBriefing = () => {
           </CardContent>
         </Card>
 
-        {/* AI Insights */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Key Insights (Last 24h)
-            </CardTitle>
-            <CardDescription>
-              AI-powered analysis of your recent emails
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {insightsLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-4 bg-muted rounded w-full mb-2" />
-                    <div className="h-3 bg-muted rounded w-3/4" />
-                  </div>
-                ))}
-              </div>
-            ) : insights.length === 0 ? (
-              <div className="text-center py-6">
-                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-500" />
-                <p className="text-sm font-medium">No urgent insights</p>
-                <p className="text-xs text-muted-foreground">Your recent emails look well-managed!</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {insights.map((insight, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                    <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-orange-800 leading-relaxed">{insight}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Quick Actions */}
         <Card>
           <CardHeader className="pb-3">
