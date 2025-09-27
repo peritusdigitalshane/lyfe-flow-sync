@@ -1,0 +1,368 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { EmailReplyAssistant } from "@/components/EmailReplyAssistant";
+import { supabase } from "@/integrations/supabase/client";
+import { 
+  Mail, 
+  Star, 
+  Clock, 
+  AlertTriangle, 
+  ArrowUp, 
+  MessageSquare, 
+  TrendingUp,
+  Smartphone,
+  Zap,
+  CheckCircle2
+} from "lucide-react";
+import { formatDistanceToNow, startOfDay, startOfWeek } from "date-fns";
+
+interface EmailSummary {
+  total: number;
+  unread: number;
+  vip: number;
+  urgent: number;
+  todayCount: number;
+  thisWeekCount: number;
+}
+
+interface ImportantEmail {
+  id: string;
+  subject: string;
+  sender_email: string;
+  sender_name?: string;
+  received_at: string;
+  is_vip: boolean;
+  importance: string;
+  body_preview?: string;
+  microsoft_id: string;
+}
+
+const MobileEmailBriefing = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  const [emailSummary, setEmailSummary] = useState<EmailSummary>({
+    total: 0,
+    unread: 0,
+    vip: 0,
+    urgent: 0,
+    todayCount: 0,
+    thisWeekCount: 0
+  });
+  const [importantEmails, setImportantEmails] = useState<ImportantEmail[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEmailForReply, setSelectedEmailForReply] = useState<ImportantEmail | null>(null);
+  const [showReplyAssistant, setShowReplyAssistant] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      fetchEmailBriefing();
+    }
+  }, [user]);
+
+  const fetchEmailBriefing = async () => {
+    try {
+      setLoading(true);
+      
+      // Get user's tenant
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (!profile) return;
+
+      const now = new Date();
+      const todayStart = startOfDay(now);
+      const weekStart = startOfWeek(now);
+
+      // Fetch email summary
+      const { data: emails, error: emailsError } = await supabase
+        .from('emails')
+        .select('*')
+        .eq('tenant_id', profile.tenant_id)
+        .order('received_at', { ascending: false });
+
+      if (emailsError) throw emailsError;
+
+      // Calculate summary stats
+      const total = emails?.length || 0;
+      const unread = emails?.filter(e => !e.is_read).length || 0;
+      const vip = emails?.filter(e => e.is_vip).length || 0;
+      const urgent = emails?.filter(e => e.importance === 'high').length || 0;
+      const todayCount = emails?.filter(e => new Date(e.received_at) >= todayStart).length || 0;
+      const thisWeekCount = emails?.filter(e => new Date(e.received_at) >= weekStart).length || 0;
+
+      setEmailSummary({
+        total,
+        unread,
+        vip,
+        urgent,
+        todayCount,
+        thisWeekCount
+      });
+
+      // Get important emails (VIP, high importance, or recent and unread)
+      const important = emails?.filter(email => 
+        email.is_vip || 
+        email.importance === 'high' || 
+        (!email.is_read && new Date(email.received_at) >= todayStart)
+      ).slice(0, 10) || [];
+
+      setImportantEmails(important);
+
+    } catch (error) {
+      console.error('Error fetching email briefing:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load email briefing",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleQuickReply = (email: ImportantEmail) => {
+    setSelectedEmailForReply(email);
+    setShowReplyAssistant(true);
+  };
+
+  const closeReplyAssistant = () => {
+    setShowReplyAssistant(false);
+    setSelectedEmailForReply(null);
+  };
+
+  const getEmailInitials = (email: string) => {
+    return email.split('@')[0].slice(0, 2).toUpperCase();
+  };
+
+  const getImportanceColor = (email: ImportantEmail) => {
+    if (email.is_vip) return "text-yellow-600";
+    if (email.importance === 'high') return "text-red-600";
+    return "text-blue-600";
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center">
+            <Mail className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+            <p className="text-muted-foreground">Please log in to view your email briefing.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Mobile Header */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+        <div className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-6 w-6 text-primary" />
+              <h1 className="text-xl font-semibold">Email Briefing</h1>
+            </div>
+            <Badge variant="outline" className="ml-auto">
+              <Clock className="h-3 w-3 mr-1" />
+              {formatDistanceToNow(new Date(), { addSuffix: true })}
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 space-y-4">
+        {/* Quick Stats Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Mail className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{emailSummary.total}</p>
+                <p className="text-sm text-muted-foreground">Total Emails</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <ArrowUp className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{emailSummary.unread}</p>
+                <p className="text-sm text-muted-foreground">Unread</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <Star className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{emailSummary.vip}</p>
+                <p className="text-sm text-muted-foreground">VIP Emails</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{emailSummary.todayCount}</p>
+                <p className="text-sm text-muted-foreground">Today</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Zap className="h-5 w-5" />
+              Quick Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+              onClick={fetchEmailBriefing}
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Refresh Briefing
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Important Emails */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Important Emails
+            </CardTitle>
+            <CardDescription>
+              VIP emails, high priority, and recent unread messages
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                      <div className="w-10 h-10 bg-muted rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-muted rounded w-3/4" />
+                        <div className="h-3 bg-muted rounded w-1/2" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : importantEmails.length === 0 ? (
+              <div className="text-center py-8">
+                <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-green-500" />
+                <p className="text-lg font-medium">All caught up!</p>
+                <p className="text-sm text-muted-foreground">No urgent emails need your attention right now.</p>
+              </div>
+            ) : (
+              importantEmails.map((email) => (
+                <div key={email.id} className="border rounded-lg p-3 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="text-xs">
+                        {getEmailInitials(email.sender_email)}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        {email.is_vip && (
+                          <Star className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+                        )}
+                        {email.importance === 'high' && (
+                          <ArrowUp className="h-4 w-4 text-red-500 flex-shrink-0" />
+                        )}
+                        <span className="text-sm font-medium truncate">
+                          {email.sender_name || email.sender_email}
+                        </span>
+                      </div>
+                      
+                      <h3 className="font-medium text-sm leading-tight mb-2 line-clamp-2">
+                        {email.subject}
+                      </h3>
+                      
+                      {email.body_preview && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                          {email.body_preview}
+                        </p>
+                      )}
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(email.received_at), { addSuffix: true })}
+                        </span>
+                        
+                        <Button
+                          size="sm"
+                          onClick={() => handleQuickReply(email)}
+                          className="h-7 text-xs"
+                        >
+                          <MessageSquare className="h-3 w-3 mr-1" />
+                          Reply
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Bottom padding for mobile navigation */}
+        <div className="h-20" />
+      </div>
+
+      {/* Reply Assistant Modal */}
+      {selectedEmailForReply && (
+        <EmailReplyAssistant
+          open={showReplyAssistant}
+          onClose={closeReplyAssistant}
+          email={{
+            id: selectedEmailForReply.id,
+            subject: selectedEmailForReply.subject,
+            sender_email: selectedEmailForReply.sender_email,
+            sender_name: selectedEmailForReply.sender_name,
+            body_content: selectedEmailForReply.body_preview,
+            microsoft_id: selectedEmailForReply.microsoft_id,
+            received_at: selectedEmailForReply.received_at,
+            mailbox_id: '', // Will be populated by the component
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+export default MobileEmailBriefing;

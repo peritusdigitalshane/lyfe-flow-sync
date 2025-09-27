@@ -13,7 +13,8 @@ import {
   GitBranch,
   ChevronDown,
   Brain,
-  Mail
+  Mail,
+  Smartphone
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ export const Navigation = () => {
 
   // Email Management module items
   const emailManagementItems = [
+    { path: '/mobile-briefing', label: 'Mobile Briefing', icon: Smartphone },
     { path: '/email-monitoring', label: 'Email Monitoring', icon: Mail },
     { path: '/email-categories', label: 'Categories', icon: FolderOpen },
     { path: '/workflows', label: 'Workflows', icon: Workflow },
