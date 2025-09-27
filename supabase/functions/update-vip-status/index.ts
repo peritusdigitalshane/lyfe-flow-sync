@@ -448,7 +448,7 @@ async function ensureVipCategory(token: string): Promise<void> {
       },
       body: JSON.stringify({
         displayName: 'VIP Important',
-        color: 'preset2' // Gold color
+        color: 'preset9' // Orange/Gold color that matches platform VIP styling
       })
     });
 

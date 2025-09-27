@@ -413,8 +413,49 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
                 }}
                 className="text-xs"
               >
-                🏷️ Ensure VIP Categories
-              </Button>
+            🏷️ Ensure VIP Categories
+          </Button>
+          
+          <Button
+            onClick={async () => {
+              try {
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('tenant_id')
+                  .eq('id', user?.id)
+                  .single();
+                
+                if (!profile) return;
+                
+                toast.loading("Syncing category colors...", {
+                  description: "Matching colors between platform and Outlook",
+                });
+                
+                const { data, error } = await supabase.functions.invoke('sync-category-colors', {
+                  body: {
+                    tenant_id: profile.tenant_id
+                  }
+                });
+                
+                if (error) {
+                  console.error('Color sync error:', error);
+                  toast.error(`Failed to sync colors: ${error.message}`);
+                  return;
+                }
+                
+                toast.success(`Colors synced! ${data.synced}/${data.total} categories synchronized`);
+                
+              } catch (error) {
+                console.error('Error syncing colors:', error);
+                toast.error("Failed to sync category colors");
+              }
+            }}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            🎨 Sync Colors
+          </Button>
             </div>
             <div className="space-y-1 mt-2">
               <p className="text-xs text-muted-foreground">

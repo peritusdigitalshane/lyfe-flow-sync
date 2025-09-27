@@ -113,7 +113,7 @@ async function ensureVipCategoryForMailbox(mailbox: any, supabase: any): Promise
       },
       body: JSON.stringify({
         displayName: 'VIP Important',
-        color: 'preset2' // Gold color
+        color: 'preset9' // Orange/Gold color that matches platform VIP styling
       })
     });
 

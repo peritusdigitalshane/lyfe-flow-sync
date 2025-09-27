@@ -3,6 +3,9 @@ project_id = "ceasktzguzibehknbgsx"
 [functions.ensure-vip-categories]
 verify_jwt = false
 
+[functions.sync-category-colors]
+verify_jwt = false
+
 [functions.generate-email-reply]
 verify_jwt = false
 
