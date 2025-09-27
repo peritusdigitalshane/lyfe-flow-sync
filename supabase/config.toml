@@ -101,3 +101,6 @@ verify_jwt = true
 
 [functions.calendar-meeting-assistant]
 verify_jwt = true
+
+[functions.email-insights-analyzer]
+verify_jwt = true
