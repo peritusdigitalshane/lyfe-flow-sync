@@ -136,10 +136,10 @@ const MobileEmailBriefing = () => {
 
       // Fetch email counts efficiently with separate queries
       const [emailCountsResult, recentEmailsResult] = await Promise.all([
-        // Get total counts
+        // Get actual email data for statistics (not just count)
         supabase
           .from('emails')
-          .select('id, is_read, is_vip, importance, received_at', { count: 'exact' })
+          .select('id, is_read, is_vip, importance, received_at')
           .eq('tenant_id', profile.tenant_id),
         
         // Get recent important emails only (last 50 for processing)
