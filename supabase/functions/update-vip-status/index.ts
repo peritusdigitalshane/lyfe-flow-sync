@@ -104,7 +104,7 @@ async function processAllMailboxesForVip(tenantId: string, emailAddress: string,
 async function processAllMailboxesForAllVips(tenantId: string) {
   console.log(`Processing all mailboxes for all VIPs in tenant ${tenantId}`);
 
-  // Get all active mailboxes for this tenant
+  // Get all connected mailboxes for this tenant
   const { data: mailboxes, error: mailboxError } = await supabase
     .from('mailboxes')
     .select('id, email_address, microsoft_graph_token')
@@ -121,6 +121,8 @@ async function processAllMailboxesForAllVips(tenantId: string) {
     console.log('No connected mailboxes found for tenant');
     return;
   }
+
+  console.log(`Found ${mailboxes.length} connected mailboxes`);
 
   // Get all VIP email addresses for this tenant
   const { data: vipEmails, error: vipError } = await supabase
@@ -139,10 +141,32 @@ async function processAllMailboxesForAllVips(tenantId: string) {
     return;
   }
 
-  console.log(`Processing ${mailboxes.length} mailboxes and ${vipEmails.length} VIP emails`);
+  console.log(`Found ${vipEmails.length} VIP emails: ${vipEmails.map(v => v.email_address).join(', ')}`);
 
-  // Process each mailbox with each VIP email
+  // First, update all emails in the database that match VIP senders
+  for (const vip of vipEmails) {
+    try {
+      console.log(`Updating database records for VIP: ${vip.email_address}`);
+      
+      const { data, error } = await supabase
+        .from('emails')
+        .update({ is_vip: true })
+        .eq('tenant_id', tenantId)
+        .eq('sender_email', vip.email_address);
+
+      if (error) {
+        console.error(`Error updating VIP status for ${vip.email_address}:`, error);
+      } else {
+        console.log(`Updated VIP status for ${vip.email_address}`);
+      }
+    } catch (error) {
+      console.error(`Error processing VIP ${vip.email_address}:`, error);
+    }
+  }
+
+  // Then process Outlook integration for each mailbox
   for (const mailbox of mailboxes) {
+    console.log(`Processing mailbox: ${mailbox.email_address}`);
     for (const vip of vipEmails) {
       try {
         await updateEmailsInMailbox(mailbox, vip.email_address, true);
@@ -151,6 +175,8 @@ async function processAllMailboxesForAllVips(tenantId: string) {
       }
     }
   }
+
+  console.log('Completed processing all VIPs for all mailboxes');
 }
 
 async function processMailboxForAllVips(mailboxId: string, tenantId: string) {

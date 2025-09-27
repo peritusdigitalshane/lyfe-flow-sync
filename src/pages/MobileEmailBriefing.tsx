@@ -351,11 +351,57 @@ const MobileEmailBriefing = () => {
             >
               <Home className="h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-1">
               <Smartphone className="h-6 w-6 text-primary" />
               <h1 className="text-xl font-semibold">Email Briefing</h1>
             </div>
-            <Badge variant="outline" className="ml-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('tenant_id')
+                    .eq('id', user?.id)
+                    .single();
+                  
+                  if (!profileData) return;
+                  
+                  toast({
+                    title: "Processing VIP emails...",
+                    description: "Updating VIP status for existing emails"
+                  });
+                  
+                  await supabase.functions.invoke('update-vip-status', {
+                    body: {
+                      action: 'process_mailbox',
+                      mailbox_id: null,
+                      tenant_id: profileData.tenant_id
+                    }
+                  });
+                  
+                  // Refresh the data
+                  await fetchEmailBriefing();
+                  
+                  toast({
+                    title: "VIP processing complete",
+                    description: "VIP emails have been updated"
+                  });
+                } catch (error) {
+                  console.error('Error processing VIPs:', error);
+                  toast({
+                    title: "Error",
+                    description: "Failed to process VIP emails",
+                    variant: "destructive"
+                  });
+                }
+              }}
+              className="text-xs"
+            >
+              🔄 Update VIPs
+            </Button>
+            <Badge variant="outline">
               <Clock className="h-3 w-3 mr-1" />
               {formatDistanceToNow(new Date(), { addSuffix: true })}
             </Badge>
