@@ -113,6 +113,9 @@ export default function AddMailbox() {
       console.log('Function response:', data);
       const { authUrl } = data;
       
+      // Store the current path for returning after OAuth (similar to re-auth flow)
+      localStorage.setItem('post_auth_redirect', '/dashboard');
+      
       // Redirect to Microsoft OAuth
       window.location.href = authUrl;
     } catch (error) {
