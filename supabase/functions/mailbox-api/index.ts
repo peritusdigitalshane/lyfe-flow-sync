@@ -200,6 +200,96 @@ serve(async (req) => {
         }
       }
 
+      // Handle check action for new mailbox creation
+      if (action === 'check') {
+        console.log('Checking OAuth configuration for new mailbox...');
+        const { emailAddress, displayName } = requestData;
+        
+        // Get OAuth configuration  
+        let oauthConfig: { value?: any } | null = null;
+        try {
+          const oauthResult = await supabaseClient
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'microsoft_oauth')
+            .single();
+
+          oauthConfig = oauthResult.data as { value?: any } | null;
+          console.log('OAuth config retrieved:', { hasConfig: !!oauthConfig?.value });
+        } catch (error) {
+          console.error('Failed to get OAuth config:', error);
+          return createErrorResponse(error, 'Failed to get OAuth configuration', 200);
+        }
+
+        if (!oauthConfig?.value) {
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: 'OAuth not configured',
+              details: 'Microsoft OAuth configuration not found'
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const config = oauthConfig.value as any;
+        console.log('OAuth config found, creating new mailbox...');
+
+        // Create new mailbox for OAuth flow
+        let mailbox: Database['public']['Tables']['mailboxes']['Row'] | null = null;
+        try {
+          const insertData: Database['public']['Tables']['mailboxes']['Insert'] = {
+            tenant_id: tenantId,
+            user_id: user.id,
+            email_address: emailAddress,
+            display_name: displayName,
+            status: 'pending'
+          };
+          
+          const result = await supabaseClient
+            .from('mailboxes')
+            .insert(insertData)
+            .select()
+            .single();
+
+          if (result.error) {
+            throw result.error;
+          }
+          
+          mailbox = result.data as Database['public']['Tables']['mailboxes']['Row'];
+          console.log('New mailbox created for OAuth:', mailbox.id);
+        } catch (error) {
+          console.error('Failed to create mailbox:', error);
+          return createErrorResponse(error, 'Failed to create mailbox', 200);
+        }
+
+        if (!mailbox) {
+          return createErrorResponse(null, 'Mailbox creation returned null', 200);
+        }
+
+        // Generate OAuth redirect URL with mailbox ID as state
+        const redirectUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${config.client_id}&response_type=code&redirect_uri=${encodeURIComponent(config.redirect_uri)}&scope=${encodeURIComponent('https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access')}&state=${mailbox.id}&prompt=consent`;
+        
+        console.log('Generated OAuth redirect URL for new mailbox:', mailbox.id);
+
+        // Log audit event
+        await logAuditEvent(supabaseClient, {
+          tenant_id: tenantId,
+          mailbox_id: mailbox.id,
+          details: { action: 'new_mailbox_oauth_initiated' }
+        }, mailbox.id, user.id, req);
+
+        return new Response(
+          JSON.stringify({ 
+            success: true,
+            oauth_configured: true,
+            redirect_url: redirectUrl,
+            mailbox_id: mailbox.id
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       if (action === 'check_oauth') {
         console.log('Checking OAuth configuration...');
         
@@ -258,7 +348,7 @@ serve(async (req) => {
                 JSON.stringify({ 
                   success: true,
                   oauth_configured: true,
-                  redirect_url: `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${config.client_id}&response_type=code&redirect_uri=${encodeURIComponent(config.redirect_uri)}&scope=${encodeURIComponent('https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access')}&state=${mailboxData.id}&prompt=consent`
+                  redirect_url: `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${config.client_id}&response_type=code&redirect_uri=${encodeURIComponent(config.redirect_uri)}&scope=${encodeURIComponent('https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.Microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access')}&state=${mailboxData.id}&prompt=consent`
                 }),
                 { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
               );
