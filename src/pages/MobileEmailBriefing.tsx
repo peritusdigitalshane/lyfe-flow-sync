@@ -74,8 +74,36 @@ const MobileEmailBriefing = () => {
     if (user) {
       fetchEmailBriefing();
       fetchEmailInsights();
+      // Process VIP emails for any that might not be flagged correctly
+      processVipEmails();
     }
   }, [user]);
+
+  const processVipEmails = async () => {
+    try {
+      // Get user's tenant_id
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user?.id)
+        .single();
+        
+      if (!profileData) return;
+      
+      // Call VIP update function to process all mailboxes
+      await supabase.functions.invoke('update-vip-status', {
+        body: {
+          action: 'process_mailbox',
+          mailbox_id: null, // Will process all mailboxes
+          tenant_id: profileData.tenant_id
+        }
+      });
+      
+      console.log('VIP processing completed');
+    } catch (error) {
+      console.error('Error processing VIP emails:', error);
+    }
+  };
 
   const fetchEmailBriefing = async () => {
     try {

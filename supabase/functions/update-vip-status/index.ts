@@ -38,9 +38,14 @@ serve(async (req) => {
     if (action === 'add' || action === 'remove') {
       // Process all mailboxes in the tenant to update VIP status
       await processAllMailboxesForVip(tenant_id, email_address!, action === 'add');
-    } else if (action === 'process_mailbox' && mailbox_id) {
-      // Process a specific mailbox for all VIP emails
-      await processMailboxForAllVips(mailbox_id, tenant_id);
+    } else if (action === 'process_mailbox') {
+      if (mailbox_id) {
+        // Process a specific mailbox for all VIP emails
+        await processMailboxForAllVips(mailbox_id, tenant_id);
+      } else {
+        // Process all mailboxes for all VIP emails
+        await processAllMailboxesForAllVips(tenant_id);
+      }
     }
 
     return new Response(
@@ -66,12 +71,12 @@ serve(async (req) => {
 async function processAllMailboxesForVip(tenantId: string, emailAddress: string, isVip: boolean) {
   console.log(`Processing all mailboxes for VIP ${isVip ? 'add' : 'remove'}: ${emailAddress}`);
 
-  // Get all active mailboxes for this tenant
+  // Get all connected mailboxes for this tenant
   const { data: mailboxes, error } = await supabase
     .from('mailboxes')
     .select('id, email_address, microsoft_graph_token')
     .eq('tenant_id', tenantId)
-    .eq('status', 'active')
+    .eq('status', 'connected')
     .not('microsoft_graph_token', 'is', null);
 
   if (error) {
@@ -92,6 +97,58 @@ async function processAllMailboxesForVip(tenantId: string, emailAddress: string,
       await updateEmailsInMailbox(mailbox, emailAddress, isVip);
     } catch (error) {
       console.error(`Error processing mailbox ${mailbox.email_address}:`, error);
+    }
+  }
+}
+
+async function processAllMailboxesForAllVips(tenantId: string) {
+  console.log(`Processing all mailboxes for all VIPs in tenant ${tenantId}`);
+
+  // Get all active mailboxes for this tenant
+  const { data: mailboxes, error: mailboxError } = await supabase
+    .from('mailboxes')
+    .select('id, email_address, microsoft_graph_token')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'connected')
+    .not('microsoft_graph_token', 'is', null);
+
+  if (mailboxError) {
+    console.error('Error fetching mailboxes:', mailboxError);
+    return;
+  }
+
+  if (!mailboxes || mailboxes.length === 0) {
+    console.log('No connected mailboxes found for tenant');
+    return;
+  }
+
+  // Get all VIP email addresses for this tenant
+  const { data: vipEmails, error: vipError } = await supabase
+    .from('vip_email_addresses')
+    .select('email_address')
+    .eq('tenant_id', tenantId)
+    .eq('is_active', true);
+
+  if (vipError) {
+    console.error('Error fetching VIP emails:', vipError);
+    return;
+  }
+
+  if (!vipEmails || vipEmails.length === 0) {
+    console.log('No VIP emails found for tenant');
+    return;
+  }
+
+  console.log(`Processing ${mailboxes.length} mailboxes and ${vipEmails.length} VIP emails`);
+
+  // Process each mailbox with each VIP email
+  for (const mailbox of mailboxes) {
+    for (const vip of vipEmails) {
+      try {
+        await updateEmailsInMailbox(mailbox, vip.email_address, true);
+      } catch (error) {
+        console.error(`Error processing VIP ${vip.email_address} in mailbox ${mailbox.email_address}:`, error);
+      }
     }
   }
 }
