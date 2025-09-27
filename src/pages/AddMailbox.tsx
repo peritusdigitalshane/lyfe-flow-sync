@@ -99,6 +99,7 @@ export default function AddMailbox() {
       console.log('Calling edge function...');
       const { data, error } = await supabase.functions.invoke('mailbox-api', {
         body: {
+          action: 'check', // Add the required action parameter
           emailAddress,
           displayName,
           preset: selectedPreset,
@@ -111,13 +112,17 @@ export default function AddMailbox() {
       }
 
       console.log('Function response:', data);
-      const { authUrl } = data;
+      const { redirect_url } = data; // Use correct field name
+      
+      if (!redirect_url) {
+        throw new Error('No redirect URL received from server');
+      }
       
       // Store the current path for returning after OAuth (similar to re-auth flow)
       localStorage.setItem('post_auth_redirect', '/dashboard');
       
       // Redirect to Microsoft OAuth
-      window.location.href = authUrl;
+      window.location.href = redirect_url;
     } catch (error) {
       console.error("Error creating mailbox:", error);
       toast.error(error instanceof Error ? error.message : "Failed to create mailbox");
