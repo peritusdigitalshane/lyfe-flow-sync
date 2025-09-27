@@ -80,28 +80,26 @@ const MobileEmailBriefing = () => {
   }, [user]);
 
   const processVipEmails = async () => {
+    if (!user?.id) return;
+    
     try {
-      // Get user's tenant_id
-      const { data: profileData } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('tenant_id')
-        .eq('id', user?.id)
+        .eq('id', user.id)
         .single();
-        
-      if (!profileData) return;
-      
-      // Call VIP update function to process all mailboxes
-      await supabase.functions.invoke('update-vip-status', {
-        body: {
-          action: 'process_mailbox',
-          mailbox_id: null, // Will process all mailboxes
-          tenant_id: profileData.tenant_id
-        }
-      });
-      
-      console.log('VIP processing completed');
+
+      if (profile?.tenant_id) {
+        // Process VIP emails automatically in background
+        await supabase.functions.invoke('update-vip-status', {
+          body: {
+            action: 'process_mailbox',
+            tenant_id: profile.tenant_id
+          }
+        });
+      }
     } catch (error) {
-      console.error('Error processing VIP emails:', error);
+      console.error('Background VIP processing error:', error);
     }
   };
 

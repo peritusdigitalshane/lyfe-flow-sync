@@ -127,15 +127,11 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
 
       if (error) throw error;
 
-      // Call the edge function to update Outlook mailboxes
+      // Automatically trigger VIP processing in background
       try {
-        console.log('Calling VIP update function with:', {
-          action: 'add',
-          email_address: newEmail.trim().toLowerCase(),
-          tenant_id: profileData.tenant_id
-        });
-
-        const { data, error: updateError } = await supabase.functions.invoke('update-vip-status', {
+        console.log('Triggering automatic VIP processing...');
+        
+        await supabase.functions.invoke('update-vip-status', {
           body: {
             action: 'add',
             email_address: newEmail.trim().toLowerCase(),
@@ -143,19 +139,13 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
           }
         });
 
-        console.log('VIP update function response:', { data, error: updateError });
-
-        if (updateError) {
-          console.error('Error updating Outlook VIP status:', updateError);
-          toast.warning('VIP email added, but there was an issue updating your Outlook mailbox. Existing emails may not be highlighted yet.');
-        } else {
-          toast.success('VIP email added and Outlook mailbox updated! Existing emails from this sender will now show a gold "VIP Important" category in Outlook.');
-        }
+        console.log('Automatic VIP processing completed');
       } catch (outlookError) {
-        console.error('Error calling VIP update function:', outlookError);
-        toast.warning('VIP email added, but Outlook integration encountered an issue.');
+        console.error('Background VIP processing error:', outlookError);
+        // Don't show error to user - this is background processing
       }
 
+      
       // Clear form and reload list
       setNewEmail('');
       setNewDisplayName('');
