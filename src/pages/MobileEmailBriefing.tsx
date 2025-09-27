@@ -58,6 +58,7 @@ const MobileEmailBriefing = () => {
   const [loading, setLoading] = useState(true);
   const [selectedEmailForReply, setSelectedEmailForReply] = useState<ImportantEmail | null>(null);
   const [showReplyAssistant, setShowReplyAssistant] = useState(false);
+  const [emailWithMailbox, setEmailWithMailbox] = useState<any>(null);
 
   useEffect(() => {
     if (user) {
@@ -174,14 +175,51 @@ const MobileEmailBriefing = () => {
     }
   };
 
-  const handleQuickReply = (email: ImportantEmail) => {
-    setSelectedEmailForReply(email);
-    setShowReplyAssistant(true);
+  const handleQuickReply = async (email: ImportantEmail) => {
+    try {
+      // Fetch the email with mailbox_id
+      const { data: emailData, error } = await supabase
+        .from('emails')
+        .select('*, mailbox_id')
+        .eq('id', email.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching email with mailbox:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load email details for reply",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setEmailWithMailbox({
+        id: email.id,
+        subject: email.subject,
+        sender_email: email.sender_email,
+        sender_name: email.sender_name,
+        body_content: email.body_preview,
+        microsoft_id: email.microsoft_id,
+        received_at: email.received_at,
+        mailbox_id: emailData.mailbox_id,
+      });
+      setSelectedEmailForReply(email);
+      setShowReplyAssistant(true);
+    } catch (error) {
+      console.error('Error preparing reply:', error);
+      toast({
+        title: "Error",
+        description: "Failed to prepare reply",
+        variant: "destructive",
+      });
+    }
   };
 
   const closeReplyAssistant = () => {
     setShowReplyAssistant(false);
     setSelectedEmailForReply(null);
+    setEmailWithMailbox(null);
   };
 
   const getEmailInitials = (email: string) => {
@@ -390,20 +428,11 @@ const MobileEmailBriefing = () => {
       </div>
 
       {/* Reply Assistant Modal */}
-      {selectedEmailForReply && (
+      {emailWithMailbox && (
         <EmailReplyAssistant
           open={showReplyAssistant}
           onClose={closeReplyAssistant}
-          email={{
-            id: selectedEmailForReply.id,
-            subject: selectedEmailForReply.subject,
-            sender_email: selectedEmailForReply.sender_email,
-            sender_name: selectedEmailForReply.sender_name,
-            body_content: selectedEmailForReply.body_preview,
-            microsoft_id: selectedEmailForReply.microsoft_id,
-            received_at: selectedEmailForReply.received_at,
-            mailbox_id: '', // Will be populated by the component
-          }}
+          email={emailWithMailbox}
         />
       )}
     </div>
