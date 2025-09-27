@@ -69,11 +69,10 @@ export default function AuthCallback() {
         console.log("Valid session found, proceeding with token exchange");
         setMessage("Exchanging authorization code for tokens...");
 
-        // Use the current window origin to ensure consistency with where the user is accessing from
-        const currentOrigin = window.location.origin;
-        const redirectUri = `${currentOrigin}/auth/callback`;
+        // Use the configured redirect URI for your Docker deployment
+        const redirectUri = `https://emailmanagement.lyfeai.com.au/auth/callback`;
         
-        console.log('AuthCallback: Using dynamic redirect URI:', redirectUri);
+        console.log('AuthCallback: Using Docker deployment redirect URI:', redirectUri);
 
         // For Docker deployment, handle OAuth callback directly
         const state = searchParams.get('state');
