@@ -24,6 +24,49 @@ interface MailboxToken {
   microsoft_graph_token: string;
 }
 
+// Helper function to refresh Microsoft Graph token
+async function refreshToken(tokenData: any, mailboxId: string, supabase: any): Promise<any> {
+  const refreshUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+  
+  const params = new URLSearchParams({
+    client_id: '80b5126b-2f86-4a4d-8d55-43afbd7c970e',
+    client_secret: Deno.env.get('MICROSOFT_CLIENT_SECRET') ?? '',
+    scope: 'https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/MailboxSettings.ReadWrite offline_access',
+    refresh_token: tokenData.refresh_token,
+    grant_type: 'refresh_token'
+  });
+
+  const response = await fetch(refreshUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Token refresh failed: ${response.status} - ${errorText}`);
+  }
+
+  const newTokenData = await response.json();
+  
+  const expiresAt = Date.now() + (newTokenData.expires_in * 1000);
+  const updatedTokenData = {
+    access_token: newTokenData.access_token,
+    refresh_token: newTokenData.refresh_token || tokenData.refresh_token,
+    expires_at: expiresAt
+  };
+
+  await supabase
+    .from('mailboxes')
+    .update({ microsoft_graph_token: JSON.stringify(updatedTokenData) })
+    .eq('id', mailboxId);
+
+  console.log('Token refreshed successfully for VIP update');
+  return updatedTokenData;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -49,7 +92,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: `VIP status updated successfully` }),
+      JSON.stringify({ success: true, message: 'VIP status updated' }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -57,7 +100,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error updating VIP status:', error);
+    console.error('Error processing VIP update:', error);
     return new Response(
       JSON.stringify({ error: (error as Error).message }),
       { 
@@ -69,29 +112,28 @@ serve(async (req) => {
 });
 
 async function processAllMailboxesForVip(tenantId: string, emailAddress: string, isVip: boolean) {
-  console.log(`Processing all mailboxes for VIP ${isVip ? 'add' : 'remove'}: ${emailAddress}`);
-
+  console.log(`📊 Processing all mailboxes for VIP: ${emailAddress} (is_vip: ${isVip})`);
+  
   // Get all connected mailboxes for this tenant
-  const { data: mailboxes, error } = await supabase
+  const { data: mailboxes, error: mailboxError } = await supabase
     .from('mailboxes')
     .select('id, email_address, microsoft_graph_token')
     .eq('tenant_id', tenantId)
-    .eq('status', 'connected')
-    .not('microsoft_graph_token', 'is', null);
+    .eq('status', 'connected');
 
-  if (error) {
-    console.error('Error fetching mailboxes:', error);
-    return;
+  if (mailboxError) {
+    console.error('Error fetching mailboxes:', mailboxError);
+    throw mailboxError;
   }
 
   if (!mailboxes || mailboxes.length === 0) {
-    console.log('No active mailboxes found for tenant');
+    console.log('⚠️ No connected mailboxes found for tenant');
     return;
   }
 
-  console.log(`Found ${mailboxes.length} mailboxes to process`);
+  console.log(`✅ Found ${mailboxes.length} connected mailboxes: ${JSON.stringify(mailboxes.map(m => m.email_address))}`);
 
-  // Process each mailbox
+  // Update each mailbox
   for (const mailbox of mailboxes) {
     try {
       await updateEmailsInMailbox(mailbox, emailAddress, isVip);
@@ -103,18 +145,17 @@ async function processAllMailboxesForVip(tenantId: string, emailAddress: string,
 
 async function processAllMailboxesForAllVips(tenantId: string) {
   console.log(`🔄 Processing all mailboxes for all VIPs in tenant ${tenantId}`);
-
+  
   // Get all connected mailboxes for this tenant
   const { data: mailboxes, error: mailboxError } = await supabase
     .from('mailboxes')
     .select('id, email_address, microsoft_graph_token')
     .eq('tenant_id', tenantId)
-    .eq('status', 'connected')
-    .not('microsoft_graph_token', 'is', null);
+    .eq('status', 'connected');
 
   if (mailboxError) {
-    console.error('❌ Error fetching mailboxes:', mailboxError);
-    return;
+    console.error('Error fetching mailboxes:', mailboxError);
+    throw mailboxError;
   }
 
   if (!mailboxes || mailboxes.length === 0) {
@@ -122,7 +163,7 @@ async function processAllMailboxesForAllVips(tenantId: string) {
     return;
   }
 
-  console.log(`✅ Found ${mailboxes.length} connected mailboxes:`, mailboxes.map(m => m.email_address));
+  console.log(`✅ Found ${mailboxes.length} connected mailboxes: ${JSON.stringify(mailboxes.map(m => m.email_address))}`);
 
   // Get all VIP email addresses for this tenant
   const { data: vipEmails, error: vipError } = await supabase
@@ -132,8 +173,8 @@ async function processAllMailboxesForAllVips(tenantId: string) {
     .eq('is_active', true);
 
   if (vipError) {
-    console.error('❌ Error fetching VIP emails:', vipError);
-    return;
+    console.error('Error fetching VIP emails:', vipError);
+    throw vipError;
   }
 
   if (!vipEmails || vipEmails.length === 0) {
@@ -143,34 +184,37 @@ async function processAllMailboxesForAllVips(tenantId: string) {
 
   console.log(`✅ Found ${vipEmails.length} VIP emails: ${vipEmails.map(v => v.email_address).join(', ')}`);
 
-  // First, update all emails in the database that match VIP senders
+  // First, update database for ALL VIP emails across ALL mailboxes
+  console.log(`📊 Updating database records for VIP emails...`);
   for (const vip of vipEmails) {
-    try {
-      console.log(`📊 Updating database records for VIP: ${vip.email_address}`);
-      
-      // Check how many emails exist for this VIP sender first
-      const { data: existingEmails, error: countError } = await supabase
-        .from('emails')
-        .select('id, is_vip')
-        .eq('tenant_id', tenantId)
-        .eq('sender_email', vip.email_address);
+    console.log(`📊 Updating database records for VIP: ${vip.email_address}`);
+    
+    // Get existing emails from this VIP sender
+    const { data: existingEmails, error: emailError } = await supabase
+      .from('emails')
+      .select('id, is_vip')
+      .eq('tenant_id', tenantId)
+      .eq('sender_email', vip.email_address);
 
-      if (countError) {
-        console.error(`❌ Error checking existing emails for ${vip.email_address}:`, countError);
-        continue;
-      }
+    if (emailError) {
+      console.error(`❌ Error fetching emails for ${vip.email_address}:`, emailError);
+      continue;
+    }
 
-      console.log(`📧 Found ${existingEmails?.length || 0} existing emails from ${vip.email_address}`);
-      const alreadyVip = existingEmails?.filter(e => e.is_vip).length || 0;
-      console.log(`⭐ ${alreadyVip} already marked as VIP, ${(existingEmails?.length || 0) - alreadyVip} need updating`);
+    console.log(`📧 Found ${existingEmails?.length || 0} existing emails from ${vip.email_address}`);
+    
+    if (existingEmails && existingEmails.length > 0) {
+      const vipCount = existingEmails.filter(e => e.is_vip).length;
+      const nonVipCount = existingEmails.filter(e => !e.is_vip).length;
+      console.log(`⭐ ${vipCount} already marked as VIP, ${nonVipCount} need updating`);
 
-      if (existingEmails && existingEmails.length > 0) {
+      if (nonVipCount > 0) {
         const { data: updateResult, error: updateError } = await supabase
           .from('emails')
           .update({ is_vip: true })
           .eq('tenant_id', tenantId)
           .eq('sender_email', vip.email_address)
-          .eq('is_vip', false) // Only update those not already VIP
+          .eq('is_vip', false)
           .select('id');
 
         if (updateError) {
@@ -179,41 +223,39 @@ async function processAllMailboxesForAllVips(tenantId: string) {
           console.log(`✅ Updated ${updateResult?.length || 0} emails to VIP status for ${vip.email_address}`);
         }
       }
-    } catch (error) {
-      console.error(`❌ Error processing VIP ${vip.email_address}:`, error);
     }
   }
 
-  // Then process Outlook integration for each mailbox (but don't let failures stop database updates)
+  // Then process Outlook integration for each mailbox/VIP combination
   for (const mailbox of mailboxes) {
-    console.log(`🔄 Processing Outlook integration for mailbox: ${mailbox.email_address}`);
     for (const vip of vipEmails) {
       try {
+        console.log(`🔄 Updating emails from ${vip.email_address} in ${mailbox.email_address} - VIP: true`);
         await updateEmailsInMailbox(mailbox, vip.email_address, true);
       } catch (error) {
-        console.error(`❌ Error processing VIP ${vip.email_address} in mailbox ${mailbox.email_address}:`, error);
-        console.log(`⚠️ Continuing despite Outlook integration failure...`);
+        console.error(`Error processing VIP ${vip.email_address} in mailbox ${mailbox.email_address}:`, error);
       }
     }
   }
 
-  console.log('🎉 Completed processing all VIPs for all mailboxes');
+  console.log(`🎉 Completed processing all VIPs for all mailboxes`);
 }
 
 async function processMailboxForAllVips(mailboxId: string, tenantId: string) {
-  console.log(`Processing mailbox ${mailboxId} for all VIPs`);
-
-  // Get mailbox details
+  console.log(`🔄 Processing mailbox ${mailboxId} for all VIPs in tenant ${tenantId}`);
+  
+  // Get the specific mailbox
   const { data: mailbox, error: mailboxError } = await supabase
     .from('mailboxes')
     .select('id, email_address, microsoft_graph_token')
     .eq('id', mailboxId)
     .eq('tenant_id', tenantId)
+    .eq('status', 'connected')
     .single();
 
   if (mailboxError || !mailbox) {
     console.error('Error fetching mailbox:', mailboxError);
-    return;
+    throw mailboxError || new Error('Mailbox not found');
   }
 
   // Get all VIP email addresses for this tenant
@@ -225,17 +267,17 @@ async function processMailboxForAllVips(mailboxId: string, tenantId: string) {
 
   if (vipError) {
     console.error('Error fetching VIP emails:', vipError);
-    return;
+    throw vipError;
   }
 
   if (!vipEmails || vipEmails.length === 0) {
-    console.log('No VIP emails found for tenant');
+    console.log('⚠️ No VIP emails found for tenant');
     return;
   }
 
-  console.log(`Processing ${vipEmails.length} VIP emails for mailbox`);
+  console.log(`✅ Found ${vipEmails.length} VIP emails: ${vipEmails.map(v => v.email_address).join(', ')}`);
 
-  // Process each VIP email
+  // Process each VIP email for this mailbox
   for (const vip of vipEmails) {
     try {
       await updateEmailsInMailbox(mailbox, vip.email_address, true);
@@ -283,9 +325,25 @@ async function updateEmailsInMailbox(mailbox: MailboxToken, senderEmail: string,
 
   // Now try Microsoft Graph integration (but don't let failures stop the process)
   try {
+    // Check if token needs refresh
+    let activeToken = mailbox.microsoft_graph_token;
+    const tokenData = JSON.parse(mailbox.microsoft_graph_token || '{}');
+    
+    if (tokenData.expires_at && tokenData.expires_at < Date.now()) {
+      console.log(`🔄 Token expired, refreshing for mailbox ${mailbox.email_address}...`);
+      try {
+        const refreshedToken = await refreshToken(tokenData, mailbox.id, supabase);
+        activeToken = JSON.stringify(refreshedToken);
+        console.log(`✅ Token refreshed successfully`);
+      } catch (refreshError) {
+        console.error(`❌ Token refresh failed:`, refreshError);
+        return; // Skip Microsoft Graph operations if token refresh fails
+      }
+    }
+
     // First, ensure the VIP category exists in Outlook
     console.log(`🏷️ Ensuring VIP category exists in Outlook...`);
-    await ensureVipCategory(mailbox.microsoft_graph_token);
+    await ensureVipCategory(JSON.parse(activeToken).access_token);
 
     // Search for emails from this sender (last 90 days to avoid too many results)
     const searchUrl = `https://graph.microsoft.com/v1.0/me/messages?$filter=from/emailAddress/address eq '${senderEmail}' and receivedDateTime ge ${new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()}&$select=id,subject,from,receivedDateTime,categories,importance&$top=100`;
@@ -295,7 +353,7 @@ async function updateEmailsInMailbox(mailbox: MailboxToken, senderEmail: string,
     
     const searchResponse = await fetch(searchUrl, {
       headers: {
-        'Authorization': `Bearer ${mailbox.microsoft_graph_token}`,
+        'Authorization': `Bearer ${JSON.parse(activeToken).access_token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -318,136 +376,105 @@ async function updateEmailsInMailbox(mailbox: MailboxToken, senderEmail: string,
     // Process each email
     let updatedCount = 0;
     let skippedCount = 0;
-    let errorCount = 0;
 
     for (const email of searchData.value) {
       try {
-        const categories = email.categories || [];
-        const hasVipCategory = categories.includes('VIP Important');
-        
-        console.log(`📨 Processing email: ${email.subject} (${email.id})`);
-        console.log(`🏷️ Current categories: [${categories.join(', ')}], Has VIP: ${hasVipCategory}`);
+        const currentCategories = email.categories || [];
+        const hasVipCategory = currentCategories.includes('VIP Important');
         
         if (isVip && !hasVipCategory) {
-          // Add VIP category and set high importance
-          const updatedCategories = [...categories, 'VIP Important'];
-          console.log(`⭐ Adding VIP category to email: ${email.subject}`);
-          await updateEmailProperties(mailbox.microsoft_graph_token, email.id, {
-            categories: updatedCategories,
-            importance: 'high'
-          });
+          // Add VIP category
+          const updatedCategories = [...currentCategories, 'VIP Important'];
+          await updateEmailProperties(
+            email.id,
+            updatedCategories,
+            'high',
+            JSON.parse(activeToken).access_token
+          );
           updatedCount++;
-          console.log(`✅ Successfully updated email: ${email.subject}`);
+          console.log(`✅ Added VIP category to: ${email.subject}`);
         } else if (!isVip && hasVipCategory) {
-          // Remove VIP category and reset importance
-          const updatedCategories = categories.filter((cat: string) => cat !== 'VIP Important');
-          console.log(`🗑️ Removing VIP category from email: ${email.subject}`);
-          await updateEmailProperties(mailbox.microsoft_graph_token, email.id, {
-            categories: updatedCategories,
-            importance: 'normal'
-          });
+          // Remove VIP category
+          const updatedCategories = currentCategories.filter((cat: string) => cat !== 'VIP Important');
+          await updateEmailProperties(
+            email.id,
+            updatedCategories,
+            'normal',
+            JSON.parse(activeToken).access_token
+          );
           updatedCount++;
-          console.log(`✅ Successfully removed VIP from email: ${email.subject}`);
+          console.log(`✅ Removed VIP category from: ${email.subject}`);
         } else {
-          console.log(`⏭️ Skipping email (already in correct state): ${email.subject}`);
           skippedCount++;
         }
       } catch (error) {
         console.error(`❌ Error updating email ${email.id}:`, error);
-        errorCount++;
       }
     }
 
-    console.log(`📊 Summary for ${senderEmail}: ${updatedCount} updated, ${skippedCount} skipped, ${errorCount} errors`);
-
-    // Update the database to mark emails as VIP
-    console.log(`💾 Updating database VIP status for emails from ${senderEmail}...`);
-    
-    if (isVip) {
-      const { data: dbUpdateResult, error: dbError } = await supabase
-        .from('emails')
-        .update({ is_vip: true })
-        .eq('mailbox_id', mailbox.id)
-        .eq('sender_email', senderEmail)
-        .eq('is_vip', false) // Only update those not already VIP
-        .select('id');
-
-      if (dbError) {
-        console.error(`❌ Database update error for ${senderEmail}:`, dbError);
-      } else {
-        console.log(`✅ Database: Updated ${dbUpdateResult?.length || 0} emails to VIP status`);
-      }
-    } else {
-      const { data: dbUpdateResult, error: dbError } = await supabase
-        .from('emails')
-        .update({ is_vip: false })
-        .eq('mailbox_id', mailbox.id)
-        .eq('sender_email', senderEmail)
-        .eq('is_vip', true) // Only update those currently VIP
-        .select('id');
-
-      if (dbError) {
-        console.error(`❌ Database update error for ${senderEmail}:`, dbError);
-      } else {
-        console.log(`✅ Database: Removed VIP status from ${dbUpdateResult?.length || 0} emails`);
-      }
-    }
+    console.log(`🎯 Outlook Update Summary: ${updatedCount} emails updated, ${skippedCount} skipped (already correct)`);
 
   } catch (error) {
-    console.error(`❌ Error processing emails for ${senderEmail}:`, error);
+    console.error(`❌ Microsoft Graph integration failed for ${senderEmail}:`, error);
+    // Continue anyway - database is already updated
   }
 }
 
-async function ensureVipCategory(token: string) {
-  try {
-    // Check if VIP category exists
-    const categoriesResponse = await fetch('https://graph.microsoft.com/v1.0/me/outlook/masterCategories', {
+async function ensureVipCategory(token: string): Promise<void> {
+  // Check if VIP Important category exists
+  const categoriesResponse = await fetch('https://graph.microsoft.com/v1.0/me/outlook/masterCategories', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!categoriesResponse.ok) {
+    console.error('Failed to fetch categories');
+    throw new Error(`Failed to fetch categories: ${categoriesResponse.status}`);
+  }
+
+  const categoriesData = await categoriesResponse.json();
+  const vipCategoryExists = categoriesData.value?.some((cat: any) => cat.displayName === 'VIP Important');
+
+  if (!vipCategoryExists) {
+    console.log('🏷️ Creating VIP Important category...');
+    // Create the VIP Important category
+    const createResponse = await fetch('https://graph.microsoft.com/v1.0/me/outlook/masterCategories', {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
-      }
+      },
+      body: JSON.stringify({
+        displayName: 'VIP Important',
+        color: 'preset2' // Gold color
+      })
     });
 
-    if (!categoriesResponse.ok) {
-      console.error('Failed to fetch categories');
-      return;
+    if (!createResponse.ok) {
+      console.error('Failed to create VIP category');
+      throw new Error(`Failed to create VIP category: ${createResponse.status}`);
     }
-
-    const categoriesData = await categoriesResponse.json();
-    const hasVipCategory = categoriesData.value?.some((cat: any) => cat.displayName === 'VIP Important');
-
-    if (!hasVipCategory) {
-      // Create VIP category with gold color
-      await fetch('https://graph.microsoft.com/v1.0/me/outlook/masterCategories', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          displayName: 'VIP Important',
-          color: 'preset2' // Gold color
-        })
-      });
-      console.log('Created VIP Important category');
-    }
-  } catch (error) {
-    console.error('Error ensuring VIP category:', error);
+    
+    console.log('✅ VIP Important category created successfully');
+  } else {
+    console.log('✅ VIP Important category already exists');
   }
 }
 
-async function updateEmailProperties(token: string, messageId: string, properties: any) {
-  const response = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${messageId}`, {
+async function updateEmailProperties(emailId: string, categories: string[], importance: string, token: string): Promise<void> {
+  const updateUrl = `https://graph.microsoft.com/v1.0/me/messages/${emailId}`;
+  
+  await fetch(updateUrl, {
     method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(properties)
+    body: JSON.stringify({
+      categories: categories,
+      importance: importance
+    })
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to update email: ${response.status} ${errorText}`);
-  }
 }
