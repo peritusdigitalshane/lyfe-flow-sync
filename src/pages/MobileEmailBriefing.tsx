@@ -17,7 +17,8 @@ import {
   TrendingUp,
   Smartphone,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Target
 } from "lucide-react";
 import { formatDistanceToNow, startOfDay, startOfWeek } from "date-fns";
 
@@ -313,66 +314,15 @@ const MobileEmailBriefing = () => {
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Mail className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{emailSummary.total}</p>
-                <p className="text-sm text-muted-foreground">Total Emails</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <ArrowUp className="h-5 w-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{emailSummary.unread}</p>
-                <p className="text-sm text-muted-foreground">Unread</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <Star className="h-5 w-5 text-yellow-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{emailSummary.vip}</p>
-                <p className="text-sm text-muted-foreground">VIP Emails</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{emailSummary.todayCount}</p>
-                <p className="text-sm text-muted-foreground">Last 24h</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* AI Insights */}
+        {/* Today's Focus */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Email Analysis (Last 24h)
+              <Target className="h-5 w-5 text-blue-600" />
+              Today's Focus
             </CardTitle>
             <CardDescription>
-              AI-powered insights from your recent email activity
+              Key actions to maximize your productivity today
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -388,21 +338,22 @@ const MobileEmailBriefing = () => {
             ) : insights.length === 0 ? (
               <div className="text-center py-6">
                 <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-500" />
-                <p className="text-sm font-medium">No urgent insights</p>
-                <p className="text-xs text-muted-foreground">Your recent emails look well-managed!</p>
+                <p className="text-sm font-medium">Great job!</p>
+                <p className="text-xs text-muted-foreground">No urgent actions needed right now</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {insights.map((insight, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                    <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-orange-800 leading-relaxed">{insight}</p>
+                  <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <Zap className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-blue-800 leading-relaxed font-medium">{insight}</p>
                   </div>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
+
 
         {/* VIP Emails Section */}
         <Card>

@@ -73,7 +73,7 @@ serve(async (req) => {
       receivedHoursAgo: Math.round((Date.now() - new Date(email.received_at).getTime()) / (1000 * 60 * 60))
     }));
 
-    // Call OpenAI to analyze emails
+    // Call OpenAI to analyze emails for actionable daily insights
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -85,30 +85,39 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an email assistant that analyzes emails to provide actionable insights. 
+            content: `You are an executive assistant that provides actionable daily email insights to help busy professionals manage their time effectively.
+
+            Analyze the provided emails and generate 3-5 ACTIONABLE insights that save time and improve daily productivity. Focus on:
             
-            Analyze the provided emails and generate 3-5 key insights that help prioritize actions. Focus on:
-            - Urgent responses needed (unread emails from important senders)
-            - Meeting invites or calendar-related items
-            - Time-sensitive requests or deadlines
-            - VIP communications that need attention
-            - Important documents or decisions waiting for response
+            PRIORITY INSIGHTS:
+            - Urgent items requiring immediate response (with sender names)
+            - Time-sensitive opportunities or deadlines mentioned in emails
+            - Meeting requests that need confirmation today
+            - Important decisions waiting for your input
+            - Recurring issues that could be automated or delegated
             
-            Format each insight as a brief, actionable statement. Use "You" to address the user directly.
-            Examples:
-            - "You have an urgent email from John Smith that needs a response ASAP"
-            - "You received a meeting invite for today from Sarah Johnson - please confirm attendance"
-            - "You have an unread invoice from ABC Company that requires payment within 3 days"
+            FORMAT GUIDELINES:
+            - Be specific with sender names and timeframes
+            - Focus on ACTION needed, not just description
+            - Prioritize by time sensitivity and business impact
+            - Keep insights concise but informative
+            - Use "You need to..." or "Consider..." language
             
-            Return a JSON array of insights (strings), maximum 5 items. If no significant insights, return empty array.`
+            EXAMPLES of GOOD insights:
+            - "You need to respond to Sarah Johnson's proposal by EOD - she's waiting for your budget approval"
+            - "John Smith sent 3 follow-up emails this week - consider scheduling a call to address his concerns"
+            - "You have 2 meeting invites for tomorrow morning that conflict - need to reschedule one"
+            - "Consider setting up an auto-reply for the 12 similar pricing inquiries you received"
+            
+            Return a JSON array of insights (strings), maximum 5 items. Focus on TIME-SAVING and PRODUCTIVITY.`
           },
           {
             role: 'user',
-            content: `Analyze these emails from the last 24 hours:\n\n${JSON.stringify(emailSummaries, null, 2)}`
+            content: `Analyze these emails for actionable daily insights:\n\n${JSON.stringify(emailSummaries, null, 2)}`
           }
         ],
-        temperature: 0.7,
-        max_tokens: 500
+        temperature: 0.3,
+        max_tokens: 600
       }),
     });
 
