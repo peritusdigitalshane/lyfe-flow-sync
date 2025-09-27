@@ -122,7 +122,11 @@ serve(async (req) => {
     
     try {
       const content = aiData.choices[0].message.content;
-      insights = JSON.parse(content);
+      
+      // Clean the response - remove markdown code blocks if present
+      const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      
+      insights = JSON.parse(cleanedContent);
       
       // Ensure it's an array
       if (!Array.isArray(insights)) {
@@ -130,6 +134,7 @@ serve(async (req) => {
       }
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
+      console.error('Raw AI response:', aiData.choices[0].message.content);
       insights = [];
     }
 

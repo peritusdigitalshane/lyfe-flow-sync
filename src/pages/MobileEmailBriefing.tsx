@@ -61,6 +61,7 @@ const MobileEmailBriefing = () => {
   const [emailWithMailbox, setEmailWithMailbox] = useState<any>(null);
   const [insights, setInsights] = useState<string[]>([]);
   const [insightsLoading, setInsightsLoading] = useState(false);
+  const [vipEmails, setVipEmails] = useState<ImportantEmail[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -176,9 +177,14 @@ const MobileEmailBriefing = () => {
                (!email.is_read && isRecent);
       }).slice(0, 10) || [];
 
+      // Get VIP emails specifically
+      const vipEmailsOnly = recentEmails?.filter(email => email.is_vip).slice(0, 5) || [];
+
       console.log('Important emails found:', important.length);
+      console.log('VIP emails found:', vipEmailsOnly.length);
 
       setImportantEmails(important);
+      setVipEmails(vipEmailsOnly);
 
     } catch (error) {
       console.error('Error fetching email briefing:', error);
@@ -363,10 +369,10 @@ const MobileEmailBriefing = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Key Insights (Last 24h)
+              Email Analysis (Last 24h)
             </CardTitle>
             <CardDescription>
-              AI-powered analysis of your recent emails
+              AI-powered insights from your recent email activity
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -391,6 +397,90 @@ const MobileEmailBriefing = () => {
                   <div key={index} className="flex items-start gap-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                     <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-orange-800 leading-relaxed">{insight}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* VIP Emails Section */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Star className="h-5 w-5 text-yellow-500" />
+              VIP Communications
+            </CardTitle>
+            <CardDescription>
+              Important emails from your VIP contacts
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                      <div className="w-10 h-10 bg-muted rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-muted rounded w-3/4" />
+                        <div className="h-3 bg-muted rounded w-1/2" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : vipEmails.length === 0 ? (
+              <div className="text-center py-6">
+                <Star className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
+                <p className="text-sm font-medium">No VIP emails</p>
+                <p className="text-xs text-muted-foreground">No recent emails from VIP contacts</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {vipEmails.map((email) => (
+                  <div key={email.id} className="border rounded-lg p-3 bg-yellow-50 border-yellow-200">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback className="text-xs bg-yellow-100">
+                          {getEmailInitials(email.sender_email)}
+                        </AvatarFallback>
+                      </Avatar>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Star className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+                          <span className="text-sm font-medium truncate">
+                            {email.sender_name || email.sender_email}
+                          </span>
+                        </div>
+                        
+                        <h3 className="font-medium text-sm leading-tight mb-2 line-clamp-2">
+                          {email.subject}
+                        </h3>
+                        
+                        {email.body_preview && (
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                            {email.body_preview}
+                          </p>
+                        )}
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(email.received_at), { addSuffix: true })}
+                          </span>
+                          
+                          <Button
+                            size="sm"
+                            onClick={() => handleQuickReply(email)}
+                            className="h-7 text-xs bg-yellow-600 hover:bg-yellow-700"
+                          >
+                            <MessageSquare className="h-3 w-3 mr-1" />
+                            Reply
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
