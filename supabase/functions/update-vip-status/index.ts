@@ -453,8 +453,16 @@ async function ensureVipCategory(token: string): Promise<void> {
     });
 
     if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      
+      // Handle 409 (Conflict) as success - category already exists
+      if (createResponse.status === 409) {
+        console.log('✅ VIP Important category already exists (409 conflict)');
+        return;
+      }
+      
       console.error('Failed to create VIP category');
-      throw new Error(`Failed to create VIP category: ${createResponse.status}`);
+      throw new Error(`Failed to create VIP category: ${createResponse.status} - ${errorText}`);
     }
     
     console.log('✅ VIP Important category created successfully');
