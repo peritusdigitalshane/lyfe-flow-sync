@@ -11,7 +11,7 @@ import { emailPollingService, EmailPollingStatus, Email } from "@/services/email
 import { useAuth } from "@/hooks/useAuth";
 import { EmailReplyAssistant } from "@/components/EmailReplyAssistant";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Mail, RefreshCw, Play, Pause, AlertCircle, CheckCircle, Settings } from "lucide-react";
+import { Loader2, Mail, RefreshCw, Play, Pause, AlertCircle, CheckCircle, Settings, Eye, EyeOff, Wand2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface MailboxWithStats {
@@ -45,6 +45,8 @@ const EmailMonitoring = () => {
   const [hoursBack, setHoursBack] = useState<number | ''>('');
   const [selectedEmailForReply, setSelectedEmailForReply] = useState<Email | null>(null);
   const [showReplyAssistant, setShowReplyAssistant] = useState(false);
+  const [hiddenEmails, setHiddenEmails] = useState<Set<string>>(new Set());
+  const [showHidden, setShowHidden] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -200,6 +202,30 @@ const EmailMonitoring = () => {
     setSelectedEmailForReply(email);
     setShowReplyAssistant(true);
   };
+
+  const handleHideEmail = (emailId: string) => {
+    setHiddenEmails(prev => new Set([...prev, emailId]));
+    toast({
+      title: "Email hidden",
+      description: "Email removed from active list",
+    });
+  };
+
+  const handleUnhideEmail = (emailId: string) => {
+    setHiddenEmails(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(emailId);
+      return newSet;
+    });
+    toast({
+      title: "Email restored",
+      description: "Email restored to active list",
+    });
+  };
+
+  const filteredEmails = showHidden 
+    ? emails.filter(email => hiddenEmails.has(email.id))
+    : emails.filter(email => !hiddenEmails.has(email.id));
 
   const closeReplyAssistant = () => {
     setShowReplyAssistant(false);
@@ -390,8 +416,28 @@ const EmailMonitoring = () => {
               <Mail className="mr-2 h-5 w-5" />
               Recent Emails
             </CardTitle>
-            <CardDescription>
-              Emails from {mailboxes.find(m => m.id === selectedMailbox)?.email_address}
+            <CardDescription className="flex items-center justify-between">
+              <span>Emails from {mailboxes.find(m => m.id === selectedMailbox)?.email_address}</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowHidden(!showHidden)}
+                  className="text-xs"
+                >
+                  {showHidden ? (
+                    <>
+                      <Eye className="w-4 h-4 mr-1" />
+                      Show Active
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-4 h-4 mr-1" />
+                      Show Hidden ({hiddenEmails.size})
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -399,9 +445,11 @@ const EmailMonitoring = () => {
               <div className="flex items-center justify-center h-32">
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
-            ) : emails.length === 0 ? (
+            ) : filteredEmails.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No emails found for this mailbox
+                {showHidden 
+                  ? "No hidden emails found" 
+                  : "No emails found for this mailbox"}
               </div>
             ) : (
               <Table>
@@ -415,7 +463,7 @@ const EmailMonitoring = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {emails.map((email) => (
+                  {filteredEmails.map((email) => (
                     <TableRow key={email.id}>
                       <TableCell className="font-medium">
                         {email.subject}
@@ -449,13 +497,37 @@ const EmailMonitoring = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleReplyClick(email)}
-                          >
-                            Reply
-                          </Button>
+                          {!showHidden ? (
+                            <>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleReplyClick(email)}
+                              >
+                                <Wand2 className="w-4 h-4 mr-1" />
+                                Reply
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleHideEmail(email.id)}
+                                className="text-orange-600 hover:text-orange-700"
+                              >
+                                <EyeOff className="w-4 h-4 mr-1" />
+                                Hide
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUnhideEmail(email.id)}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              Restore
+                            </Button>
+                          )}
                           {email.processing_status === 'pending' && (
                             <Button size="sm" variant="outline">
                               Process
