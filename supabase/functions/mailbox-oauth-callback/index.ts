@@ -1,99 +1,101 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-interface Database {
-  public: {
-    Tables: {
-      mailboxes: {
-        Update: {
-          status?: 'pending' | 'connected' | 'error' | 'paused';
-          microsoft_graph_token?: string;
-          error_message?: string | null;
-          last_sync_at?: string;
-        };
-      };
-      app_settings: {
-        Row: {
-          key: string;
-          value: any;
-        };
-      };
-    };
-  };
-}
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
-  console.log('OAuth callback received:', req.method, req.url);
+interface OAuthCallbackRequest {
+  code: string;
+  state: string;
+  redirectUri: string;
+}
 
+interface OAuthConfig {
+  client_id: string;
+  client_secret: string;
+  redirect_uri: string;
+  tenant_id?: string;
+}
+
+const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const url = new URL(req.url);
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state'); // This should be the mailboxId
-    const error = url.searchParams.get('error');
-    const errorDescription = url.searchParams.get('error_description');
+    console.log('Starting OAuth callback processing...');
 
-    console.log('OAuth callback params:', { code: !!code, state, error, errorDescription });
-
-    if (error) {
-      console.error('OAuth error:', error, errorDescription);
-      return new Response(
-        `<html><body><h1>Authentication Error</h1><p>${error}: ${errorDescription}</p><script>window.close();</script></body></html>`,
-        { 
-          status: 400, 
-          headers: { 'Content-Type': 'text/html', ...corsHeaders } 
-        }
-      );
+    // Get the authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('Missing or invalid authorization header');
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
-    if (!code || !state) {
-      console.error('Missing code or state parameter');
-      return new Response(
-        '<html><body><h1>Authentication Error</h1><p>Missing authorization code or state parameter</p><script>window.close();</script></body></html>',
-        { 
-          status: 400, 
-          headers: { 'Content-Type': 'text/html', ...corsHeaders } 
-        }
-      );
-    }
-
-    const mailboxId = state;
+    const token = authHeader.substring(7);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
-    // Get OAuth configuration
+    // Verify the user with the JWT token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.error('Failed to authenticate user:', authError);
+      return new Response(JSON.stringify({ error: 'Authentication failed' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+
+    console.log('User authenticated:', user.id);
+
+    const { code, state, redirectUri }: OAuthCallbackRequest = await req.json();
+
+    if (!code || !state || !redirectUri) {
+      console.error('Missing required parameters:', { code: !!code, state: !!state, redirectUri: !!redirectUri });
+      return new Response(JSON.stringify({ error: 'Missing required parameters' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+
+    console.log('Processing OAuth callback for state:', state);
+
+    // Get OAuth configuration from database
     const { data: oauthConfigData, error: oauthError } = await supabase
       .from('app_settings')
       .select('value')
       .eq('key', 'microsoft_oauth')
-      .single();
+      .maybeSingle();
 
     if (oauthError || !oauthConfigData?.value) {
-      console.error('Failed to get OAuth config:', oauthError);
-      return new Response(
-        '<html><body><h1>Configuration Error</h1><p>OAuth configuration not found</p><script>window.close();</script></body></html>',
-        { 
-          status: 500, 
-          headers: { 'Content-Type': 'text/html', ...corsHeaders } 
-        }
-      );
+      console.error('Failed to fetch OAuth config:', oauthError);
+      return new Response(JSON.stringify({ error: 'OAuth configuration not found' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
-    const oauthConfig = oauthConfigData.value;
+    const oauthConfig = oauthConfigData.value as OAuthConfig;
+    console.log('Using OAuth config with client_id:', oauthConfig.client_id);
 
     // Exchange authorization code for access token
+    console.log('Exchanging authorization code for tokens...');
     const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
       method: 'POST',
       headers: {
@@ -103,7 +105,7 @@ serve(async (req) => {
         client_id: oauthConfig.client_id,
         client_secret: oauthConfig.client_secret,
         code: code,
-        redirect_uri: oauthConfig.redirect_uri,
+        redirect_uri: redirectUri,
         grant_type: 'authorization_code',
         scope: 'https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access',
       }),
@@ -111,14 +113,19 @@ serve(async (req) => {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('Token exchange failed:', errorText);
-      return new Response(
-        '<html><body><h1>Token Exchange Failed</h1><p>Failed to exchange authorization code for access token</p><script>window.close();</script></body></html>',
-        { 
-          status: 500, 
-          headers: { 'Content-Type': 'text/html', ...corsHeaders } 
-        }
-      );
+      console.error('Token exchange failed:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        errorText,
+        redirectUri
+      });
+      return new Response(JSON.stringify({ 
+        error: 'Token exchange failed',
+        details: errorText 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
     const tokenData = await tokenResponse.json();
@@ -139,46 +146,32 @@ serve(async (req) => {
         error_message: null,
         last_sync_at: new Date().toISOString()
       })
-      .eq('id', mailboxId);
+      .eq('id', state);
 
     if (updateError) {
       console.error('Failed to update mailbox:', updateError);
-      return new Response(
-        '<html><body><h1>Database Error</h1><p>Failed to update mailbox with new token</p><script>window.close();</script></body></html>',
-        { 
-          status: 500, 
-          headers: { 'Content-Type': 'text/html', ...corsHeaders } 
-        }
-      );
+      return new Response(JSON.stringify({ error: 'Failed to update mailbox' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
-    console.log('Mailbox updated successfully:', mailboxId);
+    console.log('Mailbox updated successfully for state:', state);
 
-    // Instead of trying to redirect with JavaScript, return a proper HTTP redirect
-    // The redirect should go back to the mailbox settings page
-    // Get the origin from the request headers, or use localhost:8080 for Docker deployments
-    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 'http://localhost:8080';
-    const redirectUrl = `${origin}/mailbox/${mailboxId}/settings`;
-    
-    console.log('Redirecting to:', redirectUrl);
-
-    // Return HTTP redirect response
-    return new Response(null, {
-      status: 302,
-      headers: {
-        'Location': redirectUrl,
-        ...corsHeaders
-      }
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
 
   } catch (error) {
     console.error('OAuth callback error:', error);
-    return new Response(
-      '<html><body><h1>Internal Error</h1><p>An unexpected error occurred during authentication</p><script>window.close();</script></body></html>',
-      { 
-        status: 500, 
-        headers: { 'Content-Type': 'text/html', ...corsHeaders } 
-      }
-    );
+    return new Response(JSON.stringify({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
   }
-});
+};
+
+serve(handler);

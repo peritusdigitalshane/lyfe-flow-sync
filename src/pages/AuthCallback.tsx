@@ -80,100 +80,28 @@ export default function AuthCallback() {
         const state = searchParams.get('state');
         console.log('AuthCallback: State parameter:', state);
         
-        // Get OAuth configuration from Supabase
-        console.log('AuthCallback: Fetching OAuth configuration...');
-        const { data: oauthConfigData, error: oauthError } = await supabase
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'microsoft_oauth')
-          .maybeSingle();
+        // No need to fetch OAuth config on client side anymore since 
+        // the server-side edge function will handle it
 
-        console.log('AuthCallback: OAuth config result:', { oauthConfigData, oauthError });
-
-        if (oauthError) {
-          console.error('AuthCallback: Error fetching OAuth config:', oauthError);
-          throw new Error(`OAuth configuration error: ${oauthError.message}`);
-        }
-
-        if (!oauthConfigData?.value) {
-          console.error('AuthCallback: No OAuth configuration found');
-          throw new Error('OAuth configuration not found in database');
-        }
-
-        const oauthConfig = oauthConfigData.value as {
-          client_id: string;
-          client_secret: string;
-          redirect_uri: string;
-          tenant_id?: string;
-        };
-
-        // Exchange authorization code for access token
-        console.log('AuthCallback: Exchanging code for token with redirect URI:', redirectUri);
-        const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            client_id: oauthConfig.client_id,
-            client_secret: oauthConfig.client_secret,
+        // Exchange authorization code for access token using server-side edge function
+        console.log('AuthCallback: Calling server-side OAuth exchange...');
+        
+        const { data, error: exchangeError } = await supabase.functions.invoke('mailbox-oauth-callback', {
+          body: {
             code: code,
-            redirect_uri: redirectUri,
-            grant_type: 'authorization_code',
-            scope: 'https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access',
-          }),
+            state: state,
+            redirectUri: redirectUri
+          }
         });
 
-        if (!tokenResponse.ok) {
-          const errorText = await tokenResponse.text();
-          console.error('AuthCallback: Token exchange failed:', {
-            status: tokenResponse.status,
-            statusText: tokenResponse.statusText,
-            errorText,
-            requestBody: {
-              client_id: oauthConfig.client_id,
-              redirect_uri: redirectUri,
-              code: code
-            }
-          });
-          throw new Error(`Token exchange failed (${tokenResponse.status}): ${errorText}`);
-        }
-
-        const tokenData = await tokenResponse.json();
-
-        // Add expiration timestamp to token data
-        const tokenWithExpiry = {
-          ...tokenData,
-          expires_at: Date.now() + (tokenData.expires_in * 1000)
-        };
-
-        // Update mailbox with new token
-        const { error: updateError } = await supabase
-          .from('mailboxes')
-          .update({
-            status: 'connected',
-            microsoft_graph_token: JSON.stringify(tokenWithExpiry),
-            error_message: null,
-            last_sync_at: new Date().toISOString()
-          })
-          .eq('id', state);
-
-        if (updateError) {
-          throw new Error('Failed to update mailbox with new token');
-        }
-
-        const data = { success: true };
-        const exchangeError = null;
-
-        // Log the full response for debugging
-        console.log('Edge function response:', { data, error: exchangeError });
+        console.log('Server-side OAuth exchange response:', { data, error: exchangeError });
 
         // Check if the response indicates an error
-        if (exchangeError) {
-          console.error("Token exchange error:", exchangeError);
+        if (exchangeError || !data?.success) {
+          console.error("Token exchange error:", exchangeError || data);
           setStatus("error");
           
-          const errorMessage = exchangeError instanceof Error ? exchangeError.message : "Failed to exchange authorization code";
+          const errorMessage = exchangeError?.message || data?.error || "Failed to exchange authorization code";
           setMessage(errorMessage);
           toast.error("Authentication failed");
           setTimeout(() => navigate("/dashboard"), 5000);

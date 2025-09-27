@@ -43,7 +43,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.mailbox-oauth-callback]
-verify_jwt = false
+verify_jwt = true
 
 [functions.classify-email]
 verify_jwt = false
