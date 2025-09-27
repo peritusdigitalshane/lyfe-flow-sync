@@ -128,8 +128,17 @@ serve(async (req) => {
       throw new Error(`Failed to send email: ${graphResponse.status} - ${errorText}`);
     }
 
-    const sentEmail = await graphResponse.json();
-    console.log('Email sent successfully:', sentEmail.id);
+    // Microsoft Graph reply endpoint returns 202 (Accepted) with no body
+    let sentEmailId = null;
+    if (graphResponse.status === 202) {
+      console.log('Email reply sent successfully (202 Accepted)');
+      sentEmailId = 'reply-sent'; // Use placeholder since Graph doesn't return ID for replies
+    } else {
+      // For other successful responses, try to parse JSON
+      const sentEmail = await graphResponse.json();
+      sentEmailId = sentEmail.id;
+      console.log('Email sent successfully:', sentEmailId);
+    }
 
     // Mark the generated reply as sent if replyId provided
     if (replyId) {
@@ -159,14 +168,14 @@ serve(async (req) => {
             originalEmailId: originalEmail.microsoftId,
             recipientEmail: originalEmail.senderEmail,
             subject: replySubject,
-            sentEmailId: sentEmail.id
+            sentEmailId: sentEmailId
           }
         });
     }
 
     return new Response(JSON.stringify({ 
       success: true,
-      sentEmailId: sentEmail.id,
+      sentEmailId: sentEmailId,
       message: 'Reply sent successfully'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
