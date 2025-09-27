@@ -4,7 +4,12 @@ import { UserX, X } from "lucide-react";
 import { toast } from "sonner";
 
 export function ImpersonationBanner() {
-  const { isImpersonating, user, originalUser, stopImpersonating } = useAuth();
+  const { isImpersonating, user, originalUser, stopImpersonating, loading } = useAuth();
+
+  // Don't render anything while auth is loading
+  if (loading) {
+    return null;
+  }
 
   const handleStopImpersonating = () => {
     stopImpersonating();
