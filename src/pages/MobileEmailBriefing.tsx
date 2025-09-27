@@ -370,10 +370,10 @@ const MobileEmailBriefing = () => {
                   
                   toast({
                     title: "Processing VIP emails...",
-                    description: "Updating VIP status for existing emails"
+                    description: "Check logs for detailed progress"
                   });
                   
-                  await supabase.functions.invoke('update-vip-status', {
+                  const { data, error } = await supabase.functions.invoke('update-vip-status', {
                     body: {
                       action: 'process_mailbox',
                       mailbox_id: null,
@@ -381,13 +381,27 @@ const MobileEmailBriefing = () => {
                     }
                   });
                   
-                  // Refresh the data
-                  await fetchEmailBriefing();
+                  console.log('VIP update response:', { data, error });
                   
-                  toast({
-                    title: "VIP processing complete",
-                    description: "VIP emails have been updated"
-                  });
+                  if (error) {
+                    console.error('VIP update error:', error);
+                    toast({
+                      title: "Error",
+                      description: `Failed to process VIP emails: ${error.message}`,
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  
+                  // Wait a moment then refresh the data
+                  setTimeout(async () => {
+                    await fetchEmailBriefing();
+                    toast({
+                      title: "VIP processing complete",
+                      description: "Check function logs for details. Emails should now be updated."
+                    });
+                  }, 2000);
+                  
                 } catch (error) {
                   console.error('Error processing VIPs:', error);
                   toast({

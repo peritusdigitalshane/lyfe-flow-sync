@@ -102,7 +102,7 @@ async function processAllMailboxesForVip(tenantId: string, emailAddress: string,
 }
 
 async function processAllMailboxesForAllVips(tenantId: string) {
-  console.log(`Processing all mailboxes for all VIPs in tenant ${tenantId}`);
+  console.log(`🔄 Processing all mailboxes for all VIPs in tenant ${tenantId}`);
 
   // Get all connected mailboxes for this tenant
   const { data: mailboxes, error: mailboxError } = await supabase
@@ -113,16 +113,16 @@ async function processAllMailboxesForAllVips(tenantId: string) {
     .not('microsoft_graph_token', 'is', null);
 
   if (mailboxError) {
-    console.error('Error fetching mailboxes:', mailboxError);
+    console.error('❌ Error fetching mailboxes:', mailboxError);
     return;
   }
 
   if (!mailboxes || mailboxes.length === 0) {
-    console.log('No connected mailboxes found for tenant');
+    console.log('⚠️ No connected mailboxes found for tenant');
     return;
   }
 
-  console.log(`Found ${mailboxes.length} connected mailboxes`);
+  console.log(`✅ Found ${mailboxes.length} connected mailboxes:`, mailboxes.map(m => m.email_address));
 
   // Get all VIP email addresses for this tenant
   const { data: vipEmails, error: vipError } = await supabase
@@ -132,51 +132,71 @@ async function processAllMailboxesForAllVips(tenantId: string) {
     .eq('is_active', true);
 
   if (vipError) {
-    console.error('Error fetching VIP emails:', vipError);
+    console.error('❌ Error fetching VIP emails:', vipError);
     return;
   }
 
   if (!vipEmails || vipEmails.length === 0) {
-    console.log('No VIP emails found for tenant');
+    console.log('⚠️ No VIP emails found for tenant');
     return;
   }
 
-  console.log(`Found ${vipEmails.length} VIP emails: ${vipEmails.map(v => v.email_address).join(', ')}`);
+  console.log(`✅ Found ${vipEmails.length} VIP emails: ${vipEmails.map(v => v.email_address).join(', ')}`);
 
   // First, update all emails in the database that match VIP senders
   for (const vip of vipEmails) {
     try {
-      console.log(`Updating database records for VIP: ${vip.email_address}`);
+      console.log(`📊 Updating database records for VIP: ${vip.email_address}`);
       
-      const { data, error } = await supabase
+      // Check how many emails exist for this VIP sender first
+      const { data: existingEmails, error: countError } = await supabase
         .from('emails')
-        .update({ is_vip: true })
+        .select('id, is_vip')
         .eq('tenant_id', tenantId)
         .eq('sender_email', vip.email_address);
 
-      if (error) {
-        console.error(`Error updating VIP status for ${vip.email_address}:`, error);
-      } else {
-        console.log(`Updated VIP status for ${vip.email_address}`);
+      if (countError) {
+        console.error(`❌ Error checking existing emails for ${vip.email_address}:`, countError);
+        continue;
+      }
+
+      console.log(`📧 Found ${existingEmails?.length || 0} existing emails from ${vip.email_address}`);
+      const alreadyVip = existingEmails?.filter(e => e.is_vip).length || 0;
+      console.log(`⭐ ${alreadyVip} already marked as VIP, ${(existingEmails?.length || 0) - alreadyVip} need updating`);
+
+      if (existingEmails && existingEmails.length > 0) {
+        const { data: updateResult, error: updateError } = await supabase
+          .from('emails')
+          .update({ is_vip: true })
+          .eq('tenant_id', tenantId)
+          .eq('sender_email', vip.email_address)
+          .eq('is_vip', false) // Only update those not already VIP
+          .select('id');
+
+        if (updateError) {
+          console.error(`❌ Error updating VIP status for ${vip.email_address}:`, updateError);
+        } else {
+          console.log(`✅ Updated ${updateResult?.length || 0} emails to VIP status for ${vip.email_address}`);
+        }
       }
     } catch (error) {
-      console.error(`Error processing VIP ${vip.email_address}:`, error);
+      console.error(`❌ Error processing VIP ${vip.email_address}:`, error);
     }
   }
 
   // Then process Outlook integration for each mailbox
   for (const mailbox of mailboxes) {
-    console.log(`Processing mailbox: ${mailbox.email_address}`);
+    console.log(`🔄 Processing Outlook integration for mailbox: ${mailbox.email_address}`);
     for (const vip of vipEmails) {
       try {
         await updateEmailsInMailbox(mailbox, vip.email_address, true);
       } catch (error) {
-        console.error(`Error processing VIP ${vip.email_address} in mailbox ${mailbox.email_address}:`, error);
+        console.error(`❌ Error processing VIP ${vip.email_address} in mailbox ${mailbox.email_address}:`, error);
       }
     }
   }
 
-  console.log('Completed processing all VIPs for all mailboxes');
+  console.log('🎉 Completed processing all VIPs for all mailboxes');
 }
 
 async function processMailboxForAllVips(mailboxId: string, tenantId: string) {
@@ -225,14 +245,18 @@ async function processMailboxForAllVips(mailboxId: string, tenantId: string) {
 }
 
 async function updateEmailsInMailbox(mailbox: MailboxToken, senderEmail: string, isVip: boolean) {
-  console.log(`Updating emails from ${senderEmail} in ${mailbox.email_address} - VIP: ${isVip}`);
+  console.log(`🔄 Updating emails from ${senderEmail} in ${mailbox.email_address} - VIP: ${isVip}`);
 
   try {
     // First, ensure the VIP category exists in Outlook
+    console.log(`🏷️ Ensuring VIP category exists in Outlook...`);
     await ensureVipCategory(mailbox.microsoft_graph_token);
 
     // Search for emails from this sender (last 90 days to avoid too many results)
     const searchUrl = `https://graph.microsoft.com/v1.0/me/messages?$filter=from/emailAddress/address eq '${senderEmail}' and receivedDateTime ge ${new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()}&$select=id,subject,from,receivedDateTime,categories,importance&$top=100`;
+    
+    console.log(`🔍 Searching for emails from ${senderEmail} in Microsoft Graph...`);
+    console.log(`🔗 Search URL: ${searchUrl}`);
     
     const searchResponse = await fetch(searchUrl, {
       headers: {
@@ -242,65 +266,100 @@ async function updateEmailsInMailbox(mailbox: MailboxToken, senderEmail: string,
     });
 
     if (!searchResponse.ok) {
-      console.error(`Graph API search failed: ${searchResponse.status} ${searchResponse.statusText}`);
+      const errorText = await searchResponse.text();
+      console.error(`❌ Graph API search failed: ${searchResponse.status} ${searchResponse.statusText}`);
+      console.error(`❌ Error details: ${errorText}`);
       return;
     }
 
     const searchData = await searchResponse.json();
-    console.log(`Found ${searchData.value?.length || 0} emails from ${senderEmail}`);
+    console.log(`📧 Found ${searchData.value?.length || 0} emails from ${senderEmail} in last 90 days`);
 
     if (!searchData.value || searchData.value.length === 0) {
+      console.log(`ℹ️ No emails found from ${senderEmail} in Outlook`);
       return;
     }
 
     // Process each email
     let updatedCount = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+
     for (const email of searchData.value) {
       try {
         const categories = email.categories || [];
         const hasVipCategory = categories.includes('VIP Important');
         
+        console.log(`📨 Processing email: ${email.subject} (${email.id})`);
+        console.log(`🏷️ Current categories: [${categories.join(', ')}], Has VIP: ${hasVipCategory}`);
+        
         if (isVip && !hasVipCategory) {
           // Add VIP category and set high importance
           const updatedCategories = [...categories, 'VIP Important'];
+          console.log(`⭐ Adding VIP category to email: ${email.subject}`);
           await updateEmailProperties(mailbox.microsoft_graph_token, email.id, {
             categories: updatedCategories,
             importance: 'high'
           });
           updatedCount++;
+          console.log(`✅ Successfully updated email: ${email.subject}`);
         } else if (!isVip && hasVipCategory) {
           // Remove VIP category and reset importance
           const updatedCategories = categories.filter((cat: string) => cat !== 'VIP Important');
+          console.log(`🗑️ Removing VIP category from email: ${email.subject}`);
           await updateEmailProperties(mailbox.microsoft_graph_token, email.id, {
             categories: updatedCategories,
             importance: 'normal'
           });
           updatedCount++;
+          console.log(`✅ Successfully removed VIP from email: ${email.subject}`);
+        } else {
+          console.log(`⏭️ Skipping email (already in correct state): ${email.subject}`);
+          skippedCount++;
         }
       } catch (error) {
-        console.error(`Error updating email ${email.id}:`, error);
+        console.error(`❌ Error updating email ${email.id}:`, error);
+        errorCount++;
       }
     }
 
-    console.log(`Updated ${updatedCount} emails from ${senderEmail}`);
+    console.log(`📊 Summary for ${senderEmail}: ${updatedCount} updated, ${skippedCount} skipped, ${errorCount} errors`);
 
     // Update the database to mark emails as VIP
+    console.log(`💾 Updating database VIP status for emails from ${senderEmail}...`);
+    
     if (isVip) {
-      await supabase
+      const { data: dbUpdateResult, error: dbError } = await supabase
         .from('emails')
         .update({ is_vip: true })
         .eq('mailbox_id', mailbox.id)
-        .eq('sender_email', senderEmail);
+        .eq('sender_email', senderEmail)
+        .eq('is_vip', false) // Only update those not already VIP
+        .select('id');
+
+      if (dbError) {
+        console.error(`❌ Database update error for ${senderEmail}:`, dbError);
+      } else {
+        console.log(`✅ Database: Updated ${dbUpdateResult?.length || 0} emails to VIP status`);
+      }
     } else {
-      await supabase
+      const { data: dbUpdateResult, error: dbError } = await supabase
         .from('emails')
         .update({ is_vip: false })
         .eq('mailbox_id', mailbox.id)
-        .eq('sender_email', senderEmail);
+        .eq('sender_email', senderEmail)
+        .eq('is_vip', true) // Only update those currently VIP
+        .select('id');
+
+      if (dbError) {
+        console.error(`❌ Database update error for ${senderEmail}:`, dbError);
+      } else {
+        console.log(`✅ Database: Removed VIP status from ${dbUpdateResult?.length || 0} emails`);
+      }
     }
 
   } catch (error) {
-    console.error(`Error processing emails for ${senderEmail}:`, error);
+    console.error(`❌ Error processing emails for ${senderEmail}:`, error);
   }
 }
 
