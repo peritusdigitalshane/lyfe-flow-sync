@@ -73,9 +73,12 @@ export default function AuthCallback() {
         const redirectUri = `https://emailmanagement.lyfeai.com.au/auth/callback`;
         
         console.log('AuthCallback: Using Docker deployment redirect URI:', redirectUri);
+        console.log('AuthCallback: Current URL params:', window.location.search);
+        console.log('AuthCallback: Code parameter:', code);
 
         // For Docker deployment, handle OAuth callback directly
         const state = searchParams.get('state');
+        console.log('AuthCallback: State parameter:', state);
         
         // Get OAuth configuration from Supabase
         console.log('AuthCallback: Fetching OAuth configuration...');
@@ -126,7 +129,12 @@ export default function AuthCallback() {
           console.error('AuthCallback: Token exchange failed:', {
             status: tokenResponse.status,
             statusText: tokenResponse.statusText,
-            errorText
+            errorText,
+            requestBody: {
+              client_id: oauthConfig.client_id,
+              redirect_uri: redirectUri,
+              code: code
+            }
           });
           throw new Error(`Token exchange failed (${tokenResponse.status}): ${errorText}`);
         }
