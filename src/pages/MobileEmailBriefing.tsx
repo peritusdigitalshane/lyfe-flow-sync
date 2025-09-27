@@ -376,17 +376,17 @@ const MobileEmailBriefing = () => {
               <div className="space-y-3">
                 {insights.map((insight, index) => (
                   !hiddenInsights.has(index) && (
-                    <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg group">
+                    <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <Zap className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                       <p className="text-sm text-blue-800 leading-relaxed font-medium flex-1">{insight}</p>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => hideInsight(index)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
-                        title="Hide this insight"
+                        className="h-7 w-7 p-0 text-blue-400 hover:text-blue-600 hover:bg-blue-100 flex-shrink-0"
+                        title="Mark as handled"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
                   )
