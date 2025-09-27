@@ -360,42 +360,70 @@ export function VipEmailManagement({ mailboxId }: VipEmailManagementProps) {
           
           {/* Test Button */}
           <div className="mt-3 pt-3 border-t border-muted">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={async () => {
-                if (!user) return;
-                
-                const { data: profileData } = await supabase
-                  .from('profiles')
-                  .select('tenant_id')
-                  .eq('id', user.id)
-                  .single();
-                
-                if (!profileData) return;
-                
-                toast.promise(
-                  supabase.functions.invoke('update-vip-status', {
-                    body: {
-                      action: 'process_mailbox',
-                      mailbox_id: null, // Will find all mailboxes
-                      tenant_id: profileData.tenant_id
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  if (!user) return;
+                  
+                  const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('tenant_id')
+                    .eq('id', user.id)
+                    .single();
+                  
+                  if (!profileData) return;
+                  
+                  toast.promise(
+                    supabase.functions.invoke('update-vip-status', {
+                      body: {
+                        action: 'process_mailbox',
+                        mailbox_id: null, // Will find all mailboxes
+                        tenant_id: profileData.tenant_id
+                      }
+                    }),
+                    {
+                      loading: 'Updating Outlook mailbox with VIP categories...',
+                      success: 'Outlook mailbox updated! Check your emails for gold "VIP Important" categories.',
+                      error: 'Failed to update Outlook mailbox. Check the function logs.'
                     }
-                  }),
-                  {
-                    loading: 'Updating Outlook mailbox with VIP categories...',
-                    success: 'Outlook mailbox updated! Check your emails for gold "VIP Important" categories.',
-                    error: 'Failed to update Outlook mailbox. Check the function logs.'
-                  }
-                );
-              }}
-              className="text-xs"
-            >
-              🔄 Update Outlook Now
-            </Button>
-            <p className="text-xs text-muted-foreground mt-1">
-              Manually applies VIP categories to all existing emails in your mailbox
-            </p>
+                  );
+                }}
+                className="text-xs"
+              >
+                🔄 Update Outlook Now
+              </Button>
+              
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  toast.promise(
+                    supabase.functions.invoke('ensure-vip-categories', {}),
+                    {
+                      loading: 'Ensuring VIP categories exist for all users...',
+                      success: (result) => {
+                        const data = result.data;
+                        return `VIP categories checked! ${data.results?.filter((r: any) => r.success).length || 'All'} mailboxes processed successfully.`;
+                      },
+                      error: 'Failed to ensure VIP categories. Check the function logs.'
+                    }
+                  );
+                }}
+                className="text-xs"
+              >
+                🏷️ Ensure VIP Categories
+              </Button>
+            </div>
+            <div className="space-y-1 mt-2">
+              <p className="text-xs text-muted-foreground">
+                <strong>Update Outlook Now:</strong> Manually applies VIP categories to all existing emails in your mailbox
+              </p>
+              <p className="text-xs text-muted-foreground">
+                <strong>Ensure VIP Categories:</strong> Creates the "VIP Important" category in all connected Outlook mailboxes
+              </p>
+            </div>
           </div>
         </div>
       </CardContent>
